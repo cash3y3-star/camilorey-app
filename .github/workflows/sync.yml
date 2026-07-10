@@ -11,5 +11,5 @@ jobs:
     steps:
       - name: Call sync endpoint
         run: |
-          curl -X GET "https://TU-URL-DE-VERCEL.vercel.app/api/cron/sync" \
+          curl -X GET "https//camilorey-tt-app.vercel.app" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
