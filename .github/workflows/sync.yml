@@ -10,6 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call sync endpoint
-        run: |
-          curl -X GET "https//camilorey-tt-app.vercel.app" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+        run: curl -X GET https://camilorey-tt-app.vercel.app/api/cron/sync -H 'Authorization: Bearer ${{ secrets.CRON_SECRET }}'
