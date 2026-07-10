@@ -23,3 +23,10 @@ jobs:
 
       - name: Run exploration script
         run: node scripts/explore.js
+
+      - name: Upload debug screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshot
+          path: debug-screenshot.png
