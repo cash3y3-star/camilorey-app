@@ -1,0 +1,15 @@
+name: Sync CAMILOREY picks
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call sync endpoint
+        run: |
+          curl -X GET "https://TU-URL-DE-VERCEL.vercel.app/api/cron/sync" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
