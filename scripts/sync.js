@@ -62,7 +62,9 @@ async function run() {
   const liveMatches = await page.evaluate(() => {
     const items = Array.from(document.querySelectorAll('.c-live-matches-item'));
     return items.map((item) => {
-      const link = item.querySelector('a[href*="/tournaments/"]');
+      const href = item.tagName === 'A'
+        ? item.getAttribute('href')
+        : item.querySelector('a[href*="/tournaments/"]')?.getAttribute('href');
       const tournamentName = item.querySelector('.c-live-matches-item__tournament-name')?.innerText.trim();
       const playerRows = Array.from(item.querySelectorAll('.ui-player-row')).map((row) => {
         const href = row.getAttribute('href');
