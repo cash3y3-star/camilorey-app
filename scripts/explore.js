@@ -60,9 +60,9 @@ async function run() {
         if (!a) return 'NO ENCONTRADO';
         let el = a;
         for (let i = 0; i < 3 && el.parentElement; i++) el = el.parentElement;
-        return el.outerHTML.slice(0, 1500);
+        return el.outerHTML;
       }, firstTournamentHref);
-      console.log('--- HTML alrededor del primer link de torneo ---');
+      console.log('--- HTML COMPLETO del primer item de partido ---');
       console.log(containerHTML);
     }
   }
