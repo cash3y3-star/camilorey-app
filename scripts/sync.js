@@ -74,7 +74,7 @@ async function run() {
         return { href, name, rating: ratingMatch ? Number(ratingMatch[1]) : null };
       });
       return {
-        href: link ? link.getAttribute('href') : null,
+        href: href || null,
         tournamentName,
         players: playerRows,
         rawDateText: item.innerText.split('\n')[0],
