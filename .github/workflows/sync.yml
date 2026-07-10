@@ -9,5 +9,17 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Call sync endpoint
-        run: "curl -f -X GET https://camilorey-tt-app.vercel.app/api/cron/sync -H \"Authorization: Bearer ${{ secrets.CRON_SECRET }}\""
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install playwright
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run exploration script
+        run: node scripts/explore.js
