@@ -14,27 +14,60 @@ async function run() {
   const page = await browser.newPage();
 
   console.log('Abriendo tt.league-pro.com...');
-  await page.goto('https://tt.league-pro.com/en', { waitUntil: 'networkidle', timeout: 30000 });
-
+  await page.goto('https://tt.league-pro.com/en', { waitUntil: 'load', timeout: 30000 });
   await page.waitForTimeout(2000);
 
-  const rowCount = await page.locator('tr').count();
-  console.log('Total de <tr> encontradas:', rowCount);
+  console.log('URL final:', page.url());
+  console.log('Título:', await page.title());
 
-  const rows = await page.evaluate(() => {
-    const trs = Array.from(document.querySelectorAll('tr')).slice(0, 8);
-    return trs.map((tr) => ({
-      html_class: tr.className,
-      cells: Array.from(tr.querySelectorAll('td,th')).map((td) => ({
-        text: td.innerText.trim(),
-        class: td.className,
-      })),
-      links: Array.from(tr.querySelectorAll('a')).map((a) => a.getAttribute('href')),
-    }));
+  const cookieTexts = ['Accept', 'Aceptar', 'I agree', 'Agree', 'OK', 'Got it'];
+  for (const t of cookieTexts) {
+    try {
+      const btn = page.getByText(t, { exact: false }).first();
+      if (await btn.isVisible({ timeout: 1000 })) {
+        await btn.click({ timeout: 1000 });
+        console.log('Click en botón de cookies:', t);
+        break;
+      }
+    } catch (e) {
+      // no existe ese botón, seguimos probando
+    }
+  }
+
+  await page.waitForTimeout(3000);
+
+  const htmlLength = (await page.content()).length;
+  console.log('Largo total del HTML renderizado:', htmlLength);
+
+  const links = await page.evaluate(() => {
+    const as = Array.from(document.querySelectorAll('a'));
+    return as
+      .map((a) => a.getAttribute('href'))
+      .filter((href) => href && (href.includes('/tournaments/') || href.includes('/players/')));
   });
+  console.log('--- LINKS de torneos/jugadores encontrados:', links.length, '---');
+  console.log(JSON.stringify(links.slice(0, 20), null, 2));
 
-  console.log('--- PRIMERAS 8 FILAS (estructura real) ---');
-  console.log(JSON.stringify(rows, null, 2));
+  const bodyText = await page.evaluate(() => document.body.innerText);
+  console.log('--- TEXTO VISIBLE (primeros 2500 caracteres) ---');
+  console.log(bodyText.slice(0, 2500));
+
+  if (links.length > 0) {
+    const firstTournamentHref = links.find((l) => l.includes('/tournaments/'));
+    if (firstTournamentHref) {
+      const containerHTML = await page.evaluate((href) => {
+        const a = document.querySelector(`a[href="${href}"]`);
+        if (!a) return 'NO ENCONTRADO';
+        let el = a;
+        for (let i = 0; i < 3 && el.parentElement; i++) el = el.parentElement;
+        return el.outerHTML.slice(0, 1500);
+      }, firstTournamentHref);
+      console.log('--- HTML alrededor del primer link de torneo ---');
+      console.log(containerHTML);
+    }
+  }
+
+  await page.screenshot({ path: 'debug-screenshot.png', fullPage: true });
 
   await browser.close();
 }
