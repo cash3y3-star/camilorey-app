@@ -714,8 +714,8 @@ const CSS = `
     background:radial-gradient(circle, rgba(226,68,74,.22), transparent 70%);
     pointer-events:none;
   }
-  .rally-wrap{position:absolute; right:0; top:0; width:260px; height:190px; pointer-events:none; overflow:hidden;}
-  .rally-wrap svg{width:100%; height:100%; opacity:.65;}
+  .rally-wrap{position:absolute; right:0; top:0; width:300px; height:100%; pointer-events:none; overflow:hidden;}
+  .rally-wrap svg{width:100%; height:130px; opacity:.65;}
   .rally-wrap img{width:100%; height:100%; object-fit:cover; object-position:center 20%; display:block;}
   .rally-wrap img.cutout{object-fit:contain; object-position:bottom center;}
   .rally-fade{
@@ -895,6 +895,6 @@ const CSS = `
     nav.bottom-nav{display:flex;}
     .featured .player{font-size:24px;}
     h1.page-title{font-size:30px;}
-    .rally-wrap{width:170px; height:130px;}
+    .rally-wrap{width:190px; height:100%;}
   }
 `;
