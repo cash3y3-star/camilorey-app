@@ -417,22 +417,22 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
                   <div className="match-time num">{m.time}</div>
                   <div className="match-mid">
                     <div className="tour">{m.tournament}</div>
-                    <div className="players">
-                      {m.players}
-                      {m.score ? (
-                        <span
-                          className="num"
-                          style={{
-                            color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)',
-                            fontWeight: m.pickResult ? 700 : 400,
-                            marginLeft: '8px'
-                          }}
-                        >
-                          {m.score}
-                        </span>
-                      ) : null}
-                    </div>
+                    <div className="players">{m.players}</div>
                   </div>
+                  {m.score ? (
+                    <div
+                      className="num"
+                      style={{
+                        flex: 'none',
+                        width: '52px',
+                        textAlign: 'center',
+                        fontWeight: 700,
+                        color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)'
+                      }}
+                    >
+                      {m.score}
+                    </div>
+                  ) : null}
                   <div className={`status ${m.status}`}>{label}</div>
                 </div>
               );
