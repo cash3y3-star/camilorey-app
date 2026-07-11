@@ -130,7 +130,8 @@ export async function getServerSideProps() {
       time: timeLabel(m.scheduled_at),
       tournament: t?.name || 'Torneo',
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
-      status
+      status,
+      score: status === 'done' && m.sets_a != null && m.sets_b != null ? `${m.sets_a}-${m.sets_b}` : null
     };
   });
 
@@ -406,7 +407,10 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
                   <div className="match-time num">{m.time}</div>
                   <div className="match-mid">
                     <div className="tour">{m.tournament}</div>
-                    <div className="players">{m.players}</div>
+                    <div className="players">
+                      {m.players}
+                      {m.score ? <span className="num" style={{ color: 'var(--muted)', marginLeft: '8px' }}>{m.score}</span> : null}
+                    </div>
                   </div>
                   <div className={`status ${m.status}`}>{label}</div>
                 </div>
