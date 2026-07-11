@@ -118,6 +118,14 @@ export async function getServerSideProps() {
     for (const t of extra || []) tournamentsById.set(t.id, t);
   }
 
+  // Para pintar de verde/rojo el resultado del partido según si
+  // nuestro pick acertó o falló (no según quién ganó a secas).
+  const windowMatchIds = (windowMatches || []).map((m) => m.id);
+  const { data: windowPicks } = windowMatchIds.length
+    ? await supabase.from('picks').select('match_id, result').in('match_id', windowMatchIds)
+    : { data: [] };
+  const pickResultByMatchId = new Map((windowPicks || []).map((p) => [p.match_id, p.result]));
+
   const matches = (windowMatches || []).map((m) => {
     const a = playersById.get(m.player_a_id);
     const b = playersById.get(m.player_b_id);
@@ -126,12 +134,14 @@ export async function getServerSideProps() {
     if (m.status === 'finished') status = 'done';
     else if (m.status === 'live') status = 'live';
     else if (new Date(m.scheduled_at) <= new Date()) status = 'live';
+    const pickResult = pickResultByMatchId.get(m.id);
     return {
       time: timeLabel(m.scheduled_at),
       tournament: t?.name || 'Torneo',
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
       status,
-      score: status === 'done' && m.sets_a != null && m.sets_b != null ? `${m.sets_a}-${m.sets_b}` : null
+      score: status === 'done' && m.sets_a != null && m.sets_b != null ? `${m.sets_a}-${m.sets_b}` : null,
+      pickResult: status === 'done' && (pickResult === 'hit' || pickResult === 'miss') ? pickResult : null
     };
   });
 
@@ -409,7 +419,18 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
                     <div className="tour">{m.tournament}</div>
                     <div className="players">
                       {m.players}
-                      {m.score ? <span className="num" style={{ color: 'var(--muted)', marginLeft: '8px' }}>{m.score}</span> : null}
+                      {m.score ? (
+                        <span
+                          className="num"
+                          style={{
+                            color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)',
+                            fontWeight: m.pickResult ? 700 : 400,
+                            marginLeft: '8px'
+                          }}
+                        >
+                          {m.score}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className={`status ${m.status}`}>{label}</div>
