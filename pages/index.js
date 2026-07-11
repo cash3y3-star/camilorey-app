@@ -350,10 +350,17 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
           {featured ? (
             <div className="featured">
               <div className="rally-wrap">
-                <svg viewBox="0 0 200 110">
-                  <path d="M10,95 Q100,5 190,95" stroke="rgba(255,255,255,.4)" strokeDasharray="4 6" fill="none" strokeWidth="2" />
-                </svg>
-                <div className="rally-ball"></div>
+                {featured.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={featured.avatarUrl} alt="" referrerPolicy="no-referrer" />
+                ) : (
+                  <>
+                    <svg viewBox="0 0 200 110">
+                      <path d="M10,95 Q100,5 190,95" stroke="rgba(255,255,255,.4)" strokeDasharray="4 6" fill="none" strokeWidth="2" />
+                    </svg>
+                    <div className="rally-ball"></div>
+                  </>
+                )}
               </div>
               <div className="pick-tag">
                 <span className="ball-dot"></span> Pick del día
@@ -361,14 +368,8 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
               <div className="match">
                 {featured.tournament} · {featured.time}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '10px' }}>
-                {featured.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="featured-avatar" src={featured.avatarUrl} alt="" referrerPolicy="no-referrer" />
-                ) : null}
-                <div className="player" style={{ margin: 0 }}>
-                  {featured.player} vs {featured.opponent}
-                </div>
+              <div className="player">
+                {featured.player} vs {featured.opponent}
               </div>
               <div className="market">{featured.market}</div>
               <div className="foot">
@@ -704,8 +705,13 @@ const CSS = `
     background:radial-gradient(circle, rgba(226,68,74,.22), transparent 70%);
     pointer-events:none;
   }
-  .rally-wrap{position:absolute; right:8px; top:8px; width:200px; height:110px; opacity:.65; pointer-events:none;}
-  .rally-wrap svg{width:100%; height:100%;}
+  .rally-wrap{position:absolute; right:0; top:0; width:200px; height:130px; pointer-events:none;}
+  .rally-wrap svg{width:100%; height:100%; opacity:.65;}
+  .rally-wrap img{
+    width:100%; height:100%; object-fit:cover; object-position:top center;
+    -webkit-mask-image:linear-gradient(115deg, transparent 2%, black 50%);
+    mask-image:linear-gradient(115deg, transparent 2%, black 50%);
+  }
   .rally-ball{
     position:absolute; width:9px; height:9px; border-radius:50%;
     background:var(--ball);
