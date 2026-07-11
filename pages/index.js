@@ -123,6 +123,7 @@ export async function getServerSideProps() {
     const t = tournamentsById.get(m.tournament_id);
     let status = 'soon';
     if (m.status === 'finished') status = 'done';
+    else if (m.status === 'live') status = 'live';
     else if (new Date(m.scheduled_at) <= new Date()) status = 'live';
     return {
       time: timeLabel(m.scheduled_at),

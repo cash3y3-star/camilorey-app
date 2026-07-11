@@ -224,11 +224,21 @@ async function syncTournamentMatches(t, widgets) {
   let picksResolved = 0;
 
   for (const match of widgets.matches || []) {
+    // Las fases eliminatorias (3er puesto, final) existen como filas
+    // antes de que se definan sus participantes reales, y usan el
+    // mismo side_id en ambos lados como placeholder — no es un partido
+    // real todavía.
+    if (match.side_one_id === match.side_two_id) continue;
+
     const sideA = sidesById.get(match.side_one_id);
     const sideB = sidesById.get(match.side_two_id);
     if (!sideA?.player || !sideB?.player) continue;
 
-    const played = match.results?.score_one != null;
+    // OJO: results.score_one ya viene con el marcador parcial mientras
+    // el partido está en curso (status 2), no solo cuando termina — no
+    // sirve para saber si ya cerró. status === 3 es la señal real
+    // (1 = no empezado, 2 = en curso, 3 = terminado).
+    const played = match.status === 3;
     const winnerId = played
       ? match.results.score_one > match.results.score_two
         ? sideA.player.id
@@ -244,7 +254,7 @@ async function syncTournamentMatches(t, widgets) {
           player_a_id: sideA.player.id,
           player_b_id: sideB.player.id,
           scheduled_at: match.start_game,
-          status: played ? 'finished' : 'scheduled',
+          status: match.status === 3 ? 'finished' : match.status === 2 ? 'live' : 'scheduled',
           sets_a: played ? match.results.score_one : null,
           sets_b: played ? match.results.score_two : null,
           winner_id: winnerId,
