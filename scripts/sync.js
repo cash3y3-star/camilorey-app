@@ -9,10 +9,16 @@
 // rompen con cualquier rediseño), hacemos un fetch normal y leemos
 // ese JSON directamente. Es la misma data que usa el sitio para
 // pintar la página, así que es la fuente más confiable posible.
+//
+// Por cada torneo, procesamos TODOS sus partidos (no solo "el
+// próximo"): los que ya tienen resultado real se cierran (matches
+// finished + se resuelve el pick a hit/miss + bankroll_log); los que
+// todavía no se juegan generan un pick nuevo si no tenían uno.
 // ============================================================
 
 const { createClient } = require('@supabase/supabase-js');
 const { computeConfidence } = require('../lib/confidence');
+const { computeStake } = require('../lib/staking');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -95,14 +101,6 @@ function tournamentWinnerSide(tournament) {
   return tournament.sides.find((s) => s.place === 1) || null;
 }
 
-// De los partidos de un torneo en curso, el próximo a jugarse todavía
-// sin resultado — ese es el que nos interesa para generar un pick.
-function nextUnplayedMatch(matches) {
-  const pending = (matches || []).filter((m) => m.results?.score_one == null);
-  if (pending.length === 0) return null;
-  return pending.sort((a, b) => new Date(a.start_game) - new Date(b.start_game))[0];
-}
-
 async function getRecentStreak(playerId) {
   const { data, error } = await supabase
     .from('matches')
@@ -142,125 +140,142 @@ async function getH2H(playerAId, playerBId) {
   };
 }
 
-async function syncUpcoming(tournamentSummaries) {
-  let matchesProcessed = 0;
-  let picksGenerated = 0;
+// Si el partido ya se jugó y tiene un pick pendiente, lo resuelve a
+// hit/miss y registra la apuesta (sintética) en bankroll_log.
+// Devuelve null si no había nada que resolver (para no contar dos
+// veces si el pick ya se había cerrado en una corrida anterior).
+async function resolvePick(matchRow) {
+  const { data: pick, error } = await supabase
+    .from('picks')
+    .select('id, confidence, predicted_winner_id, result')
+    .eq('match_id', matchRow.id)
+    .maybeSingle();
+  if (error) throw new Error(`select picks(match_id=${matchRow.id}): ${error.message}`);
+  if (!pick || pick.result !== 'pending') return null;
 
-  for (const t of tournamentSummaries) {
-    if (isTournamentFinished(t)) continue;
+  const hit = pick.predicted_winner_id === matchRow.winner_id;
 
-    try {
-      for (const side of t.sides) {
-        if (side.player) await upsertPlayer(side.player, side.rating_before_tournament);
-      }
+  const { error: upErr } = await supabase
+    .from('picks')
+    .update({ result: hit ? 'hit' : 'miss' })
+    .eq('id', pick.id);
+  if (upErr) throw new Error(`update picks(${pick.id}): ${upErr.message}`);
 
-      const { error: tErr } = await supabase.from('tournaments').upsert({
-        id: t.id,
-        name: t.name_en,
-        scheduled_at: t.start_at,
-        status: 'scheduled'
-      });
-      if (tErr) throw new Error(`upsert tournaments(${t.id}): ${tErr.message}`);
+  const { data: last, error: lastErr } = await supabase
+    .from('bankroll_log')
+    .select('balance')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastErr) throw new Error(`select bankroll_log: ${lastErr.message}`);
 
-      const detail = await fetchNuxtData(`/en/tournaments/${t.id}`);
-      const widgets = detail['tournament-page']?.pageData?.widgets;
-      if (!widgets) continue;
+  const stake = computeStake(pick.confidence);
+  const units = hit ? stake : -stake;
+  const balance = (last?.balance || 0) + units;
 
-      const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
-      const match = nextUnplayedMatch(widgets.matches);
-      if (!match) continue;
+  const { error: logErr } = await supabase.from('bankroll_log').insert({
+    pick_id: pick.id,
+    units,
+    balance
+  });
+  if (logErr) throw new Error(`insert bankroll_log(pick_id=${pick.id}): ${logErr.message}`);
 
-      const sideA = sidesById.get(match.side_one_id);
-      const sideB = sidesById.get(match.side_two_id);
-      if (!sideA?.player || !sideB?.player) continue;
-
-      const { data: matchRow, error: mErr } = await supabase
-        .from('matches')
-        .upsert(
-          {
-            tournament_id: t.id,
-            player_a_id: sideA.player.id,
-            player_b_id: sideB.player.id,
-            scheduled_at: match.start_game,
-            status: 'scheduled'
-          },
-          { onConflict: 'tournament_id' }
-        )
-        .select()
-        .single();
-      if (mErr) throw new Error(`upsert matches(tournament_id=${t.id}): ${mErr.message}`);
-
-      matchesProcessed++;
-      if (!matchRow?.id) continue;
-
-      const [streakA, streakB, h2h] = await Promise.all([
-        getRecentStreak(sideA.player.id),
-        getRecentStreak(sideB.player.id),
-        getH2H(sideA.player.id, sideB.player.id)
-      ]);
-
-      const { confidence, factors } = computeConfidence({
-        ratingDiff: (sideA.rating_before_tournament || 0) - (sideB.rating_before_tournament || 0),
-        streakA,
-        streakB,
-        h2hWinsA: h2h.h2hWinsA,
-        h2hTotal: h2h.h2hTotal
-      });
-
-      const favored = confidence >= 70 ? sideA.player : sideB.player;
-
-      const { error: pErr } = await supabase.from('picks').upsert(
-        {
-          match_id: matchRow.id,
-          market: `${playerName(favored)} gana`,
-          confidence,
-          factors,
-          result: 'pending'
-        },
-        { onConflict: 'match_id' }
-      );
-      if (pErr) throw new Error(`upsert picks(match_id=${matchRow.id}): ${pErr.message}`);
-
-      picksGenerated++;
-    } catch (e) {
-      console.error(`Error procesando torneo ${t.id}: ${e.message}`);
-    }
-  }
-
-  return { matchesProcessed, picksGenerated };
+  return hit ? 'hit' : 'miss';
 }
 
-async function syncFinished(tournamentSummaries) {
-  let tournamentsUpdated = 0;
+async function generatePick(matchRow, sideA, sideB) {
+  const [streakA, streakB, h2h] = await Promise.all([
+    getRecentStreak(sideA.player.id),
+    getRecentStreak(sideB.player.id),
+    getH2H(sideA.player.id, sideB.player.id)
+  ]);
 
-  for (const t of tournamentSummaries) {
-    if (!isTournamentFinished(t)) continue;
+  const { confidence: rawConfidence, factors } = computeConfidence({
+    ratingDiff: (sideA.rating_before_tournament || 0) - (sideB.rating_before_tournament || 0),
+    streakA,
+    streakB,
+    h2hWinsA: h2h.h2hWinsA,
+    h2hTotal: h2h.h2hTotal
+  });
 
-    try {
-      // El torneo pudo terminar sin haber pasado nunca por syncUpcoming
-      // (p. ej. ya estaba terminado la primera vez que lo vemos), así
-      // que hay que asegurar que los jugadores existan antes del FK.
-      for (const side of t.sides) {
-        if (side.player) await upsertPlayer(side.player, side.rating_after_tournament);
-      }
+  // computeConfidence devuelve qué tan favorecido está A (70 = parejo,
+  // 92 = A muy favorito, 50 = B muy favorito). Para guardar "confianza
+  // en el pick impreso" hay que reflejarlo cuando el favorito es B —
+  // si no, un pick clarísimo por B queda guardado con la confianza
+  // mínima, y arruina el staking de abajo.
+  const favored = rawConfidence >= 70 ? sideA.player : sideB.player;
+  const pickConfidence = rawConfidence >= 70 ? rawConfidence : 140 - rawConfidence;
 
-      const winnerSide = tournamentWinnerSide(t);
-      const { error } = await supabase.from('tournaments').upsert({
-        id: t.id,
-        name: t.name_en,
-        scheduled_at: t.start_at,
-        status: 'finished',
-        winner_id: winnerSide?.player?.id || null
-      });
-      if (error) throw new Error(`upsert tournaments(${t.id}, finished): ${error.message}`);
+  const { error } = await supabase.from('picks').insert({
+    match_id: matchRow.id,
+    market: `${playerName(favored)} gana`,
+    confidence: pickConfidence,
+    factors,
+    predicted_winner_id: favored.id,
+    result: 'pending'
+  });
+  if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
+}
 
-      tournamentsUpdated++;
-    } catch (e) {
-      console.error(`Error cerrando torneo ${t.id}: ${e.message}`);
+async function syncTournamentMatches(t, widgets) {
+  const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
+  let matchesProcessed = 0;
+  let picksGenerated = 0;
+  let picksResolved = 0;
+
+  for (const match of widgets.matches || []) {
+    const sideA = sidesById.get(match.side_one_id);
+    const sideB = sidesById.get(match.side_two_id);
+    if (!sideA?.player || !sideB?.player) continue;
+
+    const played = match.results?.score_one != null;
+    const winnerId = played
+      ? match.results.score_one > match.results.score_two
+        ? sideA.player.id
+        : sideB.player.id
+      : null;
+
+    const { data: matchRow, error: mErr } = await supabase
+      .from('matches')
+      .upsert(
+        {
+          source_id: match.id,
+          tournament_id: t.id,
+          player_a_id: sideA.player.id,
+          player_b_id: sideB.player.id,
+          scheduled_at: match.start_game,
+          status: played ? 'finished' : 'scheduled',
+          sets_a: played ? match.results.score_one : null,
+          sets_b: played ? match.results.score_two : null,
+          winner_id: winnerId,
+          raw_data: match
+        },
+        { onConflict: 'source_id' }
+      )
+      .select()
+      .single();
+    if (mErr) throw new Error(`upsert matches(source_id=${match.id}): ${mErr.message}`);
+    matchesProcessed++;
+
+    if (played) {
+      const result = await resolvePick(matchRow);
+      if (result) picksResolved++;
+      continue;
     }
+
+    const { data: existingPick, error: pErr } = await supabase
+      .from('picks')
+      .select('id')
+      .eq('match_id', matchRow.id)
+      .maybeSingle();
+    if (pErr) throw new Error(`select picks(match_id=${matchRow.id}): ${pErr.message}`);
+    if (existingPick) continue;
+
+    await generatePick(matchRow, sideA, sideB);
+    picksGenerated++;
   }
 
-  return { tournamentsUpdated };
+  return { matchesProcessed, picksGenerated, picksResolved };
 }
 
 async function run() {
@@ -272,11 +287,44 @@ async function run() {
   const tournaments = home['main-page-tournaments']?.items || [];
   console.log(`Torneos encontrados: ${tournaments.length}`);
 
-  const upcoming = await syncUpcoming(tournaments);
-  const finished = await syncFinished(tournaments);
+  const totals = { matchesProcessed: 0, picksGenerated: 0, picksResolved: 0, tournamentsUpdated: 0 };
+
+  for (const t of tournaments) {
+    try {
+      const finished = isTournamentFinished(t);
+      const winnerSide = finished ? tournamentWinnerSide(t) : null;
+
+      for (const side of t.sides) {
+        if (side.player) {
+          await upsertPlayer(side.player, side.rating_after_tournament ?? side.rating_before_tournament);
+        }
+      }
+
+      const { error: tErr } = await supabase.from('tournaments').upsert({
+        id: t.id,
+        name: t.name_en,
+        scheduled_at: t.start_at,
+        status: finished ? 'finished' : 'scheduled',
+        winner_id: winnerSide?.player?.id || null
+      });
+      if (tErr) throw new Error(`upsert tournaments(${t.id}): ${tErr.message}`);
+      totals.tournamentsUpdated++;
+
+      const detail = await fetchNuxtData(`/en/tournaments/${t.id}`);
+      const widgets = detail['tournament-page']?.pageData?.widgets;
+      if (!widgets) continue;
+
+      const result = await syncTournamentMatches(t, widgets);
+      totals.matchesProcessed += result.matchesProcessed;
+      totals.picksGenerated += result.picksGenerated;
+      totals.picksResolved += result.picksResolved;
+    } catch (e) {
+      console.error(`Error procesando torneo ${t.id}: ${e.message}`);
+    }
+  }
 
   console.log('--- RESUMEN ---');
-  console.log({ ...upcoming, ...finished });
+  console.log(totals);
 }
 
 run().catch((err) => {

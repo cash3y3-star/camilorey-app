@@ -40,9 +40,14 @@ gratis y sin límite de frecuencia razonable.
    resultados). El script hace un `fetch` normal y lee ese JSON
    directamente — no usa navegador ni selectores CSS, así que no se
    rompe con un rediseño del sitio.
-2. Para los torneos aún no terminados, guarda jugadores/torneo/partido
-   y genera un pick con `lib/confidence.js`.
-3. Para los torneos ya terminados, guarda el ganador real.
+2. Guarda cada partido del torneo con su propio row estable (no se
+   sobreescriben entre corridas). Si el partido ya tiene resultado
+   real, lo cierra: marca `matches.status = 'finished'`, resuelve el
+   pick contra el ganador real (`picks.result = 'hit' | 'miss'`) y
+   registra la apuesta sintética en `bankroll_log` (unidades según
+   `lib/staking.js`, escaladas por la confianza del pick).
+3. Si el partido todavía no se juega y no tiene pick, genera uno con
+   `lib/confidence.js`.
 
 Puedes disparar una corrida manual desde GitHub → Actions → "Sync
 CAMILOREY picks" → "Run workflow", y revisar los logs ahí mismo.
@@ -58,13 +63,12 @@ CAMILOREY picks" → "Run workflow", y revisar los logs ahí mismo.
    acumular resultados reales, y ahí sí medir el acierto real — no
    antes.
 
-3. **Falta el cierre hit/miss**: hoy el scraper genera picks y marca
-   torneos terminados con su ganador, pero todavía no compara el
-   resultado real contra el pick (`picks.result`) ni escribe en
-   `bankroll_log`. Es el siguiente paso antes de poder ajustar los
-   pesos de `confidence.js` con datos reales.
+3. **El staking es una convención nuestra, no una cuota real** — el
+   sitio no publica momios. `lib/staking.js` escala unidades entre 0.5
+   y 2 según la confianza del pick; es un punto de partida, ajustable
+   cuando haya más historial.
 
 ## Siguiente paso
-- Construir el cierre hit/miss + `bankroll_log`
 - Conectar el frontend (el diseño que ya tienes) a estos datos reales
-- Revisar juntos los primeros logs del cron real para ajustar lo que falle
+- Con hit/miss ya acumulando datos, ajustar los pesos de
+  `confidence.js` cuando haya suficiente historial
