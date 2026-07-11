@@ -75,12 +75,13 @@ function playerName(p) {
 
 async function upsertPlayer(player, rating) {
   if (!player?.id) return;
-  await supabase.from('players').upsert({
+  const { error } = await supabase.from('players').upsert({
     id: player.id,
     name: playerName(player),
     rating: rating ?? null,
     updated_at: new Date()
   });
+  if (error) throw new Error(`upsert players(${player.id}): ${error.message}`);
 }
 
 // Un torneo está terminado cuando todos sus lados (jugadores reales,
@@ -103,13 +104,14 @@ function nextUnplayedMatch(matches) {
 }
 
 async function getRecentStreak(playerId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('matches')
     .select('winner_id, player_a_id, player_b_id')
     .or(`player_a_id.eq.${playerId},player_b_id.eq.${playerId}`)
     .eq('status', 'finished')
     .order('scheduled_at', { ascending: false })
     .limit(5);
+  if (error) throw new Error(`select matches (streak, player ${playerId}): ${error.message}`);
 
   if (!data || data.length === 0) return 0;
   let streak = 0;
@@ -123,7 +125,7 @@ async function getRecentStreak(playerId) {
 }
 
 async function getH2H(playerAId, playerBId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('matches')
     .select('winner_id')
     .eq('status', 'finished')
@@ -131,6 +133,7 @@ async function getH2H(playerAId, playerBId) {
       `and(player_a_id.eq.${playerAId},player_b_id.eq.${playerBId}),and(player_a_id.eq.${playerBId},player_b_id.eq.${playerAId})`
     )
     .limit(10);
+  if (error) throw new Error(`select matches (h2h, ${playerAId} vs ${playerBId}): ${error.message}`);
 
   if (!data) return { h2hWinsA: 0, h2hTotal: 0 };
   return {
@@ -146,81 +149,82 @@ async function syncUpcoming(tournamentSummaries) {
   for (const t of tournamentSummaries) {
     if (isTournamentFinished(t)) continue;
 
-    for (const side of t.sides) {
-      if (side.player) await upsertPlayer(side.player, side.rating_before_tournament);
-    }
-
-    await supabase.from('tournaments').upsert({
-      id: t.id,
-      name: t.name_en,
-      scheduled_at: t.start_at,
-      status: 'scheduled'
-    });
-
-    let detail;
     try {
-      detail = await fetchNuxtData(`/en/tournaments/${t.id}`);
-    } catch (e) {
-      console.error(`No se pudo leer el detalle del torneo ${t.id}: ${e.message}`);
-      continue;
-    }
+      for (const side of t.sides) {
+        if (side.player) await upsertPlayer(side.player, side.rating_before_tournament);
+      }
 
-    const widgets = detail['tournament-page']?.pageData?.widgets;
-    if (!widgets) continue;
+      const { error: tErr } = await supabase.from('tournaments').upsert({
+        id: t.id,
+        name: t.name_en,
+        scheduled_at: t.start_at,
+        status: 'scheduled'
+      });
+      if (tErr) throw new Error(`upsert tournaments(${t.id}): ${tErr.message}`);
 
-    const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
-    const match = nextUnplayedMatch(widgets.matches);
-    if (!match) continue;
+      const detail = await fetchNuxtData(`/en/tournaments/${t.id}`);
+      const widgets = detail['tournament-page']?.pageData?.widgets;
+      if (!widgets) continue;
 
-    const sideA = sidesById.get(match.side_one_id);
-    const sideB = sidesById.get(match.side_two_id);
-    if (!sideA?.player || !sideB?.player) continue;
+      const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
+      const match = nextUnplayedMatch(widgets.matches);
+      if (!match) continue;
 
-    const { data: matchRow } = await supabase
-      .from('matches')
-      .upsert(
+      const sideA = sidesById.get(match.side_one_id);
+      const sideB = sidesById.get(match.side_two_id);
+      if (!sideA?.player || !sideB?.player) continue;
+
+      const { data: matchRow, error: mErr } = await supabase
+        .from('matches')
+        .upsert(
+          {
+            tournament_id: t.id,
+            player_a_id: sideA.player.id,
+            player_b_id: sideB.player.id,
+            scheduled_at: match.start_game,
+            status: 'scheduled'
+          },
+          { onConflict: 'tournament_id' }
+        )
+        .select()
+        .single();
+      if (mErr) throw new Error(`upsert matches(tournament_id=${t.id}): ${mErr.message}`);
+
+      matchesProcessed++;
+      if (!matchRow?.id) continue;
+
+      const [streakA, streakB, h2h] = await Promise.all([
+        getRecentStreak(sideA.player.id),
+        getRecentStreak(sideB.player.id),
+        getH2H(sideA.player.id, sideB.player.id)
+      ]);
+
+      const { confidence, factors } = computeConfidence({
+        ratingDiff: (sideA.rating_before_tournament || 0) - (sideB.rating_before_tournament || 0),
+        streakA,
+        streakB,
+        h2hWinsA: h2h.h2hWinsA,
+        h2hTotal: h2h.h2hTotal
+      });
+
+      const favored = confidence >= 70 ? sideA.player : sideB.player;
+
+      const { error: pErr } = await supabase.from('picks').upsert(
         {
-          tournament_id: t.id,
-          player_a_id: sideA.player.id,
-          player_b_id: sideB.player.id,
-          scheduled_at: match.start_game,
-          status: 'scheduled'
+          match_id: matchRow.id,
+          market: `${playerName(favored)} gana`,
+          confidence,
+          factors,
+          result: 'pending'
         },
-        { onConflict: 'tournament_id' }
-      )
-      .select()
-      .single();
+        { onConflict: 'match_id' }
+      );
+      if (pErr) throw new Error(`upsert picks(match_id=${matchRow.id}): ${pErr.message}`);
 
-    matchesProcessed++;
-    if (!matchRow?.id) continue;
-
-    const [streakA, streakB, h2h] = await Promise.all([
-      getRecentStreak(sideA.player.id),
-      getRecentStreak(sideB.player.id),
-      getH2H(sideA.player.id, sideB.player.id)
-    ]);
-
-    const { confidence, factors } = computeConfidence({
-      ratingDiff: (sideA.rating_before_tournament || 0) - (sideB.rating_before_tournament || 0),
-      streakA,
-      streakB,
-      h2hWinsA: h2h.h2hWinsA,
-      h2hTotal: h2h.h2hTotal
-    });
-
-    const favored = confidence >= 70 ? sideA.player : sideB.player;
-
-    await supabase.from('picks').upsert(
-      {
-        match_id: matchRow.id,
-        market: `${playerName(favored)} gana`,
-        confidence,
-        factors,
-        result: 'pending'
-      },
-      { onConflict: 'match_id' }
-    );
-    picksGenerated++;
+      picksGenerated++;
+    } catch (e) {
+      console.error(`Error procesando torneo ${t.id}: ${e.message}`);
+    }
   }
 
   return { matchesProcessed, picksGenerated };
@@ -232,22 +236,28 @@ async function syncFinished(tournamentSummaries) {
   for (const t of tournamentSummaries) {
     if (!isTournamentFinished(t)) continue;
 
-    // El torneo pudo terminar sin haber pasado nunca por syncUpcoming
-    // (p. ej. ya estaba terminado la primera vez que lo vemos), así
-    // que hay que asegurar que los jugadores existan antes del FK.
-    for (const side of t.sides) {
-      if (side.player) await upsertPlayer(side.player, side.rating_after_tournament);
-    }
+    try {
+      // El torneo pudo terminar sin haber pasado nunca por syncUpcoming
+      // (p. ej. ya estaba terminado la primera vez que lo vemos), así
+      // que hay que asegurar que los jugadores existan antes del FK.
+      for (const side of t.sides) {
+        if (side.player) await upsertPlayer(side.player, side.rating_after_tournament);
+      }
 
-    const winnerSide = tournamentWinnerSide(t);
-    await supabase.from('tournaments').upsert({
-      id: t.id,
-      name: t.name_en,
-      scheduled_at: t.start_at,
-      status: 'finished',
-      winner_id: winnerSide?.player?.id || null
-    });
-    tournamentsUpdated++;
+      const winnerSide = tournamentWinnerSide(t);
+      const { error } = await supabase.from('tournaments').upsert({
+        id: t.id,
+        name: t.name_en,
+        scheduled_at: t.start_at,
+        status: 'finished',
+        winner_id: winnerSide?.player?.id || null
+      });
+      if (error) throw new Error(`upsert tournaments(${t.id}, finished): ${error.message}`);
+
+      tournamentsUpdated++;
+    } catch (e) {
+      console.error(`Error cerrando torneo ${t.id}: ${e.message}`);
+    }
   }
 
   return { tournamentsUpdated };
