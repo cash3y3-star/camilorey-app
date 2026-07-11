@@ -18,7 +18,7 @@ export async function getServerSideProps() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
-    supabase.from('players').select('id, name'),
+    supabase.from('players').select('id, name, avatar_url'),
     supabase.from('picks').select('*').eq('result', 'pending').order('confidence', { ascending: false })
   ]);
 
@@ -77,6 +77,7 @@ export async function getServerSideProps() {
       scheduledAt: new Date(match.scheduled_at).getTime(),
       player: favored?.name || '—',
       initials: initialsOf(favored?.name),
+      avatarUrl: favored?.avatar_url || null,
       opponent: opponent?.name || '—',
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
@@ -245,7 +246,12 @@ function PickCard({ pick, onClick }) {
   return (
     <div className="pick-card" onClick={onClick}>
       <div className="avatar" style={{ '--tone': avatarColor(pick.player) }}>
-        {pick.initials}
+        {pick.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={pick.avatarUrl} alt="" referrerPolicy="no-referrer" />
+        ) : (
+          pick.initials
+        )}
       </div>
       <div className="pick-info">
         <div className="tour">
@@ -355,8 +361,14 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
               <div className="match">
                 {featured.tournament} · {featured.time}
               </div>
-              <div className="player">
-                {featured.player} vs {featured.opponent}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '10px' }}>
+                {featured.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="featured-avatar" src={featured.avatarUrl} alt="" referrerPolicy="no-referrer" />
+                ) : null}
+                <div className="player" style={{ margin: 0 }}>
+                  {featured.player} vs {featured.opponent}
+                </div>
               </div>
               <div className="market">{featured.market}</div>
               <div className="foot">
@@ -523,12 +535,18 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
         <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && setModalPick(null)}>
           <div className="modal">
             <div className="modal-head">
-              <div>
-                <div className="sub">
-                  {modalPick.tournament} · {modalPick.time}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {modalPick.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="featured-avatar" src={modalPick.avatarUrl} alt="" referrerPolicy="no-referrer" />
+                ) : null}
+                <div>
+                  <div className="sub">
+                    {modalPick.tournament} · {modalPick.time}
+                  </div>
+                  <h3>{modalPick.player}</h3>
+                  <div className="sub">vs {modalPick.opponent}</div>
                 </div>
-                <h3>{modalPick.player}</h3>
-                <div className="sub">vs {modalPick.opponent}</div>
               </div>
               <button className="modal-close" onClick={() => setModalPick(null)}>
                 ✕
@@ -705,7 +723,11 @@ const CSS = `
   }
   .pick-tag .ball-dot{width:7px; height:7px; border-radius:50%; background:var(--court);}
   .featured .match{font-size:13px; opacity:.85; margin-bottom:2px;}
-  .featured .player{font-family:var(--font-display); font-weight:800; font-size:30px; line-height:1.05; margin:2px 0 10px;}
+  .featured .player{font-family:var(--font-display); font-weight:800; font-size:30px; line-height:1.05;}
+  .featured-avatar{
+    width:64px; height:64px; border-radius:14px; flex:none; object-fit:cover;
+    border:2px solid rgba(255,255,255,.18); box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
   .featured .market{
     display:inline-block; font-weight:700; font-size:15px;
     background:rgba(226,68,74,.2); border:1px solid rgba(226,68,74,.55);
@@ -743,13 +765,15 @@ const CSS = `
     width:48px; height:48px; border-radius:12px; flex:none;
     display:flex; align-items:center; justify-content:center;
     font-family:var(--font-display); font-weight:800; font-size:16px; color:#fff;
-    position:relative;
+    position:relative; overflow:hidden;
     background:linear-gradient(150deg, var(--tone,var(--court)), #14100F 130%);
     border:1px solid rgba(255,255,255,.08);
   }
+  .avatar img{width:100%; height:100%; object-fit:cover; display:block;}
   .avatar::after{
     content:""; position:absolute; inset:0; border-radius:12px;
     background:linear-gradient(155deg, rgba(255,255,255,.16), transparent 55%);
+    pointer-events:none;
   }
   .pick-info{flex:1; min-width:0;}
   .pick-info .tour{font-size:11px; color:var(--muted); font-family:var(--font-mono);}

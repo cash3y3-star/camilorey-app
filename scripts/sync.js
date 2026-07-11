@@ -86,6 +86,7 @@ async function upsertPlayer(player, rating) {
     id: player.id,
     name: playerName(player),
     rating: rating ?? null,
+    avatar_url: player.avatar ? `${BASE}${player.avatar}` : null,
     updated_at: new Date()
   });
   if (error) throw new Error(`upsert players(${player.id}): ${error.message}`);
