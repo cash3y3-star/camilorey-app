@@ -705,12 +705,12 @@ const CSS = `
     background:radial-gradient(circle, rgba(226,68,74,.22), transparent 70%);
     pointer-events:none;
   }
-  .rally-wrap{position:absolute; right:0; top:0; width:200px; height:130px; pointer-events:none;}
+  .rally-wrap{position:absolute; right:0; top:0; width:260px; height:190px; pointer-events:none;}
   .rally-wrap svg{width:100%; height:100%; opacity:.65;}
   .rally-wrap img{
-    width:100%; height:100%; object-fit:cover; object-position:top center;
-    -webkit-mask-image:linear-gradient(115deg, transparent 2%, black 50%);
-    mask-image:linear-gradient(115deg, transparent 2%, black 50%);
+    width:100%; height:100%; object-fit:cover; object-position:center 20%;
+    -webkit-mask-image:linear-gradient(120deg, transparent 0%, black 42%);
+    mask-image:linear-gradient(120deg, transparent 0%, black 42%);
   }
   .rally-ball{
     position:absolute; width:9px; height:9px; border-radius:50%;
@@ -885,6 +885,6 @@ const CSS = `
     nav.bottom-nav{display:flex;}
     .featured .player{font-size:24px;}
     h1.page-title{font-size:30px;}
-    .rally-wrap{width:130px; height:80px;}
+    .rally-wrap{width:170px; height:130px;}
   }
 `;
