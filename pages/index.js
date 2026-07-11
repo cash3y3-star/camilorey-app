@@ -18,7 +18,7 @@ export async function getServerSideProps() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
-    supabase.from('players').select('id, name, avatar_url'),
+    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url'),
     supabase.from('picks').select('*').eq('result', 'pending').order('confidence', { ascending: false })
   ]);
 
@@ -77,7 +77,8 @@ export async function getServerSideProps() {
       scheduledAt: new Date(match.scheduled_at).getTime(),
       player: favored?.name || '—',
       initials: initialsOf(favored?.name),
-      avatarUrl: favored?.avatar_url || null,
+      avatarUrl: favored?.avatar_cutout_url || favored?.avatar_url || null,
+      hasCutout: Boolean(favored?.avatar_cutout_url),
       opponent: opponent?.name || '—',
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
@@ -353,8 +354,13 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
                 {featured.avatarUrl ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={featured.avatarUrl} alt="" referrerPolicy="no-referrer" />
-                    <div className="rally-fade"></div>
+                    <img
+                      className={featured.hasCutout ? 'cutout' : ''}
+                      src={featured.avatarUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                    />
+                    {!featured.hasCutout ? <div className="rally-fade"></div> : null}
                   </>
                 ) : (
                   <>
@@ -711,6 +717,7 @@ const CSS = `
   .rally-wrap{position:absolute; right:0; top:0; width:260px; height:190px; pointer-events:none; overflow:hidden;}
   .rally-wrap svg{width:100%; height:100%; opacity:.65;}
   .rally-wrap img{width:100%; height:100%; object-fit:cover; object-position:center 20%; display:block;}
+  .rally-wrap img.cutout{object-fit:contain; object-position:bottom center;}
   .rally-fade{
     position:absolute; inset:0;
     background:linear-gradient(100deg, #14100F 0%, rgba(20,16,15,.85) 22%, rgba(20,16,15,.35) 45%, transparent 68%);

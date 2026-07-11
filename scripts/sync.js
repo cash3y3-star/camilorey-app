@@ -20,6 +20,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { computeConfidence } = require('../lib/confidence');
 const { computeStake } = require('../lib/staking');
 const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
+const { ensureAvatarCutout } = require('../lib/avatarCutout');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -391,6 +392,8 @@ async function run() {
       for (const side of t.sides) {
         if (side.player) {
           await upsertPlayer(side.player, side.rating_after_tournament ?? side.rating_before_tournament);
+          const avatarUrl = side.player.avatar ? `${MEDIA_BASE}${side.player.avatar}` : null;
+          await ensureAvatarCutout(supabase, side.player.id, avatarUrl);
         }
       }
 
