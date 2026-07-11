@@ -18,9 +18,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install browser
-        run: npx playwright install --with-deps chromium
-
       - name: Run sync script
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

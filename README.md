@@ -17,37 +17,51 @@ el siguiente paso, una vez esta parte esté corriendo.
 Necesitas un repo en GitHub con esta carpeta. Si no sabes cómo, dime y
 te guío paso a paso (o lo subo yo si me das acceso).
 
-## Paso 3 — Vercel
+## Paso 3 — Vercel (solo para el frontend)
 1. "Add New Project" → importa el repo de GitHub
 2. En "Environment Variables" agrega:
    - `SUPABASE_URL` = tu Project URL
    - `SUPABASE_SERVICE_ROLE_KEY` = tu service_role key
-   - `CRON_SECRET` = una contraseña que inventes tú (ej. una cadena larga random)
 3. Deploy
 
-Vercel va a leer `vercel.json` y programar el cron automáticamente
-cada 30 minutos, llamando `/api/cron/sync`.
+Vercel solo sirve el sitio Next.js (frontend). La sincronización de
+datos **no** corre ahí — corre por GitHub Actions (ver abajo), que es
+gratis y sin límite de frecuencia razonable.
+
+## Cómo se sincronizan los datos
+`scripts/sync.js` corre cada 30 min vía GitHub Actions
+(`.github/workflows/sync.yml`). En cada corrida:
+1. Lee `tt.league-pro.com/en` — es una app con SSR (Nuxt), así que
+   cada página trae embebido un `<script id="__NUXT_DATA__">` con toda
+   la data ya estructurada en JSON (torneos, jugadores, partidos,
+   resultados). El script hace un `fetch` normal y lee ese JSON
+   directamente — no usa navegador ni selectores CSS, así que no se
+   rompe con un rediseño del sitio.
+2. Para los torneos aún no terminados, guarda jugadores/torneo/partido
+   y genera un pick con `lib/confidence.js`.
+3. Para los torneos ya terminados, guarda el ganador real.
+
+Puedes disparar una corrida manual desde GitHub → Actions → "Sync
+CAMILOREY picks" → "Run workflow", y revisar los logs ahí mismo.
 
 ## Cosas importantes que debes saber (honestidad primero)
 
-1. **El scraper (`pages/api/cron/sync.js`) es un punto de partida, no
-   producto terminado.** Escribí los selectores mirando el contenido
-   de la página desde mi entorno, pero no puedo probarlo en vivo desde
-   aquí. La primera vez que corra en Vercel, revisamos juntos los logs
-   ("Logs" en el dashboard de Vercel) y ajustamos lo que falle.
+1. **Cubre la ventana de torneos "recientes/próximos" de la portada**,
+   no todo el calendario de la liga. Si hace falta cubrir más adelante
+   en el tiempo, hay que agregar paginación sobre `/en/tournaments`.
 
 2. **No sabemos todavía si el H2H/racha predice bien** en esta liga,
-   porque son torneos cortos automatizados (ver conversación anterior).
-   Vamos a dejar que corra, acumular resultados reales en
-   `bankroll_log`, y ahí sí medir el acierto real — no antes.
+   porque son torneos cortos automatizados. Vamos a dejar que corra,
+   acumular resultados reales, y ahí sí medir el acierto real — no
+   antes.
 
-3. **Cron cada 30 min es el plan gratis de Vercel** (mínimo permitido).
-   Si luego quieres algo más frecuente, hay que pasar a plan pago o
-   mover el cron a otro sitio (ej. GitHub Actions, gratis, sin límite
-   de frecuencia razonable).
+3. **Falta el cierre hit/miss**: hoy el scraper genera picks y marca
+   torneos terminados con su ganador, pero todavía no compara el
+   resultado real contra el pick (`picks.result`) ni escribe en
+   `bankroll_log`. Es el siguiente paso antes de poder ajustar los
+   pesos de `confidence.js` con datos reales.
 
 ## Siguiente paso
-Cuando tengas Supabase y Vercel con las variables listas, dime y
-seguimos con:
+- Construir el cierre hit/miss + `bankroll_log`
 - Conectar el frontend (el diseño que ya tienes) a estos datos reales
-- Revisar juntos los primeros logs del cron para ajustar el scraper
+- Revisar juntos los primeros logs del cron real para ajustar lo que falle
