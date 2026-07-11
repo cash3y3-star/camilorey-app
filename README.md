@@ -1,17 +1,17 @@
 # CAMILOREY — app real (Next.js + Supabase + Vercel)
 
 ## Qué es esto
-El backend base de tu app: base de datos, fórmula de confianza, y el
-proceso automático que va a leer tt.league-pro.com cada 30 minutos.
-El frontend visual (el diseño negro/rojo que ya vimos) se conecta en
-el siguiente paso, una vez esta parte esté corriendo.
+App completa: base de datos, fórmula de confianza, el proceso
+automático que lee tt.league-pro.com cada 30 minutos, y el frontend
+(diseño negro/rojo) en `pages/index.js`, ya conectado a los datos
+reales de Supabase.
 
 ## Paso 1 — Supabase
 1. Entra a tu proyecto en supabase.com
 2. Ve a "SQL Editor" → pega el contenido de `supabase/schema.sql` → Run
 3. Corre también las migraciones en orden (`supabase/migration_001_...sql`,
-   `migration_002_...sql`) — cada una tiene un comentario arriba explicando
-   qué arregla.
+   `migration_002_...sql`, `migration_003_...sql`) — cada una tiene un
+   comentario arriba explicando qué arregla.
 4. Ve a "Project Settings" → "API" y copia:
    - `Project URL`
    - `service_role key` (no la "anon", esa no sirve para escribir datos)
@@ -30,6 +30,16 @@ te guío paso a paso (o lo subo yo si me das acceso).
 Vercel solo sirve el sitio Next.js (frontend). La sincronización de
 datos **no** corre ahí — corre por GitHub Actions (ver abajo), que es
 gratis y sin límite de frecuencia razonable.
+
+## El frontend (`pages/index.js`)
+Es una sola página (Inicio / Predicciones / Calendario / Bankroll) que
+trae los datos con `getServerSideProps` en cada visita — siempre
+muestra lo último que dejó el último sync, sin caché. El diseño
+(`index.html` original) no tenía cuotas reales de mercado porque el
+sitio no las publica; donde antes decía "cuota" ahora se muestra la
+apuesta en unidades (`lib/staking.js`). El análisis de cada pick se
+arma en texto a partir de los factores reales de `lib/confidence.js`
+(rating, racha, cruce directo) — no hay texto inventado.
 
 ## Cómo se sincronizan los datos
 `scripts/sync.js` corre cada 30 min vía GitHub Actions
