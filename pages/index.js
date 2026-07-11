@@ -406,6 +406,20 @@ function MatchDetailModal({ m, onClose }) {
               ) : null}
             </div>
           </>
+        ) : m.status === 'live' && live?.source === 'tt' ? (
+          <>
+            <p className="page-sub">
+              Rushbet no tiene este partido en su tablero en vivo — mostrando el marcador de tt.league-pro.com (menos
+              detallado, sin punto a punto).
+            </p>
+            {live.scoreOne != null ? (
+              <div className="modal-market">
+                Sets: {live.scoreOne}-{live.scoreTwo}
+              </div>
+            ) : (
+              <p className="page-sub">Este partido está en curso, todavía sin sets cerrados.</p>
+            )}
+          </>
         ) : m.status === 'live' ? (
           <p className="page-sub">Buscando marcador en vivo…</p>
         ) : m.status === 'done' && m.score ? (
