@@ -74,6 +74,7 @@ export async function getServerSideProps() {
     picks.push({
       id: pick.id,
       day: dayLabel(match.scheduled_at),
+      scheduledAt: new Date(match.scheduled_at).getTime(),
       player: favored?.name || '—',
       initials: initialsOf(favored?.name),
       opponent: opponent?.name || '—',
@@ -86,8 +87,9 @@ export async function getServerSideProps() {
       history: await recentForm(pick.predicted_winner_id)
     });
   }
-  picks.sort((a, b) => b.confidence - a.confidence);
-  if (picks[0]) picks[0].featured = true;
+  picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
+  const topConfidence = [...picks].sort((a, b) => b.confidence - a.confidence)[0];
+  if (topConfidence) topConfidence.featured = true;
 
   // Calendario: partidos en una ventana de "ahora mismo" (unas horas
   // atrás hasta mañana), programados o ya cerrados.
