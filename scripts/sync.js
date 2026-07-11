@@ -21,65 +21,17 @@ const { computeConfidence } = require('../lib/confidence');
 const { computeStake } = require('../lib/staking');
 const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 const { ensureAvatarCutout } = require('../lib/avatarCutout');
+const { fetchNuxtData } = require('../lib/tt');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const BASE = 'https://tt.league-pro.com';
 // Las fotos de jugadores no viven en el dominio principal, sino en
 // este subdominio de API (confirmado inspeccionando las URLs reales
 // que renderiza el sitio, ej. src="/_ipx/f_webp/https://api.league-pro.com/...").
 const MEDIA_BASE = 'https://api.league-pro.com';
-
-// Nuxt serializa el payload como un array plano: cada objeto/array
-// referencia a otros valores por su índice en ese mismo array (para
-// no repetir valores iguales). Esto lo "desenrolla" a un árbol normal.
-const REVIVE_TAGS = new Set(['Reactive', 'ShallowReactive', 'Ref', 'ShallowRef', 'EmptyRef', 'EmptyShallowRef']);
-
-function unflattenNuxtPayload(raw) {
-  const cache = new Map();
-
-  function resolve(i) {
-    if (cache.has(i)) return cache.get(i);
-    const v = raw[i];
-
-    if (v === null || typeof v !== 'object') return v;
-
-    if (Array.isArray(v) && typeof v[0] === 'string' && REVIVE_TAGS.has(v[0])) {
-      const result = v.length > 1 ? resolve(v[1]) : undefined;
-      cache.set(i, result);
-      return result;
-    }
-
-    if (Array.isArray(v)) {
-      const arr = [];
-      cache.set(i, arr);
-      for (const idx of v) arr.push(resolve(idx));
-      return arr;
-    }
-
-    const obj = {};
-    cache.set(i, obj);
-    for (const key of Object.keys(v)) obj[key] = resolve(v[key]);
-    return obj;
-  }
-
-  return resolve(0);
-}
-
-async function fetchNuxtData(path) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (CAMILOREY sync bot)' }
-  });
-  if (!res.ok) throw new Error(`Fetch failed ${path}: ${res.status}`);
-  const html = await res.text();
-  const match = html.match(/<script[^>]*id="__NUXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!match) throw new Error(`No se encontró __NUXT_DATA__ en ${path}`);
-  const payload = unflattenNuxtPayload(JSON.parse(match[1]));
-  return payload.data;
-}
 
 function playerName(p) {
   return p.short_name_en || `${p.first_name_en} ${p.surname_en}`.trim();

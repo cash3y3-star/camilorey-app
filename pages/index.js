@@ -14,7 +14,7 @@ function avatarColor(seed) {
 // Es SSR (no getStaticProps) porque los picks/resultados cambian
 // cada 30 min con el sync — siempre queremos la última data.
 // ============================================================
-export async function getServerSideProps() {
+export async function getServerSideProps({ query }) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
@@ -93,17 +93,33 @@ export async function getServerSideProps() {
   const topConfidence = [...picks].sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
 
-  // Calendario: partidos en una ventana de "ahora mismo" (unas horas
-  // atrás hasta mañana), programados o ya cerrados.
-  const windowStart = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
-  const windowEnd = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  // Resultados: por default una ventana de "ahora mismo" (unas horas
+  // atrás hasta mañana). Si viene ?date=YYYY-MM-DD, se muestra ese
+  // día completo (hora Colombia) en su lugar, para poder navegar
+  // resultados de otros días.
+  const bogotaDateStr = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d);
+  const selectedDate = typeof query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : null;
+
+  let windowStart, windowEnd;
+  if (selectedDate) {
+    windowStart = new Date(`${selectedDate}T00:00:00-05:00`).toISOString();
+    windowEnd = new Date(`${selectedDate}T23:59:59-05:00`).toISOString();
+  } else {
+    windowStart = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+    windowEnd = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  }
+
+  const currentDateStr = selectedDate || bogotaDateStr(new Date());
+  const prevDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() - 24 * 3600 * 1000));
+  const nextDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() + 24 * 3600 * 1000));
+
   const { data: windowMatches } = await supabase
     .from('matches')
     .select('*')
     .gte('scheduled_at', windowStart)
     .lte('scheduled_at', windowEnd)
     .order('scheduled_at', { ascending: true })
-    .limit(40);
+    .limit(150);
 
   const missingPlayerIds = [...new Set((windowMatches || []).flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(
     (id) => id && !playersById.has(id)
@@ -141,6 +157,10 @@ export async function getServerSideProps() {
       time: timeLabel(m.scheduled_at),
       tournament: t?.name || 'Torneo',
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
+      playerA: a?.name || null,
+      playerB: b?.name || null,
+      tournamentId: m.tournament_id,
+      sourceId: m.source_id,
       status,
       score: status === 'done' && m.sets_a != null && m.sets_b != null ? `${m.sets_a}-${m.sets_b}` : null,
       pickResult: status === 'done' && (pickResult === 'hit' || pickResult === 'miss') ? pickResult : null
@@ -195,7 +215,11 @@ export async function getServerSideProps() {
       stats: { efectividad, racha, cuotaProm },
       picks,
       matches,
-      bankrollLog
+      bankrollLog,
+      currentDateStr,
+      prevDateStr,
+      nextDateStr,
+      isToday: !selectedDate
     }
   };
 }
@@ -273,7 +297,83 @@ function PickCard({ pick, onClick }) {
   );
 }
 
-export default function Home({ stats, picks, matches, bankrollLog }) {
+// Mientras el partido está en vivo, consulta cada 8s el marcador real
+// (Rushbet primero, con set por set; tt.league-pro.com de respaldo si
+// Rushbet no tiene ese partido en su tablero en vivo). Deja de
+// consultar en cuanto el partido pasa a terminado.
+function MatchRow({ m }) {
+  const [live, setLive] = useState(null);
+
+  useEffect(() => {
+    if (m.status !== 'live') return undefined;
+    let cancelled = false;
+
+    async function poll() {
+      const params = new URLSearchParams();
+      if (m.playerA) params.set('playerA', m.playerA);
+      if (m.playerB) params.set('playerB', m.playerB);
+      if (m.tournamentId) params.set('tournamentId', m.tournamentId);
+      if (m.sourceId) params.set('matchId', m.sourceId);
+      try {
+        const res = await fetch(`/api/live-match?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setLive(data);
+      } catch (e) {
+        // silencioso — se queda con el último dato válido hasta el próximo intento
+      }
+    }
+
+    poll();
+    const interval = setInterval(poll, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [m.status, m.playerA, m.playerB, m.tournamentId, m.sourceId]);
+
+  const justFinished = live?.status === 'finished';
+  const label = justFinished || m.status === 'done' ? 'Finalizado' : m.status === 'live' ? 'En vivo' : 'Próximo';
+  const statusClass = justFinished ? 'done' : m.status;
+
+  let scoreNode = null;
+  if (live?.source === 'kambi' && (live.sets?.length || live.current)) {
+    const setsStr = (live.sets || []).map((s) => `${s.a}-${s.b}`).join(', ');
+    scoreNode = (
+      <div className="live-score">
+        {setsStr}
+        {live.status === 'live' && live.current ? (
+          <span className="live-current">{setsStr ? ' · ' : ''}{live.current.a}-{live.current.b}</span>
+        ) : null}
+      </div>
+    );
+  } else if (live?.source === 'tt' && live.scoreOne != null) {
+    scoreNode = <div className="live-score">{live.scoreOne}-{live.scoreTwo}</div>;
+  } else if (m.score) {
+    scoreNode = (
+      <div
+        className="live-score"
+        style={{ color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)', fontWeight: 700 }}
+      >
+        {m.score}
+      </div>
+    );
+  }
+
+  return (
+    <div className="match-row">
+      <div className="match-time num">{m.time}</div>
+      <div className="match-mid">
+        <div className="tour">{m.tournament}</div>
+        <div className="players">{m.players}</div>
+      </div>
+      {scoreNode}
+      <div className={`status ${statusClass}`}>{label}</div>
+    </div>
+  );
+}
+
+export default function Home({ stats, picks, matches, bankrollLog, currentDateStr, prevDateStr, nextDateStr, isToday }) {
   const [view, setView] = useState('inicio');
   const [dayFilter, setDayFilter] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
@@ -319,7 +419,7 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
         <nav className="top-nav">
           {navLink('inicio', 'Inicio')}
           {navLink('predicciones', 'Predicciones')}
-          {navLink('calendario', 'Calendario')}
+          {navLink('calendario', 'Resultados')}
           {navLink('bankroll', 'Bankroll')}
         </nav>
         <span className="badge18">+18 · Juega con cabeza</span>
@@ -428,37 +528,26 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
         </section>
 
         <section className={`view ${view === 'calendario' ? 'active' : ''}`}>
-          <span className="eyebrow">Agenda de partidos</span>
-          <h1 className="page-title">Calendario</h1>
-          <p className="page-sub">Próximos cruces de la Liga Pro Checa cubiertos por CAMILOREY.</p>
+          <span className="eyebrow">Resultados</span>
+          <h1 className="page-title">Resultados</h1>
+          <p className="page-sub">
+            Cruces de la Liga Pro Checa cubiertos por CAMILOREY. Los partidos en vivo se actualizan solos.
+          </p>
+          <div className="date-nav">
+            <a href={`?date=${prevDateStr}#calendario`} className="date-nav-btn">
+              ← Día anterior
+            </a>
+            <span className="date-nav-current">{isToday ? 'Hoy' : currentDateStr}</span>
+            <a href={`?date=${nextDateStr}#calendario`} className="date-nav-btn">
+              Día siguiente →
+            </a>
+          </div>
           <div>
-            {matches.map((m, i) => {
-              const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Próximo';
-              return (
-                <div className="match-row" key={i}>
-                  <div className="match-time num">{m.time}</div>
-                  <div className="match-mid">
-                    <div className="tour">{m.tournament}</div>
-                    <div className="players">{m.players}</div>
-                  </div>
-                  {m.score ? (
-                    <div
-                      className="num"
-                      style={{
-                        flex: 'none',
-                        width: '52px',
-                        textAlign: 'center',
-                        fontWeight: 700,
-                        color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)'
-                      }}
-                    >
-                      {m.score}
-                    </div>
-                  ) : null}
-                  <div className={`status ${m.status}`}>{label}</div>
-                </div>
-              );
-            })}
+            {matches.length === 0 ? (
+              <p className="page-sub">No hay partidos registrados para este día.</p>
+            ) : (
+              matches.map((m, i) => <MatchRow m={m} key={i} />)
+            )}
           </div>
         </section>
 
@@ -530,7 +619,7 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
             <rect x="3" y="5" width="18" height="16" rx="2" />
             <path d="M3 10h18M8 3v4M16 3v4" />
           </svg>
-          Calendario
+          Resultados
         </a>
         <a href="#bankroll" className={view === 'bankroll' ? 'active' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -825,6 +914,20 @@ const CSS = `
   .status.live{background:rgba(255,122,69,.16); color:#FFB088; border:1px solid rgba(255,122,69,.4);}
   .status.soon{background:var(--court-soft); color:#FAC7C7;}
   .status.done{background:var(--bg-alt); color:var(--muted);}
+
+  .live-score{
+    flex:none; font-family:var(--font-mono); font-size:12px; font-weight:700;
+    color:var(--muted); text-align:right; max-width:120px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .live-current{color:var(--ball); font-weight:800;}
+
+  .date-nav{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px;}
+  .date-nav-btn{
+    font-size:13px; font-weight:700; color:var(--court); text-decoration:none;
+    padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:var(--card);
+  }
+  .date-nav-current{font-family:var(--font-mono); font-size:13px; color:var(--ink); font-weight:600;}
 
   .bankroll-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:18px;}
   table.bk{width:100%; border-collapse:collapse; font-size:13.5px;}
