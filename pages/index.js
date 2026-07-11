@@ -338,7 +338,10 @@ function MatchRow({ m }) {
 
   let scoreNode = null;
   if (live?.source === 'kambi' && (live.sets?.length || live.current)) {
-    const setsStr = (live.sets || []).map((s) => `${s.a}-${s.b}`).join(', ');
+    // Solo los últimos 2 sets jugados + el actual — mostrar los 5
+    // posibles no cabe en una fila compacta.
+    const recentSets = live.sets && live.sets.length > 2 ? live.sets.slice(-2) : live.sets;
+    const setsStr = (recentSets || []).map((s) => `${s.a}-${s.b}`).join(', ');
     scoreNode = (
       <div className="live-score">
         {setsStr}
@@ -917,8 +920,7 @@ const CSS = `
 
   .live-score{
     flex:none; font-family:var(--font-mono); font-size:12px; font-weight:700;
-    color:var(--muted); text-align:right; max-width:120px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    color:var(--muted); text-align:right; max-width:180px; line-height:1.5;
   }
   .live-current{color:var(--ball); font-weight:800;}
 
