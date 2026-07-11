@@ -15,8 +15,23 @@
 // para cualquier partido que estemos trackeando.
 // ============================================================
 
+import { createClient } from '@supabase/supabase-js';
 import { fetchLiveTableTennis, findLiveEvent } from '../../lib/rushbet';
 import { fetchNuxtData } from '../../lib/tt';
+
+// Guarda el marcador set por set que ya tenemos en este momento, para
+// que sobreviva después de que el partido termine y desaparezca del
+// tablero en vivo de Rushbet. Best-effort: si falla, no rompe la
+// respuesta al navegador — el marcador en vivo sigue funcionando.
+async function persistSetScores(matchId, sets) {
+  if (!matchId || !sets || sets.length === 0) return;
+  try {
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    await supabase.from('matches').update({ set_scores: sets }).eq('source_id', matchId);
+  } catch (e) {
+    console.error('No se pudo guardar set_scores:', e.message);
+  }
+}
 
 export default async function handler(req, res) {
   const { playerA, playerB, tournamentId, matchId } = req.query;
@@ -38,6 +53,8 @@ export default async function handler(req, res) {
           : [];
         const scoreHome = Number(event.liveData?.score?.home ?? 0);
         const scoreAway = Number(event.liveData?.score?.away ?? 0);
+
+        if (matchId) await persistSetScores(matchId, sets);
 
         return res.status(200).json({
           source: 'kambi',

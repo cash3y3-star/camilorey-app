@@ -163,6 +163,7 @@ export async function getServerSideProps({ query }) {
       sourceId: m.source_id,
       status,
       score: status === 'done' && m.sets_a != null && m.sets_b != null ? `${m.sets_a}-${m.sets_b}` : null,
+      setScores: status === 'done' ? m.set_scores || null : null,
       pickResult: status === 'done' && (pickResult === 'hit' || pickResult === 'miss') ? pickResult : null
     };
   });
@@ -408,7 +409,26 @@ function MatchDetailModal({ m, onClose }) {
         ) : m.status === 'live' ? (
           <p className="page-sub">Buscando marcador en vivo…</p>
         ) : m.status === 'done' && m.score ? (
-          <div className="modal-market">Resultado final: {m.score}</div>
+          <>
+            <div className="modal-market">Resultado final: {m.score}</div>
+            {m.setScores && m.setScores.length > 0 ? (
+              <div className="live-sets-grid">
+                {m.setScores.map((s, i) => (
+                  <div className="live-set-col" key={i}>
+                    <div className="live-set-label">Set {i + 1}</div>
+                    <div className="live-set-score">
+                      {s.a}-{s.b}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="page-sub">
+                No tenemos el detalle punto a punto de este partido — solo se guarda para los que alguien vio en vivo
+                mientras se jugaban.
+              </p>
+            )}
+          </>
         ) : (
           <p className="page-sub">Este partido todavía no empieza.</p>
         )}
