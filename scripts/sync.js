@@ -27,6 +27,10 @@ const supabase = createClient(
 );
 
 const BASE = 'https://tt.league-pro.com';
+// Las fotos de jugadores no viven en el dominio principal, sino en
+// este subdominio de API (confirmado inspeccionando las URLs reales
+// que renderiza el sitio, ej. src="/_ipx/f_webp/https://api.league-pro.com/...").
+const MEDIA_BASE = 'https://api.league-pro.com';
 
 // Nuxt serializa el payload como un array plano: cada objeto/array
 // referencia a otros valores por su índice en ese mismo array (para
@@ -86,7 +90,7 @@ async function upsertPlayer(player, rating) {
     id: player.id,
     name: playerName(player),
     rating: rating ?? null,
-    avatar_url: player.avatar ? `${BASE}${player.avatar}` : null,
+    avatar_url: player.avatar ? `${MEDIA_BASE}${player.avatar}` : null,
     updated_at: new Date()
   });
   if (error) throw new Error(`upsert players(${player.id}): ${error.message}`);
