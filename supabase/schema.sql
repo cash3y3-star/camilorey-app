@@ -5,7 +5,7 @@
 create table if not exists players (
   id           bigint primary key,          -- id del jugador en tt.league-pro.com
   name         text not null,
-  rating       int,
+  rating       numeric,
   league_range text,                        -- ej. "800-900"
   updated_at   timestamptz default now()
 );

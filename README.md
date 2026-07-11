@@ -9,7 +9,10 @@ el siguiente paso, una vez esta parte esté corriendo.
 ## Paso 1 — Supabase
 1. Entra a tu proyecto en supabase.com
 2. Ve a "SQL Editor" → pega el contenido de `supabase/schema.sql` → Run
-3. Ve a "Project Settings" → "API" y copia:
+3. Corre también las migraciones en orden (`supabase/migration_001_...sql`,
+   `migration_002_...sql`) — cada una tiene un comentario arriba explicando
+   qué arregla.
+4. Ve a "Project Settings" → "API" y copia:
    - `Project URL`
    - `service_role key` (no la "anon", esa no sirve para escribir datos)
 
