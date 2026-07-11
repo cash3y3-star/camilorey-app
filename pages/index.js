@@ -51,14 +51,25 @@ export async function getServerSideProps() {
     return (data || []).map((m) => (m.winner_id === playerId ? 1 : 0)).reverse();
   }
 
+  // Un pick "pending" cuyo partido ya debería haberse jugado hace rato
+  // es casi seguro un residuo que el sync todavía no cerró (o de antes
+  // de que existiera el cierre hit/miss) — no lo mostramos como si
+  // fuera un pick vigente.
+  const STALE_THRESHOLD_MS = 2 * 3600 * 1000;
+
   const picks = [];
   for (const pick of pendingPicks || []) {
     const match = matchesById.get(pick.match_id);
     if (!match) continue;
+    if (match.scheduled_at && Date.now() - new Date(match.scheduled_at).getTime() > STALE_THRESHOLD_MS) continue;
     const playerA = playersById.get(match.player_a_id);
     const playerB = playersById.get(match.player_b_id);
     const favored = playersById.get(pick.predicted_winner_id);
     const opponent = pick.predicted_winner_id === match.player_a_id ? playerB : playerA;
+    // Si falta cualquiera de los dos jugadores, es un pick con datos
+    // incompletos (probablemente de antes del cierre hit/miss) — mejor
+    // no mostrarlo que mostrar una tarjeta rota.
+    if (!favored || !opponent) continue;
     const tournament = tournamentsById.get(match.tournament_id);
 
     picks.push({

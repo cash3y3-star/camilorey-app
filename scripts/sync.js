@@ -281,16 +281,46 @@ async function syncTournamentMatches(t, widgets) {
 async function run() {
   console.log('Leyendo tt.league-pro.com...');
   const home = await fetchNuxtData('/en');
-  // Nota: esta lista trae los torneos más recientes/próximos (la
-  // misma ventana que se ve en la portada). Si más adelante hace
-  // falta cubrir todo el calendario, se puede paginar /en/tournaments.
-  const tournaments = home['main-page-tournaments']?.items || [];
-  console.log(`Torneos encontrados: ${tournaments.length}`);
+  // La portada solo trae los torneos más recientes/próximos. Si un
+  // torneo con picks todavía pendientes se sale de esa ventana antes
+  // de terminar, hay que seguir revisándolo explícitamente — si no,
+  // esos picks se quedan huérfanos en 'pending' para siempre.
+  const homeTournamentIds = (home['main-page-tournaments']?.items || []).map((t) => t.id);
+
+  const { data: pendingPickRows, error: ppErr } = await supabase.from('picks').select('match_id').eq('result', 'pending');
+  if (ppErr) throw new Error(`select picks (pending): ${ppErr.message}`);
+  const pendingMatchIds = [...new Set((pendingPickRows || []).map((p) => p.match_id))];
+
+  let pendingTournamentIds = [];
+  if (pendingMatchIds.length) {
+    const { data: pendingMatchRows, error: pmErr } = await supabase
+      .from('matches')
+      .select('tournament_id')
+      .in('id', pendingMatchIds);
+    if (pmErr) throw new Error(`select matches (pending tournaments): ${pmErr.message}`);
+    pendingTournamentIds = [...new Set((pendingMatchRows || []).map((m) => m.tournament_id).filter(Boolean))];
+  }
+
+  const tournamentIds = [...new Set([...homeTournamentIds, ...pendingTournamentIds])];
+  console.log(
+    `Torneos a revisar: ${tournamentIds.length} (${homeTournamentIds.length} de portada, ${pendingTournamentIds.length} con picks pendientes)`
+  );
 
   const totals = { matchesProcessed: 0, picksGenerated: 0, picksResolved: 0, tournamentsUpdated: 0 };
 
-  for (const t of tournaments) {
+  for (const id of tournamentIds) {
     try {
+      const detail = await fetchNuxtData(`/en/tournaments/${id}`);
+      const pageData = detail['tournament-page']?.pageData;
+      if (!pageData) continue;
+
+      const t = {
+        id: pageData.tournament.id,
+        name_en: pageData.tournament.name_en,
+        start_at: pageData.tournament.start_date,
+        sides: pageData.widgets.sides
+      };
+
       const finished = isTournamentFinished(t);
       const winnerSide = finished ? tournamentWinnerSide(t) : null;
 
@@ -310,16 +340,12 @@ async function run() {
       if (tErr) throw new Error(`upsert tournaments(${t.id}): ${tErr.message}`);
       totals.tournamentsUpdated++;
 
-      const detail = await fetchNuxtData(`/en/tournaments/${t.id}`);
-      const widgets = detail['tournament-page']?.pageData?.widgets;
-      if (!widgets) continue;
-
-      const result = await syncTournamentMatches(t, widgets);
+      const result = await syncTournamentMatches(t, pageData.widgets);
       totals.matchesProcessed += result.matchesProcessed;
       totals.picksGenerated += result.picksGenerated;
       totals.picksResolved += result.picksResolved;
     } catch (e) {
-      console.error(`Error procesando torneo ${t.id}: ${e.message}`);
+      console.error(`Error procesando torneo ${id}: ${e.message}`);
     }
   }
 
