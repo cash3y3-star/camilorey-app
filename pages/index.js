@@ -351,8 +351,11 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
             <div className="featured">
               <div className="rally-wrap">
                 {featured.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={featured.avatarUrl} alt="" referrerPolicy="no-referrer" />
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={featured.avatarUrl} alt="" referrerPolicy="no-referrer" />
+                    <div className="rally-fade"></div>
+                  </>
                 ) : (
                   <>
                     <svg viewBox="0 0 200 110">
@@ -705,12 +708,12 @@ const CSS = `
     background:radial-gradient(circle, rgba(226,68,74,.22), transparent 70%);
     pointer-events:none;
   }
-  .rally-wrap{position:absolute; right:0; top:0; width:260px; height:190px; pointer-events:none;}
+  .rally-wrap{position:absolute; right:0; top:0; width:260px; height:190px; pointer-events:none; overflow:hidden;}
   .rally-wrap svg{width:100%; height:100%; opacity:.65;}
-  .rally-wrap img{
-    width:100%; height:100%; object-fit:cover; object-position:center 20%;
-    -webkit-mask-image:linear-gradient(120deg, transparent 0%, black 42%);
-    mask-image:linear-gradient(120deg, transparent 0%, black 42%);
+  .rally-wrap img{width:100%; height:100%; object-fit:cover; object-position:center 20%; display:block;}
+  .rally-fade{
+    position:absolute; inset:0;
+    background:linear-gradient(100deg, #14100F 0%, rgba(20,16,15,.85) 22%, rgba(20,16,15,.35) 45%, transparent 68%);
   }
   .rally-ball{
     position:absolute; width:9px; height:9px; border-radius:50%;
