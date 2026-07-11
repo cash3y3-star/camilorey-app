@@ -22,6 +22,7 @@ const { computeStake } = require('../lib/staking');
 const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 const { ensureAvatarCutout } = require('../lib/avatarCutout');
 const { fetchNuxtData } = require('../lib/tt');
+const { fetchRecentFinishedEvents, findSetScores } = require('../lib/sofascore');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -186,7 +187,7 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
 }
 
-async function syncTournamentMatches(t, widgets, rushbetEvents) {
+async function syncTournamentMatches(t, widgets, rushbetEvents, sofascoreEvents) {
   const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
   let matchesProcessed = 0;
   let picksGenerated = 0;
@@ -214,6 +215,11 @@ async function syncTournamentMatches(t, widgets, rushbetEvents) {
         : sideB.player.id
       : null;
 
+    // Set por set desde Sofascore — solo tiene sentido buscarlo una
+    // vez que el partido ya terminó (antes no está en su listado de
+    // finalizados todavía).
+    const setScores = played ? findSetScores(sofascoreEvents, playerName(sideA.player), playerName(sideB.player)) : null;
+
     const { data: matchRow, error: mErr } = await supabase
       .from('matches')
       .upsert(
@@ -227,7 +233,8 @@ async function syncTournamentMatches(t, widgets, rushbetEvents) {
           sets_a: played ? match.results.score_one : null,
           sets_b: played ? match.results.score_two : null,
           winner_id: winnerId,
-          raw_data: match
+          raw_data: match,
+          ...(setScores ? { set_scores: setScores } : {})
         },
         { onConflict: 'source_id' }
       )
@@ -323,6 +330,17 @@ async function run() {
     console.error(`No se pudieron leer las cuotas de Rushbet: ${e.message}`);
   }
 
+  // Set por set de partidos ya terminados — Sofascore, una sola
+  // llamada por corrida. Si falla, seguimos sin ese detalle en vez de
+  // tronar toda la corrida.
+  let sofascoreEvents = [];
+  try {
+    sofascoreEvents = await fetchRecentFinishedEvents();
+    console.log(`Partidos terminados leídos de Sofascore: ${sofascoreEvents.length}`);
+  } catch (e) {
+    console.error(`No se pudo leer Sofascore: ${e.message}`);
+  }
+
   const totals = { matchesProcessed: 0, picksGenerated: 0, picksResolved: 0, tournamentsUpdated: 0 };
 
   for (const id of tournamentIds) {
@@ -359,7 +377,7 @@ async function run() {
       if (tErr) throw new Error(`upsert tournaments(${t.id}): ${tErr.message}`);
       totals.tournamentsUpdated++;
 
-      const result = await syncTournamentMatches(t, pageData.widgets, rushbetEvents);
+      const result = await syncTournamentMatches(t, pageData.widgets, rushbetEvents, sofascoreEvents);
       totals.matchesProcessed += result.matchesProcessed;
       totals.picksGenerated += result.picksGenerated;
       totals.picksResolved += result.picksResolved;
