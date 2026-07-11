@@ -299,14 +299,41 @@ async function syncTournamentMatches(t, widgets, rushbetEvents) {
   return { matchesProcessed, picksGenerated, picksResolved };
 }
 
+// La portada (main-page-tournaments) solo muestra lo "reciente" — no
+// alcanza a ver un torneo hasta que ya casi va a empezar o ya empezó,
+// lo cual es demasiado tarde para un pick pre-partido de verdad. El
+// listado completo (/en/tournaments) sí publica el calendario con
+// horas de anticipación (confirmado: a la 1pm Colombia ya se ven ahí
+// los torneos de las 18:00 UTC con status 1, sin empezar). Paginamos
+// ese listado y nos quedamos con los que caen en nuestra ventana de
+// interés (recientes + próximas unas horas).
+async function fetchUpcomingTournamentIds() {
+  const now = Date.now();
+  const TRAILING_MS = 3 * 3600 * 1000;
+  const LOOKAHEAD_MS = 6 * 3600 * 1000;
+  const dateFrom = new Date(now).toISOString().slice(0, 10);
+  const dateTo = new Date(now + 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+  const ids = [];
+  for (let page = 1; page <= 10; page++) {
+    const data = await fetchNuxtData(`/en/tournaments?date_from=${dateFrom}&date_to=${dateTo}&page=${page}`);
+    const items = data['tournaments-page-data']?.tournaments?.items || [];
+    if (items.length === 0) break;
+
+    for (const t of items) {
+      const startMs = new Date(t.start_at).getTime();
+      if (startMs >= now - TRAILING_MS && startMs <= now + LOOKAHEAD_MS) ids.push(t.id);
+    }
+
+    const lastStart = new Date(items[items.length - 1].start_at).getTime();
+    if (lastStart > now + LOOKAHEAD_MS) break;
+  }
+  return ids;
+}
+
 async function run() {
   console.log('Leyendo tt.league-pro.com...');
-  const home = await fetchNuxtData('/en');
-  // La portada solo trae los torneos más recientes/próximos. Si un
-  // torneo con picks todavía pendientes se sale de esa ventana antes
-  // de terminar, hay que seguir revisándolo explícitamente — si no,
-  // esos picks se quedan huérfanos en 'pending' para siempre.
-  const homeTournamentIds = (home['main-page-tournaments']?.items || []).map((t) => t.id);
+  const upcomingTournamentIds = await fetchUpcomingTournamentIds();
 
   const { data: pendingPickRows, error: ppErr } = await supabase.from('picks').select('match_id').eq('result', 'pending');
   if (ppErr) throw new Error(`select picks (pending): ${ppErr.message}`);
@@ -322,9 +349,9 @@ async function run() {
     pendingTournamentIds = [...new Set((pendingMatchRows || []).map((m) => m.tournament_id).filter(Boolean))];
   }
 
-  const tournamentIds = [...new Set([...homeTournamentIds, ...pendingTournamentIds])];
+  const tournamentIds = [...new Set([...upcomingTournamentIds, ...pendingTournamentIds])];
   console.log(
-    `Torneos a revisar: ${tournamentIds.length} (${homeTournamentIds.length} de portada, ${pendingTournamentIds.length} con picks pendientes)`
+    `Torneos a revisar: ${tournamentIds.length} (${upcomingTournamentIds.length} en ventana ±horas, ${pendingTournamentIds.length} con picks pendientes)`
   );
 
   // Cuotas reales de Rushbet — una sola llamada por corrida. Si el
