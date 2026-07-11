@@ -297,11 +297,38 @@ function PickCard({ pick, onClick }) {
   );
 }
 
-// Mientras el partido está en vivo, consulta cada 8s el marcador real
-// (Rushbet primero, con set por set; tt.league-pro.com de respaldo si
-// Rushbet no tiene ese partido en su tablero en vivo). Deja de
-// consultar en cuanto el partido pasa a terminado.
-function MatchRow({ m }) {
+// Fila simple — el marcador en vivo ya no se consulta acá (sería una
+// consulta de red por fila, cada 8s, para cada partido en vivo a la
+// vez). Se consulta solo para el partido que el usuario abre en el
+// modal de detalle, ver MatchDetailModal.
+function MatchRow({ m, onClick }) {
+  const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Próximo';
+
+  return (
+    <div className="match-row" onClick={onClick} style={{ cursor: 'pointer' }}>
+      <div className="match-time num">{m.time}</div>
+      <div className="match-mid">
+        <div className="tour">{m.tournament}</div>
+        <div className="players">{m.players}</div>
+      </div>
+      {m.status === 'done' && m.score ? (
+        <div
+          className="live-score"
+          style={{ color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)', fontWeight: 700 }}
+        >
+          {m.score}
+        </div>
+      ) : null}
+      <div className={`status ${m.status}`}>{label}</div>
+    </div>
+  );
+}
+
+// Modal de detalle de un partido. Solo mientras está abierto (y solo
+// si el partido sigue en vivo) consulta cada 8s el marcador real —
+// primero contra Rushbet (set por set + reloj), y si no lo tiene,
+// contra tt.league-pro.com directo.
+function MatchDetailModal({ m, onClose }) {
   const [live, setLive] = useState(null);
 
   useEffect(() => {
@@ -332,54 +359,70 @@ function MatchRow({ m }) {
     };
   }, [m.status, m.playerA, m.playerB, m.tournamentId, m.sourceId]);
 
-  const justFinished = live?.status === 'finished';
-  const label = justFinished || m.status === 'done' ? 'Finalizado' : m.status === 'live' ? 'En vivo' : 'Próximo';
-  const statusClass = justFinished ? 'done' : m.status;
-
-  let scoreNode = null;
-  if (live?.source === 'kambi' && (live.sets?.length || live.current)) {
-    // Solo los últimos 2 sets jugados + el actual — mostrar los 5
-    // posibles no cabe en una fila compacta.
-    const recentSets = live.sets && live.sets.length > 2 ? live.sets.slice(-2) : live.sets;
-    const setsStr = (recentSets || []).map((s) => `${s.a}-${s.b}`).join(', ');
-    scoreNode = (
-      <div className="live-score">
-        {setsStr}
-        {live.status === 'live' && live.current ? (
-          <span className="live-current">{setsStr ? ' · ' : ''}{live.current.a}-{live.current.b}</span>
-        ) : null}
-      </div>
-    );
-  } else if (live?.source === 'tt' && live.scoreOne != null) {
-    scoreNode = <div className="live-score">{live.scoreOne}-{live.scoreTwo}</div>;
-  } else if (m.score) {
-    scoreNode = (
-      <div
-        className="live-score"
-        style={{ color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)', fontWeight: 700 }}
-      >
-        {m.score}
-      </div>
-    );
-  }
+  const nowFinished = live?.status === 'finished';
 
   return (
-    <div className="match-row">
-      <div className="match-time num">{m.time}</div>
-      <div className="match-mid">
-        <div className="tour">{m.tournament}</div>
-        <div className="players">{m.players}</div>
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal">
+        <div className="modal-head">
+          <div>
+            <div className="sub">
+              {m.tournament} · {m.time}
+            </div>
+            <h3>{m.players}</h3>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        {nowFinished ? (
+          <div className="modal-market">Partido terminado — recarga la página para ver el resultado final.</div>
+        ) : m.status === 'live' && live?.source === 'kambi' ? (
+          <>
+            {live.clock ? (
+              <div className="live-clock">
+                ⏱ {live.clock.minute}:{String(live.clock.second).padStart(2, '0')}
+                {live.clock.running ? ' · corriendo' : ' · pausado'}
+              </div>
+            ) : null}
+            <div className="live-sets-grid">
+              {(live.sets || []).map((s, i) => (
+                <div className="live-set-col" key={i}>
+                  <div className="live-set-label">Set {i + 1}</div>
+                  <div className="live-set-score">
+                    {s.a}-{s.b}
+                  </div>
+                </div>
+              ))}
+              {live.current ? (
+                <div className="live-set-col current">
+                  <div className="live-set-label">Ahora</div>
+                  <div className="live-set-score">
+                    {live.current.a}-{live.current.b}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : m.status === 'live' ? (
+          <p className="page-sub">Buscando marcador en vivo…</p>
+        ) : m.status === 'done' && m.score ? (
+          <div className="modal-market">Resultado final: {m.score}</div>
+        ) : (
+          <p className="page-sub">Este partido todavía no empieza.</p>
+        )}
       </div>
-      {scoreNode}
-      <div className={`status ${statusClass}`}>{label}</div>
     </div>
   );
 }
 
-export default function Home({ stats, picks, matches, bankrollLog, currentDateStr, prevDateStr, nextDateStr, isToday }) {
+export default function Home({ stats, picks, matches, bankrollLog }) {
   const [view, setView] = useState('inicio');
   const [dayFilter, setDayFilter] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
+  const [modalMatch, setModalMatch] = useState(null);
+  const [resultsFilter, setResultsFilter] = useState(matches.some((m) => m.status === 'live') ? 'en-vivo' : 'proximos');
 
   useEffect(() => {
     const fromHash = () => {
@@ -534,23 +577,29 @@ export default function Home({ stats, picks, matches, bankrollLog, currentDateSt
           <span className="eyebrow">Resultados</span>
           <h1 className="page-title">Resultados</h1>
           <p className="page-sub">
-            Cruces de la Liga Pro Checa cubiertos por CAMILOREY. Los partidos en vivo se actualizan solos.
+            Cruces de la Liga Pro Checa cubiertos por CAMILOREY. Toca un partido en vivo para ver el marcador set por
+            set en tiempo real.
           </p>
-          <div className="date-nav">
-            <a href={`?date=${prevDateStr}#calendario`} className="date-nav-btn">
-              ← Día anterior
-            </a>
-            <span className="date-nav-current">{isToday ? 'Hoy' : currentDateStr}</span>
-            <a href={`?date=${nextDateStr}#calendario`} className="date-nav-btn">
-              Día siguiente →
-            </a>
+          <div className="tabs">
+            {[
+              ['finalizados', 'Finalizados'],
+              ['en-vivo', 'En vivo'],
+              ['proximos', 'Próximos']
+            ].map(([key, label]) => (
+              <div key={key} className={`tab ${resultsFilter === key ? 'active' : ''}`} onClick={() => setResultsFilter(key)}>
+                {label}
+              </div>
+            ))}
           </div>
           <div>
-            {matches.length === 0 ? (
-              <p className="page-sub">No hay partidos registrados para este día.</p>
-            ) : (
-              matches.map((m, i) => <MatchRow m={m} key={i} />)
-            )}
+            {(() => {
+              const statusKey = resultsFilter === 'finalizados' ? 'done' : resultsFilter === 'en-vivo' ? 'live' : 'soon';
+              const filtered = matches.filter((m) => m.status === statusKey);
+              if (filtered.length === 0) {
+                return <p className="page-sub">No hay partidos en esta categoría ahora mismo.</p>;
+              }
+              return filtered.map((m, i) => <MatchRow m={m} key={i} onClick={() => setModalMatch(m)} />);
+            })()}
           </div>
         </section>
 
@@ -693,6 +742,8 @@ export default function Home({ stats, picks, matches, bankrollLog, currentDateSt
           </div>
         </div>
       )}
+
+      {modalMatch && <MatchDetailModal m={modalMatch} onClose={() => setModalMatch(null)} />}
     </>
   );
 }
@@ -930,6 +981,18 @@ const CSS = `
     padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:var(--card);
   }
   .date-nav-current{font-family:var(--font-mono); font-size:13px; color:var(--ink); font-weight:600;}
+
+  .live-clock{
+    font-family:var(--font-mono); font-size:13px; color:var(--ball); font-weight:700;
+    margin:12px 0 4px;
+  }
+  .live-sets-grid{display:flex; flex-wrap:wrap; gap:10px; margin:12px 0;}
+  .live-set-col{
+    background:var(--bg-alt); border-radius:10px; padding:10px 14px; text-align:center; min-width:64px;
+  }
+  .live-set-col.current{background:var(--court-soft); border:1px solid rgba(226,68,74,.45);}
+  .live-set-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;}
+  .live-set-score{font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--ink);}
 
   .bankroll-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:18px;}
   table.bk{width:100%; border-collapse:collapse; font-size:13.5px;}
