@@ -1,7 +1,6 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { computeStake } from '../lib/staking';
 
 const VIEWS = ['inicio', 'predicciones', 'calendario', 'bankroll'];
 const AVATAR_COLORS = ['#E2444A', '#FF7A45', '#A32D2D', '#D85A30', '#C23B4C', '#B84A2E'];
@@ -82,7 +81,7 @@ export async function getServerSideProps() {
       tournament: tournament?.name || 'Torneo',
       market: pick.market,
       confidence: Math.round(pick.confidence),
-      units: computeStake(pick.confidence),
+      odds: pick.odds ? Number(pick.odds) : null,
       analysis: buildAnalysis(pick.factors),
       history: await recentForm(pick.predicted_winner_id)
     });
@@ -171,13 +170,14 @@ export async function getServerSideProps() {
     else break;
   }
 
-  const unidadProm = picks.length
-    ? Math.round((picks.reduce((sum, p) => sum + p.units, 0) / picks.length) * 10) / 10
-    : 0;
+  const picksWithOdds = picks.filter((p) => p.odds);
+  const cuotaProm = picksWithOdds.length
+    ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
+    : null;
 
   return {
     props: {
-      stats: { efectividad, racha, unidadProm },
+      stats: { efectividad, racha, cuotaProm },
       picks,
       matches,
       bankrollLog
@@ -247,7 +247,7 @@ function PickCard({ pick, onClick }) {
           <span className="dot"></span>
           <span className="val num">{pick.confidence}%</span>
         </div>
-        <div className="odd-mini num">{pick.units.toFixed(1)}u</div>
+        <div className="odd-mini num">{pick.odds ? pick.odds.toFixed(2) : 'N/D'}</div>
       </div>
     </div>
   );
@@ -323,8 +323,8 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">Unidades prom.</div>
-              <div className="value num">{stats.unidadProm.toFixed(1)}u</div>
+              <div className="label">Cuota prom.</div>
+              <div className="value num">{stats.cuotaProm ? stats.cuotaProm.toFixed(2) : '—'}</div>
             </div>
           </div>
 
@@ -347,7 +347,7 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
               </div>
               <div className="market">{featured.market}</div>
               <div className="foot">
-                <span className="odd-pill num">{featured.units.toFixed(1)}u</span>
+                <span className="odd-pill num">{featured.odds ? featured.odds.toFixed(2) : 'Cuota N/D'}</span>
                 <button className="btn btn-ball" onClick={() => setModalPick(featured)}>
                   Ver análisis →
                 </button>
@@ -421,9 +421,9 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
           <div className="bankroll-card">
             <strong>¿Cómo se mide?</strong>
             <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6' }}>
-              Cada pick arriesga entre 0.5u y 2u según la confianza del modelo (ver lib/staking.js) — no hay cuotas
-              reales del sitio, así que esto es una convención propia para comparar rendimiento, no una apuesta real.
-              Ajusta siempre el tamaño de tus apuestas a lo que puedas permitirte perder.
+              Cada pick arriesga entre 0.5u y 2u según la confianza del modelo (ver lib/staking.js). El pago sí usa
+              la cuota real de Rushbet cuando logramos cruzar el partido en su feed; si no la encontramos, se calcula
+              1:1. Ajusta siempre el tamaño de tus apuestas a lo que puedas permitirte perder.
             </p>
           </div>
 
@@ -515,8 +515,8 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
                 <div className="v num">{modalPick.confidence}%</div>
               </div>
               <div className="kpi">
-                <div className="l">Unidades</div>
-                <div className="v num">{modalPick.units.toFixed(1)}u</div>
+                <div className="l">Cuota (Rushbet)</div>
+                <div className="v num">{modalPick.odds ? modalPick.odds.toFixed(2) : 'No disponible'}</div>
               </div>
             </div>
 

@@ -19,6 +19,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { computeConfidence } = require('../lib/confidence');
 const { computeStake } = require('../lib/staking');
+const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -147,7 +148,7 @@ async function getH2H(playerAId, playerBId) {
 async function resolvePick(matchRow) {
   const { data: pick, error } = await supabase
     .from('picks')
-    .select('id, confidence, predicted_winner_id, result')
+    .select('id, confidence, predicted_winner_id, result, odds')
     .eq('match_id', matchRow.id)
     .maybeSingle();
   if (error) throw new Error(`select picks(match_id=${matchRow.id}): ${error.message}`);
@@ -169,8 +170,11 @@ async function resolvePick(matchRow) {
     .maybeSingle();
   if (lastErr) throw new Error(`select bankroll_log: ${lastErr.message}`);
 
+  // El tamaño de la apuesta sigue siendo nuestra convención (según
+  // confianza); el pago sí usa la cuota real de Rushbet cuando la
+  // tenemos — si no, cae al viejo esquema simétrico 1:1.
   const stake = computeStake(pick.confidence);
-  const units = hit ? stake : -stake;
+  const units = hit ? (pick.odds ? stake * (pick.odds - 1) : stake) : -stake;
   const balance = (last?.balance || 0) + units;
 
   const { error: logErr } = await supabase.from('bankroll_log').insert({
@@ -183,7 +187,7 @@ async function resolvePick(matchRow) {
   return hit ? 'hit' : 'miss';
 }
 
-async function generatePick(matchRow, sideA, sideB) {
+async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
   const [streakA, streakB, h2h] = await Promise.all([
     getRecentStreak(sideA.player.id),
     getRecentStreak(sideB.player.id),
@@ -206,18 +210,25 @@ async function generatePick(matchRow, sideA, sideB) {
   const favored = rawConfidence >= 70 ? sideA.player : sideB.player;
   const pickConfidence = rawConfidence >= 70 ? rawConfidence : 140 - rawConfidence;
 
+  // Cuota real de Rushbet si logramos cruzar el partido por nombre+hora
+  // en su feed de "Liga Pro checa" — queda null si no hay match (no
+  // bloquea la generación del pick).
+  const odds = findOdds(rushbetEvents, playerName(sideA.player), playerName(sideB.player), matchRow.scheduled_at);
+  const favoredOdds = odds ? (favored.id === sideA.player.id ? odds.oddsA : odds.oddsB) : null;
+
   const { error } = await supabase.from('picks').insert({
     match_id: matchRow.id,
     market: `${playerName(favored)} gana`,
     confidence: pickConfidence,
     factors,
     predicted_winner_id: favored.id,
+    odds: favoredOdds,
     result: 'pending'
   });
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
 }
 
-async function syncTournamentMatches(t, widgets) {
+async function syncTournamentMatches(t, widgets, rushbetEvents) {
   const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
   let matchesProcessed = 0;
   let picksGenerated = 0;
@@ -281,7 +292,7 @@ async function syncTournamentMatches(t, widgets) {
     if (pErr) throw new Error(`select picks(match_id=${matchRow.id}): ${pErr.message}`);
     if (existingPick) continue;
 
-    await generatePick(matchRow, sideA, sideB);
+    await generatePick(matchRow, sideA, sideB, rushbetEvents);
     picksGenerated++;
   }
 
@@ -315,6 +326,17 @@ async function run() {
   console.log(
     `Torneos a revisar: ${tournamentIds.length} (${homeTournamentIds.length} de portada, ${pendingTournamentIds.length} con picks pendientes)`
   );
+
+  // Cuotas reales de Rushbet — una sola llamada por corrida. Si el
+  // feed falla (o Rushbet cambia algo), seguimos sin cuotas en vez de
+  // tronar toda la corrida por esto.
+  let rushbetEvents = [];
+  try {
+    rushbetEvents = await fetchLigaProChecaOdds();
+    console.log(`Cuotas de Rushbet leídas: ${rushbetEvents.length} partidos de Liga Pro checa`);
+  } catch (e) {
+    console.error(`No se pudieron leer las cuotas de Rushbet: ${e.message}`);
+  }
 
   const totals = { matchesProcessed: 0, picksGenerated: 0, picksResolved: 0, tournamentsUpdated: 0 };
 
@@ -350,7 +372,7 @@ async function run() {
       if (tErr) throw new Error(`upsert tournaments(${t.id}): ${tErr.message}`);
       totals.tournamentsUpdated++;
 
-      const result = await syncTournamentMatches(t, pageData.widgets);
+      const result = await syncTournamentMatches(t, pageData.widgets, rushbetEvents);
       totals.matchesProcessed += result.matchesProcessed;
       totals.picksGenerated += result.picksGenerated;
       totals.picksResolved += result.picksResolved;

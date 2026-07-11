@@ -9,9 +9,9 @@ reales de Supabase.
 ## Paso 1 — Supabase
 1. Entra a tu proyecto en supabase.com
 2. Ve a "SQL Editor" → pega el contenido de `supabase/schema.sql` → Run
-3. Corre también las migraciones en orden (`supabase/migration_001_...sql`,
-   `migration_002_...sql`, `migration_003_...sql`) — cada una tiene un
-   comentario arriba explicando qué arregla.
+3. Corre también las migraciones en orden (`migration_001` a
+   `migration_004`) — cada una tiene un comentario arriba explicando
+   qué arregla.
 4. Ve a "Project Settings" → "API" y copia:
    - `Project URL`
    - `service_role key` (no la "anon", esa no sirve para escribir datos)
@@ -34,12 +34,35 @@ gratis y sin límite de frecuencia razonable.
 ## El frontend (`pages/index.js`)
 Es una sola página (Inicio / Predicciones / Calendario / Bankroll) que
 trae los datos con `getServerSideProps` en cada visita — siempre
-muestra lo último que dejó el último sync, sin caché. El diseño
-(`index.html` original) no tenía cuotas reales de mercado porque el
-sitio no las publica; donde antes decía "cuota" ahora se muestra la
-apuesta en unidades (`lib/staking.js`). El análisis de cada pick se
-arma en texto a partir de los factores reales de `lib/confidence.js`
-(rating, racha, cruce directo) — no hay texto inventado.
+muestra lo último que dejó el último sync, sin caché. Muestra la cuota
+real de Rushbet cuando la encontramos (ver abajo); si no, dice "N/D".
+El análisis de cada pick se arma en texto a partir de los factores
+reales de `lib/confidence.js` (rating, racha, cruce directo) — no hay
+texto inventado.
+
+## Cuotas reales (`lib/rushbet.js`)
+Rushbet (la casa con licencia Coljuegos en Colombia — concesión
+C1972) corre sobre la plataforma Kambi, que expone su tablero de
+cuotas en un JSON público sin login:
+
+```
+https://us.offering-api.kambicdn.com/offering/v2018/rsico/listView/table_tennis.json
+```
+
+De ahí filtramos el grupo `"Liga Pro checa"` (la misma liga que
+tt.league-pro.com) y cruzamos cada partido por nombre de jugador +
+hora contra nuestros propios partidos. El cruce por nombre es *best
+effort*: tt.league-pro.com da los nombres como "Apellido Inicial"
+(ej. "Levicky M") y Rushbet como "Nombre Apellido" (ej. "Matej
+Levicky") — `lib/rushbet.js` normaliza ambos a apellido+inicial para
+compararlos, pero apellidos compuestos pueden fallar el cruce. Cuando
+no encontramos el partido, el pick se genera igual, solo que sin
+cuota (`picks.odds = null`).
+
+**Deliberadamente NO usamos 1xBet**: no tiene licencia de Coljuegos
+en Colombia (solo licencia de Curaçao) y solo es alcanzable por
+dominios "espejo" no oficiales — no vamos a construir scraping
+apuntado a eso.
 
 ## Cómo se sincronizan los datos
 `scripts/sync.js` corre cada 30 min vía GitHub Actions
@@ -54,10 +77,11 @@ arma en texto a partir de los factores reales de `lib/confidence.js`
    sobreescriben entre corridas). Si el partido ya tiene resultado
    real, lo cierra: marca `matches.status = 'finished'`, resuelve el
    pick contra el ganador real (`picks.result = 'hit' | 'miss'`) y
-   registra la apuesta sintética en `bankroll_log` (unidades según
-   `lib/staking.js`, escaladas por la confianza del pick).
+   registra la apuesta en `bankroll_log` — unidades arriesgadas según
+   `lib/staking.js` (escaladas por confianza), pago según la cuota
+   real de Rushbet si la tenemos, si no 1:1.
 3. Si el partido todavía no se juega y no tiene pick, genera uno con
-   `lib/confidence.js`.
+   `lib/confidence.js` y le busca cuota real en `lib/rushbet.js`.
 
 Puedes disparar una corrida manual desde GitHub → Actions → "Sync
 CAMILOREY picks" → "Run workflow", y revisar los logs ahí mismo.
@@ -73,10 +97,16 @@ CAMILOREY picks" → "Run workflow", y revisar los logs ahí mismo.
    acumular resultados reales, y ahí sí medir el acierto real — no
    antes.
 
-3. **El staking es una convención nuestra, no una cuota real** — el
-   sitio no publica momios. `lib/staking.js` escala unidades entre 0.5
-   y 2 según la confianza del pick; es un punto de partida, ajustable
-   cuando haya más historial.
+3. **El tamaño de la apuesta sigue siendo convención nuestra** —
+   `lib/staking.js` escala unidades entre 0.5 y 2 según la confianza
+   del pick, eso no viene de ningún lado externo. Lo que sí es real es
+   la cuota (cuando el cruce con Rushbet funciona) y por lo tanto el
+   pago de cada apuesta resuelta.
+
+4. **El cruce de nombres con Rushbet no es perfecto** — es best effort
+   por apellido+inicial (ver sección de arriba). Si `picks.odds` sale
+   null en varios picks seguidos, vale la pena revisar los logs del
+   sync para ver qué nombres no están cruzando.
 
 ## Siguiente paso
 - Conectar el frontend (el diseño que ya tienes) a estos datos reales
