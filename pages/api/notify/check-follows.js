@@ -24,29 +24,29 @@ function extractSets(event, swapped) {
     .map((s) => (swapped ? { a: s.b, b: s.a } : s));
 }
 
-async function sendPush(supabase, subscription, payload) {
-  try {
-    await webpush.sendNotification(
-      { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
-      JSON.stringify(payload)
-    );
-  } catch (e) {
-    if (e.statusCode === 404 || e.statusCode === 410) {
-      // El navegador ya no tiene esa suscripción activa (desinstaló, revocó permiso, etc).
-      await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint);
-    } else {
-      console.error('Push falló:', subscription.endpoint, e.message);
-    }
-  }
-}
-
 async function notifyFollowers(supabase, match, playerAName, playerBName, payload) {
   const { data: follows } = await supabase.from('followed_picks').select('user_id').eq('match_id', match.id);
   const userIds = [...new Set((follows || []).map((f) => f.user_id))];
-  if (userIds.length === 0) return;
+  if (userIds.length === 0) return { followers: 0, subs: 0, errors: [] };
 
   const { data: subs } = await supabase.from('push_subscriptions').select('*').in('user_id', userIds);
-  await Promise.all((subs || []).map((sub) => sendPush(supabase, sub, payload)));
+  const errors = [];
+  await Promise.all(
+    (subs || []).map(async (sub) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        );
+      } catch (e) {
+        errors.push({ endpoint: sub.endpoint.slice(-24), statusCode: e.statusCode, message: e.message });
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        }
+      }
+    })
+  );
+  return { followers: userIds.length, subs: (subs || []).length, errors };
 }
 
 export default async function handler(req, res) {
@@ -88,11 +88,15 @@ export default async function handler(req, res) {
   }
 
   let checked = 0;
+  const debug = [];
   for (const match of matches) {
     checked += 1;
     const playerA = playersById.get(match.player_a_id);
     const playerB = playersById.get(match.player_b_id);
-    if (!playerA || !playerB) continue;
+    if (!playerA || !playerB) {
+      debug.push({ matchId: match.id, issue: 'falta jugador A o B en players' });
+      continue;
+    }
     const label = `${playerA.name} vs ${playerB.name}`;
 
     const found = findLiveEvent(liveEvents, playerA.name, playerB.name);
@@ -104,26 +108,38 @@ export default async function handler(req, res) {
       const closedSets = sets.filter((s) => (s.a >= 11 || s.b >= 11) && Math.abs(s.a - s.b) >= 2);
       if (closedSets.length > match.notified_sets_count) {
         const lastSet = closedSets[closedSets.length - 1];
-        await notifyFollowers(supabase, match, playerA.name, playerB.name, {
+        const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
           title: 'Set terminado',
           body: `${label} · Set ${closedSets.length}: ${lastSet.a}-${lastSet.b}`,
           tag: `match-${match.id}-set-${closedSets.length}`,
           url: '/#calendario'
         });
         await supabase.from('matches').update({ notified_sets_count: closedSets.length }).eq('id', match.id);
+        debug.push({ matchId: match.id, label, found: true, event: 'set cerrado', ...r });
+      } else {
+        debug.push({
+          matchId: match.id,
+          label,
+          found: true,
+          state: 'STARTED',
+          closedSets: closedSets.length,
+          notifiedSetsCount: match.notified_sets_count,
+          event: 'sin novedad'
+        });
       }
       continue;
     }
 
     if (found) {
       // El evento sigue en el tablero pero Kambi ya no lo marca como en curso: terminó.
-      await notifyFollowers(supabase, match, playerA.name, playerB.name, {
+      const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
         title: 'Partido finalizado',
         body: label,
         tag: `match-${match.id}-final`,
         url: '/#calendario'
       });
       await supabase.from('matches').update({ notified_finished: true }).eq('id', match.id);
+      debug.push({ matchId: match.id, label, found: true, event: 'partido terminado (kambi)', ...r });
       continue;
     }
 
@@ -131,15 +147,18 @@ export default async function handler(req, res) {
     const startedLongAgo = Date.now() - scheduledMs > STARTED_GRACE_MS;
     const wasSeenLive = match.notified_sets_count > 0;
     if (wasSeenLive || startedLongAgo) {
-      await notifyFollowers(supabase, match, playerA.name, playerB.name, {
+      const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
         title: 'Partido finalizado',
         body: label,
         tag: `match-${match.id}-final`,
         url: '/#calendario'
       });
       await supabase.from('matches').update({ notified_finished: true }).eq('id', match.id);
+      debug.push({ matchId: match.id, label, found: false, event: 'partido terminado (no en kambi)', ...r });
+    } else {
+      debug.push({ matchId: match.id, label, found: false, event: 'todavía no visto en vivo, esperando' });
     }
   }
 
-  return res.status(200).json({ checked });
+  return res.status(200).json({ checked, debug });
 }
