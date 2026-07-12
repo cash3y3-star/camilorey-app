@@ -48,14 +48,26 @@ async function ensurePushSubscription(user) {
       });
     }
     const json = subscription.toJSON();
-    const { error } = await supabaseClient
-      .from('push_subscriptions')
-      .upsert(
-        { user_id: user.id, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
-        { onConflict: 'endpoint' }
-      );
-    if (error) {
-      console.error('No se pudo guardar la suscripción push:', error);
+    // Se guarda vía API (service_role) en vez de insert/upsert directo
+    // del cliente: el endpoint identifica al NAVEGADOR, no al usuario,
+    // así que si alguien más ya usó este mismo navegador antes, el
+    // upsert cae en un UPDATE que la política de RLS rechaza (no es
+    // dueño de esa fila). El servidor no tiene esa restricción.
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    const res = await fetch('/api/push-subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        userId: user.id,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth
+      })
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error('No se pudo guardar la suscripción push:', body.error);
       return 'error';
     }
     return 'ok';
