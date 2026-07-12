@@ -473,6 +473,7 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
   }, []);
 
   useEffect(() => {
+    if (!supabaseClient) return undefined;
     supabaseClient.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
     const { data: listener } = supabaseClient.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
@@ -481,9 +482,10 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
   }, []);
 
   const loginWithGoogle = () => {
+    if (!supabaseClient) return;
     supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
   };
-  const logout = () => supabaseClient.auth.signOut();
+  const logout = () => supabaseClient?.auth.signOut();
 
   const featured = picks.find((p) => p.featured) || picks[0] || null;
   const homePicks = featured ? picks.filter((p) => p.id !== featured.id).slice(0, 4) : [];
@@ -527,7 +529,7 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
             Telegram
           </a>
           <span className="badge18">+18 · Juega con cabeza</span>
-          {user ? (
+          {!supabaseClient ? null : user ? (
             <div className="user-chip" onClick={logout} title="Cerrar sesión">
               {user.user_metadata?.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
