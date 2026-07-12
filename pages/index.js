@@ -153,53 +153,57 @@ export async function getServerSideProps({ query }) {
 
   const activeLeagueRanges = new Set();
 
-  const picks = [];
-  for (const pick of pendingPicks || []) {
-    const match = matchesById.get(pick.match_id);
-    if (!match) continue;
-    if (match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS) continue;
-    const playerA = playersById.get(match.player_a_id);
-    const playerB = playersById.get(match.player_b_id);
-    const favored = playersById.get(pick.predicted_winner_id);
-    const opponent = pick.predicted_winner_id === match.player_a_id ? playerB : playerA;
-    // Si falta cualquiera de los dos jugadores, es un pick con datos
-    // incompletos (probablemente de antes del cierre hit/miss) — mejor
-    // no mostrarlo que mostrar una tarjeta rota.
-    if (!favored || !opponent) continue;
-    const tournament = tournamentsById.get(match.tournament_id);
-    const confidence = Math.round(pick.confidence);
-    const history = await recentForm(pick.predicted_winner_id);
-    const h2h = await h2hRecord(favored.id, opponent.id);
-    if (favored.league_range) activeLeagueRanges.add(favored.league_range);
-    if (opponent.league_range) activeLeagueRanges.add(opponent.league_range);
+  // Un round-trip por pick (recentForm + h2hRecord) en serie se nota
+  // mucho en el tiempo de carga apenas hay varios picks activos — se
+  // lanzan todos en paralelo con Promise.all en vez de un for..await.
+  const pickResults = await Promise.all(
+    (pendingPicks || []).map(async (pick) => {
+      const match = matchesById.get(pick.match_id);
+      if (!match) return null;
+      if (match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS) return null;
+      const playerA = playersById.get(match.player_a_id);
+      const playerB = playersById.get(match.player_b_id);
+      const favored = playersById.get(pick.predicted_winner_id);
+      const opponent = pick.predicted_winner_id === match.player_a_id ? playerB : playerA;
+      // Si falta cualquiera de los dos jugadores, es un pick con datos
+      // incompletos (probablemente de antes del cierre hit/miss) — mejor
+      // no mostrarlo que mostrar una tarjeta rota.
+      if (!favored || !opponent) return null;
+      const tournament = tournamentsById.get(match.tournament_id);
+      const confidence = Math.round(pick.confidence);
+      const [history, h2h] = await Promise.all([recentForm(pick.predicted_winner_id), h2hRecord(favored.id, opponent.id)]);
+      if (favored.league_range) activeLeagueRanges.add(favored.league_range);
+      if (opponent.league_range) activeLeagueRanges.add(opponent.league_range);
 
-    picks.push({
-      id: pick.id,
-      matchId: match.id,
-      day: dayLabel(match.scheduled_at),
-      scheduledAt: new Date(match.scheduled_at).getTime(),
-      player: favored?.name || '—',
-      initials: initialsOf(favored?.name),
-      avatarUrl: favored?.avatar_cutout_url || favored?.avatar_url || null,
-      hasCutout: Boolean(favored?.avatar_cutout_url),
-      opponent: opponent?.name || '—',
-      opponentInitials: initialsOf(opponent?.name),
-      opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
-      opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
-      time: timeLabel(match.scheduled_at),
-      tournament: tournament?.name || 'Torneo',
-      market: pick.market,
-      confidence,
-      tier: confidenceTier(confidence),
-      odds: pick.odds ? Number(pick.odds) : null,
-      analysis: buildAnalysis(pick.factors),
-      history,
-      streakLabel: streakLabelFromHistory(history),
-      h2h: `${h2h.winsA}-${h2h.winsB}`,
-      h2hTotal: h2h.winsA + h2h.winsB,
-      result: 'pending'
-    });
-  }
+      return {
+        id: pick.id,
+        matchId: match.id,
+        day: dayLabel(match.scheduled_at),
+        scheduledAt: new Date(match.scheduled_at).getTime(),
+        player: favored?.name || '—',
+        initials: initialsOf(favored?.name),
+        avatarUrl: favored?.avatar_cutout_url || favored?.avatar_url || null,
+        hasCutout: Boolean(favored?.avatar_cutout_url),
+        opponent: opponent?.name || '—',
+        opponentInitials: initialsOf(opponent?.name),
+        opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
+        opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
+        time: timeLabel(match.scheduled_at),
+        tournament: tournament?.name || 'Torneo',
+        market: pick.market,
+        confidence,
+        tier: confidenceTier(confidence),
+        odds: pick.odds ? Number(pick.odds) : null,
+        analysis: buildAnalysis(pick.factors),
+        history,
+        streakLabel: streakLabelFromHistory(history),
+        h2h: `${h2h.winsA}-${h2h.winsB}`,
+        h2hTotal: h2h.winsA + h2h.winsB,
+        result: 'pending'
+      };
+    })
+  );
+  const picks = pickResults.filter(Boolean);
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
   const topConfidence = [...picks].sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
@@ -211,26 +215,27 @@ export async function getServerSideProps({ query }) {
   // volcar las ~16 divisiones del sitio entero. players.rating ya se
   // actualiza en cada sync con el rating real post-torneo, así que
   // esta tabla queda al día sola, sin lógica nueva de standings.
-  const standings = [];
-  for (const range of activeLeagueRanges) {
-    const { data: rangePlayers } = await supabase
-      .from('players')
-      .select('id, name, avatar_url, avatar_cutout_url, rating')
-      .eq('league_range', range)
-      .order('rating', { ascending: false })
-      .limit(10);
-    standings.push({
-      range,
-      players: (rangePlayers || []).map((p, i) => ({
-        position: i + 1,
-        id: p.id,
-        name: p.name,
-        initials: initialsOf(p.name),
-        avatarUrl: p.avatar_cutout_url || p.avatar_url || null,
-        rating: p.rating != null ? Math.round(Number(p.rating)) : null
-      }))
-    });
-  }
+  const standings = await Promise.all(
+    [...activeLeagueRanges].map(async (range) => {
+      const { data: rangePlayers } = await supabase
+        .from('players')
+        .select('id, name, avatar_url, avatar_cutout_url, rating')
+        .eq('league_range', range)
+        .order('rating', { ascending: false })
+        .limit(10);
+      return {
+        range,
+        players: (rangePlayers || []).map((p, i) => ({
+          position: i + 1,
+          id: p.id,
+          name: p.name,
+          initials: initialsOf(p.name),
+          avatarUrl: p.avatar_cutout_url || p.avatar_url || null,
+          rating: p.rating != null ? Math.round(Number(p.rating)) : null
+        }))
+      };
+    })
+  );
   standings.sort((a, b) => a.range.localeCompare(b.range, undefined, { numeric: true }));
 
   // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
