@@ -39,7 +39,12 @@ async function notifyFollowers(supabase, match, playerAName, playerBName, payloa
           JSON.stringify(payload)
         );
       } catch (e) {
-        errors.push({ endpoint: sub.endpoint.slice(-24), statusCode: e.statusCode, message: e.message });
+        errors.push({
+          endpoint: sub.endpoint.slice(-24),
+          statusCode: e.statusCode,
+          message: e.message,
+          body: e.body || null
+        });
         if (e.statusCode === 404 || e.statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
         }
