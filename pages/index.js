@@ -149,7 +149,7 @@ export async function getServerSideProps({ query }) {
   // Un pick deja de mostrarse como "próximo" un rato ANTES de que
   // arranque el partido (no justo cuando ya casi empieza), y por
   // supuesto también una vez que ya arrancó o terminó.
-  const HIDE_BEFORE_START_MS = 10 * 60 * 1000;
+  const HIDE_BEFORE_START_MS = 3 * 60 * 1000;
 
   // Un round-trip por pick (recentForm + h2hRecord) en serie se nota
   // mucho en el tiempo de carga apenas hay varios picks activos — se
