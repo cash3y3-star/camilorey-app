@@ -680,12 +680,50 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
   );
 }
 
-// Tarjeta de doble foto — el marcador en vivo ya no se consulta acá
-// (sería una consulta de red por tarjeta, cada 8s, para cada partido
-// en vivo a la vez). Se consulta solo para el partido que el usuario
-// abre en el modal de detalle, ver MatchDetailModal.
+// Mientras el partido está en vivo, consulta el marcador real cada
+// 8s (mismo endpoint que usa el modal de detalle) para mostrarlo
+// directo en la tarjeta de Calendario, sin tener que abrirla.
+function useLiveScore(m) {
+  const [live, setLive] = useState(null);
+
+  useEffect(() => {
+    if (m.status !== 'live') {
+      setLive(null);
+      return undefined;
+    }
+    let cancelled = false;
+
+    async function poll() {
+      const params = new URLSearchParams();
+      if (m.playerA) params.set('playerA', m.playerA);
+      if (m.playerB) params.set('playerB', m.playerB);
+      if (m.tournamentId) params.set('tournamentId', m.tournamentId);
+      if (m.sourceId) params.set('matchId', m.sourceId);
+      try {
+        const res = await fetch(`/api/live-match?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setLive(data);
+      } catch (e) {
+        // silencioso — se queda con el último dato válido hasta el próximo intento
+      }
+    }
+
+    poll();
+    const interval = setInterval(poll, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [m.status, m.playerA, m.playerB, m.tournamentId, m.sourceId]);
+
+  return live;
+}
+
+// Tarjeta de doble foto.
 function MatchRow({ m, onClick }) {
   const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Pendiente';
+  const live = useLiveScore(m);
 
   return (
     <div className="match-card" onClick={onClick} style={{ cursor: 'pointer' }}>
@@ -716,6 +754,30 @@ function MatchRow({ m, onClick }) {
           style={{ color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)' }}
         >
           Resultado: {m.score}
+        </div>
+      ) : null}
+      {m.status === 'live' ? (
+        <div className="mc-live-score">
+          {live?.source === 'kambi' ? (
+            <>
+              {(live.sets || []).map((s, i) => (
+                <span className="mc-set num" key={i}>
+                  {s.a}-{s.b}
+                </span>
+              ))}
+              {live.current ? (
+                <span className="mc-set mc-set-current num">
+                  {live.current.a}-{live.current.b}
+                </span>
+              ) : null}
+            </>
+          ) : live?.source === 'tt' && live.scoreOne != null ? (
+            <span className="num">
+              Sets: {live.scoreOne}-{live.scoreTwo}
+            </span>
+          ) : (
+            <span className="mc-live-loading">Buscando marcador…</span>
+          )}
         </div>
       ) : null}
     </div>
@@ -1969,9 +2031,19 @@ const CSS = `
   .tab.active{background:var(--court); color:#fff; border-color:var(--court);}
 
   .status{font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; flex:none;}
-  .status.live{background:rgba(255,122,69,.16); color:#FFB088; border:1px solid rgba(255,122,69,.4);}
+  .status.live{background:rgba(226,68,74,.18); color:var(--court); border:1px solid rgba(226,68,74,.5);}
   .status.soon{background:var(--court-soft); color:#FAC7C7;}
   .status.done{background:var(--bg-alt); color:var(--muted);}
+
+  .mc-live-score{
+    display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;
+    margin-top:10px; padding-top:10px; border-top:1px solid var(--line);
+  }
+  .mc-set{
+    background:var(--bg-alt); border-radius:8px; padding:5px 10px; font-size:13px; font-weight:700; color:var(--ink);
+  }
+  .mc-set-current{background:var(--court-soft); color:#FAC7C7; border:1px solid rgba(226,68,74,.45);}
+  .mc-live-loading{font-size:12px; color:var(--muted);}
 
   .live-clock{
     font-family:var(--font-mono); font-size:13px; color:var(--ball); font-weight:700;
