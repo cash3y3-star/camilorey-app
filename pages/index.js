@@ -491,6 +491,8 @@ export async function getServerSideProps({ query }) {
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
       playerA: a?.name || null,
       playerB: b?.name || null,
+      playerAId: m.player_a_id,
+      playerBId: m.player_b_id,
       playerAInitials: initialsOf(a?.name),
       playerBInitials: initialsOf(b?.name),
       playerAAvatar: a?.avatar_cutout_url || a?.avatar_url || null,
@@ -1083,6 +1085,24 @@ function LiveChat({ matchSourceId, user }) {
 // contra tt.league-pro.com directo.
 function MatchDetailModal({ m, onClose, user }) {
   const [live, setLive] = useState(null);
+  const [form, setForm] = useState(null);
+
+  // Forma reciente + H2H de los dos, una sola vez al abrir el modal —
+  // no cambia mientras está abierto (a diferencia del marcador en
+  // vivo), así que no hace falta repetir la consulta.
+  useEffect(() => {
+    if (!m.playerAId || !m.playerBId) return;
+    let cancelled = false;
+    fetch(`/api/player-form?playerAId=${m.playerAId}&playerBId=${m.playerBId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setForm(data);
+      })
+      .catch((e) => console.error('Error cargando forma reciente:', e));
+    return () => {
+      cancelled = true;
+    };
+  }, [m.playerAId, m.playerBId]);
 
   useEffect(() => {
     if (m.status !== 'live') return undefined;
@@ -1198,6 +1218,54 @@ function MatchDetailModal({ m, onClose, user }) {
         ) : (
           <p className="page-sub">Este partido todavía no empieza.</p>
         )}
+
+        {form ? (
+          <>
+            <div className="hist-title">
+              <span>Forma reciente</span>
+            </div>
+            <div className="form-row">
+              <span className="form-row-name">{m.playerA}</span>
+              <div className="chart chart-mini">
+                {form.historyA.length === 0 ? (
+                  <span className="page-sub" style={{ margin: 0, fontSize: '11px' }}>
+                    Sin historial
+                  </span>
+                ) : (
+                  form.historyA.map((v, i) => <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`}></div>)
+                )}
+              </div>
+            </div>
+            <div className="form-row">
+              <span className="form-row-name">{m.playerB}</span>
+              <div className="chart chart-mini">
+                {form.historyB.length === 0 ? (
+                  <span className="page-sub" style={{ margin: 0, fontSize: '11px' }}>
+                    Sin historial
+                  </span>
+                ) : (
+                  form.historyB.map((v, i) => <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`}></div>)
+                )}
+              </div>
+            </div>
+            {form.h2hTotal > 0 ? (
+              <>
+                <div className="hist-title">
+                  <span>
+                    H2H {m.playerA} vs {m.playerB}
+                  </span>
+                  <span className="num">{form.h2h}</span>
+                </div>
+                <div className="h2h-bar-track">
+                  <div
+                    className="h2h-bar-fill"
+                    style={{ width: `${(Number(form.h2h.split('-')[0]) / form.h2hTotal) * 100}%` }}
+                  ></div>
+                </div>
+              </>
+            ) : null}
+          </>
+        ) : null}
 
         {m.status === 'live' && !nowFinished ? <LiveChat matchSourceId={m.sourceId} user={user} /> : null}
       </div>
@@ -2988,6 +3056,10 @@ const CSS = `
   .bar{flex:1; border-radius:4px 4px 0 0; min-height:6px;}
   .bar.hit{background:var(--hit);}
   .bar.miss{background:var(--miss);}
+  .form-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .form-row-name{font-size:12.5px; font-weight:700; width:100px; flex:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .chart-mini{height:22px; margin-bottom:0; border-bottom:none; flex:1;}
+  .chart-mini .bar{height:100%; border-radius:3px; min-height:100%;}
   .legend{display:flex; gap:14px; font-size:11.5px; color:var(--muted); margin-bottom:16px;}
   .legend span{display:inline-flex; align-items:center; gap:5px;}
   .legend .sw{width:8px; height:8px; border-radius:50%;}

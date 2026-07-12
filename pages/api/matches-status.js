@@ -89,6 +89,8 @@ export default async function handler(req, res) {
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
       playerA: a?.name || null,
       playerB: b?.name || null,
+      playerAId: m.player_a_id,
+      playerBId: m.player_b_id,
       playerAInitials: initialsOf(a?.name),
       playerBInitials: initialsOf(b?.name),
       playerAAvatar: a?.avatar_cutout_url || a?.avatar_url || null,
