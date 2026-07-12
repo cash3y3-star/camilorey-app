@@ -1278,10 +1278,10 @@ function GroupTable({ group }) {
 }
 
 export default function Home({
-  stats,
-  picks,
-  resolvedPicks,
-  tournamentGroups,
+  stats: initialStats,
+  picks: initialPicks,
+  resolvedPicks: initialResolvedPicks,
+  tournamentGroups: initialTournamentGroups,
   matches: initialMatches,
   bankrollLog,
   bankrollSeries,
@@ -1290,6 +1290,10 @@ export default function Home({
 }) {
   const [view, setView] = useState('inicio');
   const [pickTab, setPickTab] = useState('todos');
+  const [stats, setStats] = useState(initialStats);
+  const [picks, setPicks] = useState(initialPicks);
+  const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
+  const [tournamentGroups, setTournamentGroups] = useState(initialTournamentGroups);
   const [matches, setMatches] = useState(initialMatches);
   const [matchFilter, setMatchFilter] = useState(initialMatches.some((m) => m.status === 'live') ? 'vivo' : 'todos');
   const [modalPick, setModalPick] = useState(null);
@@ -1333,6 +1337,36 @@ export default function Home({
       clearInterval(interval);
     };
   }, [view, currentDateStr]);
+
+  // Mismo problema en Inicio (pick destacado + tablas de torneos en
+  // vivo) y Picks (pendientes/ganados/perdidos): sin esto, un pick que
+  // arranca, se resuelve, o un torneo que empieza/termina, se quedaba
+  // congelado hasta refrescar. Se repite cada 20s mientras cualquiera
+  // de esas dos vistas esté abierta.
+  useEffect(() => {
+    if (view !== 'inicio' && view !== 'picks') return undefined;
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const r = await fetch('/api/refresh-data');
+        const data = await r.json();
+        if (cancelled) return;
+        if (data.stats) setStats(data.stats);
+        if (data.picks) setPicks(data.picks);
+        if (data.resolvedPicks) setResolvedPicks(data.resolvedPicks);
+        if (data.tournamentGroups) setTournamentGroups(data.tournamentGroups);
+      } catch (e) {
+        console.error('Error actualizando Inicio/Picks:', e);
+      }
+    }
+
+    const interval = setInterval(load, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [view]);
 
   useEffect(() => {
     if (!supabaseClient) return undefined;
