@@ -109,7 +109,9 @@ export default async function handler(req, res) {
         h2h: null,
         h2hTotal: 0,
         result: pick.result,
-        matchStatus: status
+        matchStatus: status,
+        sourceId: match.source_id,
+        tournamentId: match.tournament_id
       };
     })
     .filter(Boolean);

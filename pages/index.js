@@ -641,6 +641,28 @@ function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = ''
 }
 
 function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
+  // Solo los picks que vienen de /api/followed-detail traen matchStatus
+  // + sourceId — para los demás (Inicio/Picks normales) esto no hace
+  // nada y el centro sigue mostrando "VS" como siempre.
+  const live = useLiveScore({
+    status: pick.matchStatus,
+    playerA: pick.player,
+    playerB: pick.opponent,
+    tournamentId: pick.tournamentId,
+    sourceId: pick.sourceId
+  });
+  let liveSetsWonA = null;
+  let liveSetsWonB = null;
+  if (pick.matchStatus === 'live' && live) {
+    if (live.source === 'kambi') {
+      liveSetsWonA = (live.sets || []).filter((s) => s.a > s.b).length;
+      liveSetsWonB = (live.sets || []).filter((s) => s.b > s.a).length;
+    } else if (live.source === 'tt' && live.scoreOne != null) {
+      liveSetsWonA = live.scoreOne;
+      liveSetsWonB = live.scoreTwo;
+    }
+  }
+
   return (
     <div className={`pick-card ${featured ? 'pick-card-featured' : ''}`} onClick={onClick}>
       {onToggleFollow ? (
@@ -677,12 +699,34 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
           <PlayerAvatar name={pick.player} avatarUrl={pick.avatarUrl} initials={pick.initials} side="left" />
           <span className="pc-player-name">{pick.player}</span>
         </div>
-        <span className="pc-vs-badge">VS</span>
+        {liveSetsWonA != null ? (
+          <span className="pc-vs-badge pc-vs-live num">
+            {liveSetsWonA}-{liveSetsWonB}
+          </span>
+        ) : pick.matchStatus === 'live' ? (
+          <span className="pc-vs-badge pc-vs-live num">···</span>
+        ) : (
+          <span className="pc-vs-badge">VS</span>
+        )}
         <div className="pc-player">
           <PlayerAvatar name={pick.opponent} avatarUrl={pick.opponentAvatarUrl} initials={pick.opponentInitials} side="right" />
           <span className="pc-player-name">{pick.opponent}</span>
         </div>
       </div>
+      {pick.matchStatus === 'live' && live?.source === 'kambi' && live.sets?.length > 0 ? (
+        <div className="mc-live-score">
+          {live.sets.map((s, i) => (
+            <span className="mc-set num" key={i}>
+              {s.a}-{s.b}
+            </span>
+          ))}
+          {live.current ? (
+            <span className="mc-set mc-set-current num">
+              {live.current.a}-{live.current.b}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {pick.streakLabel || pick.h2hTotal > 0 ? (
         <div className="pc-stats-row">
           {pick.h2hTotal > 0 ? (
@@ -1284,21 +1328,31 @@ export default function Home({
   // Detalle completo de los picks seguidos — aparte del array "picks"
   // de la SSR, que oculta un pick apenas el partido está por arrancar
   // o ya arrancó (regla pensada para "Picks", no para lo que alguien
-  // sigue a propósito para recibir la notificación).
+  // sigue a propósito para recibir la notificación). Se repite cada
+  // 15s mientras haya algo seguido, para que el estado (soon → live →
+  // done) se refleje solo, sin tener que recargar la página.
   useEffect(() => {
     if (followedPickIds.size === 0) {
       setFollowedDetail([]);
       return undefined;
     }
     let cancelled = false;
-    fetch(`/api/followed-detail?ids=${[...followedPickIds].join(',')}`)
-      .then((r) => r.json())
-      .then((data) => {
+
+    async function load() {
+      try {
+        const r = await fetch(`/api/followed-detail?ids=${[...followedPickIds].join(',')}`);
+        const data = await r.json();
         if (!cancelled) setFollowedDetail(data.picks || []);
-      })
-      .catch((e) => console.error('Error cargando detalle de seguidos:', e));
+      } catch (e) {
+        console.error('Error cargando detalle de seguidos:', e);
+      }
+    }
+
+    load();
+    const interval = setInterval(load, 15000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, [followedPickIds]);
 
