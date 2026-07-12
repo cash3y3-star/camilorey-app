@@ -1410,6 +1410,102 @@ function RiskModal({ count, tips, onClose }) {
   );
 }
 
+// Perfil — reemplaza el logout inmediato al tocar el avatar. Solo
+// tiene lo que sí podemos respaldar con algo real: notificaciones
+// (activar/ver estado real del permiso del navegador), tema (fijo en
+// oscuro, informativo) y cerrar sesión. Nada de idioma/suscripción/
+// cuotas que no existen todavía.
+function ProfileModal({ user, isAdmin, onClose, onLogout }) {
+  const [notifStatus, setNotifStatus] = useState('unknown');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof Notification !== 'undefined') {
+      setNotifStatus(Notification.permission);
+    }
+  }, []);
+
+  const handleActivateNotifs = async () => {
+    const result = await ensurePushSubscription(user);
+    if (result === 'ok') {
+      setNotifStatus('granted');
+      alert('Notificaciones activadas ✅');
+    } else if (result === 'denied') {
+      setNotifStatus('denied');
+      alert('Tienes las notificaciones bloqueadas para este sitio. Actívalas desde la configuración del navegador.');
+    } else if (result === 'unsupported') {
+      alert('Tu navegador no soporta notificaciones push.');
+    } else {
+      alert('No se pudo activar las notificaciones, intenta de nuevo.');
+    }
+  };
+
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal">
+        <div className="modal-head">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {user.user_metadata?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="featured-avatar" src={user.user_metadata.avatar_url} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="featured-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--court)', fontWeight: 800 }}>
+                {(user.email || '?')[0].toUpperCase()}
+              </div>
+            )}
+            <div>
+              <h3 style={{ fontSize: '18px' }}>{user.user_metadata?.full_name || user.email}</h3>
+              <div className="sub">
+                {user.email}
+                {isAdmin ? ' · Admin' : ''}
+              </div>
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="profile-row" onClick={handleActivateNotifs}>
+          <span className="profile-row-icon">🔔</span>
+          <div className="profile-row-body">
+            <strong>Notificaciones</strong>
+            <p>
+              {notifStatus === 'granted'
+                ? 'Activadas — te avisamos de tus picks seguidos'
+                : notifStatus === 'denied'
+                ? 'Bloqueadas en el navegador — toca para ver cómo activarlas'
+                : 'Toca para activar avisos de tus picks seguidos'}
+            </p>
+          </div>
+          <span className={`status ${notifStatus === 'granted' ? 'live' : 'soon'}`}>
+            {notifStatus === 'granted' ? 'Activas' : 'Activar'}
+          </span>
+        </div>
+
+        <div className="profile-row">
+          <span className="profile-row-icon">🎨</span>
+          <div className="profile-row-body">
+            <strong>Tema</strong>
+            <p>CAMILOREY siempre corre en oscuro — es parte de la identidad del sitio.</p>
+          </div>
+          <span className="status done">Oscuro</span>
+        </div>
+
+        <button
+          className="btn btn-ghost risk-modal-btn"
+          style={{ marginTop: '18px' }}
+          onClick={() => {
+            onClose();
+            onLogout();
+          }}
+        >
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Kelly: fracción óptima del banco a arriesgar dado el edge real
 // (confianza como probabilidad, cuota real de Rushbet) — f* = (b·p - q) / b,
 // b = cuota-1, p = confianza/100, q = 1-p. Si f* <= 0 el modelo no ve
@@ -1459,6 +1555,7 @@ export default function Home({
   const [riskTips, setRiskTips] = useState([]);
   const prevFollowedCountRef = useRef(0);
   const [bankrollTab, setBankrollTab] = useState('slip');
+  const [showProfileModal, setShowProfileModal] = useState(false);
   // Banco de PLANEACIÓN (para el Slip Kelly) — separado del balance
   // real de "Rendimiento". Arranca igual al balance real, pero es
   // editable a mano para simular con otro monto. Se guarda en el
@@ -1756,7 +1853,7 @@ export default function Home({
             </button>
           ) : null}
           {!supabaseClient ? null : user ? (
-            <div className="user-chip" onClick={logout} title="Cerrar sesión">
+            <div className="user-chip" onClick={() => setShowProfileModal(true)} title="Perfil">
               {user.user_metadata?.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={user.user_metadata.avatar_url} alt="" referrerPolicy="no-referrer" />
@@ -2351,6 +2448,10 @@ export default function Home({
       {showRiskModal && (
         <RiskModal count={followedPickIds.size} tips={riskTips} onClose={() => setShowRiskModal(false)} />
       )}
+
+      {showProfileModal && user && (
+        <ProfileModal user={user} isAdmin={isAdmin} onClose={() => setShowProfileModal(false)} onLogout={logout} />
+      )}
     </>
   );
 }
@@ -2792,6 +2893,12 @@ const CSS = `
   .risk-tip p{margin:0; font-size:13px; color:var(--muted); line-height:1.5;}
   .risk-modal-btn{width:100%; justify-content:center; margin-top:16px; padding:13px;}
   .risk-modal-disclaimer{font-size:11px; color:var(--muted); text-align:center; margin:10px 0 0;}
+
+  .profile-row{display:flex; align-items:center; gap:12px; padding:14px 0; border-top:1px solid var(--line); cursor:pointer;}
+  .profile-row-icon{font-size:20px; flex:none; width:30px; text-align:center;}
+  .profile-row-body{flex:1; min-width:0;}
+  .profile-row-body strong{display:block; font-size:14px; margin-bottom:2px;}
+  .profile-row-body p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.4;}
   .modal-market{
     display:inline-block; margin:12px 0; font-weight:700; font-size:14px;
     background:var(--court-soft); color:#FAC7C7; padding:8px 14px; border-radius:10px;
