@@ -1317,11 +1317,67 @@ function GroupTable({ group }) {
   );
 }
 
-// Aparece la primera vez que alguien entra a Seguidos con al menos un
-// pick seguido en esa sesión — mismos 3 consejos que un tip de gestión
-// de riesgo estándar (repartir el banco, seguir pocas cosas a la vez,
-// límite diario), no algo específico de CAMILOREY.
-function RiskModal({ count, onClose }) {
+// Banco de consejos — cada vez que se dispara el modal se eligen 3 al
+// azar (sin repetir dentro de la misma aparición), para que no se
+// sienta como el mismo aviso copiado y pegado cada vez que alguien
+// pasa de 3 seguidos.
+const RISK_TIPS = [
+  {
+    icon: '📉',
+    title: 'Protege tu bankroll',
+    body: 'Reparte tu banco entre las selecciones que sigues. Evita concentrar más de lo que te sientas cómodo gestionando en un solo día.'
+  },
+  {
+    icon: '📚',
+    title: 'Mantén una jornada enfocada',
+    body: 'Seguir menos selecciones facilita revisar el rendimiento y controlar mejor la exposición diaria.'
+  },
+  {
+    icon: '🛡️',
+    title: 'Define un límite diario de asignación',
+    body: 'Usa el planificador Kelly en la pestaña Bankroll como referencia para no arriesgar más de la cuenta.'
+  },
+  {
+    icon: '🎯',
+    title: 'Prioriza calidad sobre cantidad',
+    body: 'Entre más picks sigas a la vez, más difícil es darle seguimiento real a cada uno cuando estén en vivo.'
+  },
+  {
+    icon: '📊',
+    title: 'Ninguna racha dura para siempre',
+    body: 'Ajusta el tamaño de lo que arriesgas según tu propio límite, no solo según qué tan segura se vea la confianza del modelo.'
+  },
+  {
+    icon: '🔍',
+    title: 'Revisa el historial real primero',
+    body: 'Antes de subir el monto que arriesgas por pick, mira el acierto real acumulado en la pestaña Bankroll.'
+  },
+  {
+    icon: '🎲',
+    title: 'Diversifica entre torneos',
+    body: 'Seguir picks de un solo torneo hace que un resultado inesperado pese más sobre tu banco completo.'
+  },
+  {
+    icon: '⛔',
+    title: 'Nunca sigas "para recuperar"',
+    body: 'Cada pick es independiente — seguir uno más solo porque el anterior falló no cambia sus probabilidades reales.'
+  },
+  {
+    icon: '⏸️',
+    title: 'El impulso es una señal',
+    body: 'Si notas que estás siguiendo picks muy rápido, sin revisarlos, es buen momento para bajar el ritmo un rato.'
+  }
+];
+
+function pickRandomTips(n = 3) {
+  const shuffled = [...RISK_TIPS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, n);
+}
+
+// Se dispara cada vez que la cantidad de picks seguidos SUBE y pasa de
+// 3 (no solo la primera vez) — ver el useEffect que llama a esto en
+// Home. Los 3 consejos salen al azar del banco de arriba.
+function RiskModal({ count, tips, onClose }) {
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal risk-modal">
@@ -1329,31 +1385,21 @@ function RiskModal({ count, onClose }) {
           <div className="risk-modal-icon">🛡️</div>
           <div>
             <div className="risk-modal-eyebrow">Gestión de riesgo</div>
-            <h3>Estás siguiendo {count} pick{count === 1 ? '' : 's'}</h3>
+            <h3>
+              Estás siguiendo {count} pick{count === 1 ? '' : 's'}
+            </h3>
           </div>
         </div>
 
-        <div className="risk-tip">
-          <span className="risk-tip-icon">📉</span>
-          <div>
-            <strong>Protege tu bankroll</strong>
-            <p>Reparte tu banco entre las selecciones que sigues. Evita concentrar más de lo que te sientas cómodo gestionando en un solo día.</p>
+        {tips.map((tip) => (
+          <div className="risk-tip" key={tip.title}>
+            <span className="risk-tip-icon">{tip.icon}</span>
+            <div>
+              <strong>{tip.title}</strong>
+              <p>{tip.body}</p>
+            </div>
           </div>
-        </div>
-        <div className="risk-tip">
-          <span className="risk-tip-icon">📚</span>
-          <div>
-            <strong>Mantén una jornada enfocada</strong>
-            <p>Seguir menos selecciones facilita revisar el rendimiento y controlar mejor la exposición diaria.</p>
-          </div>
-        </div>
-        <div className="risk-tip">
-          <span className="risk-tip-icon">🛡️</span>
-          <div>
-            <strong>Define un límite diario de asignación</strong>
-            <p>Usa el planificador Kelly en la pestaña Bankroll como referencia para no arriesgar más de la cuenta.</p>
-          </div>
-        </div>
+        ))}
 
         <button className="btn btn-ball risk-modal-btn" onClick={onClose}>
           ✓ Entendido
@@ -1404,7 +1450,8 @@ export default function Home({
   const [followedPickIds, setFollowedPickIds] = useState(new Set());
   const [followedDetail, setFollowedDetail] = useState([]);
   const [showRiskModal, setShowRiskModal] = useState(false);
-  const [riskModalSeen, setRiskModalSeen] = useState(false);
+  const [riskTips, setRiskTips] = useState([]);
+  const prevFollowedCountRef = useRef(0);
 
   useEffect(() => {
     const fromHash = () => {
@@ -1506,11 +1553,17 @@ export default function Home({
     };
   }, [user]);
 
+  // No es "una vez por sesión" — se dispara cada vez que la cantidad
+  // de seguidos SUBE y queda en más de 3 (seguir 1 más estando ya en 4,
+  // 5, etc. también lo dispara de nuevo), con consejos al azar.
   useEffect(() => {
-    if (view === 'seguidos' && followedPickIds.size > 0 && !riskModalSeen) {
+    const count = followedPickIds.size;
+    if (count > 3 && count > prevFollowedCountRef.current) {
+      setRiskTips(pickRandomTips());
       setShowRiskModal(true);
     }
-  }, [view, followedPickIds, riskModalSeen]);
+    prevFollowedCountRef.current = count;
+  }, [followedPickIds]);
 
   // Detalle completo de los picks seguidos — aparte del array "picks"
   // de la SSR, que oculta un pick apenas el partido está por arrancar
@@ -2182,13 +2235,7 @@ export default function Home({
       {modalMatch && <MatchDetailModal m={modalMatch} onClose={() => setModalMatch(null)} user={user} />}
 
       {showRiskModal && (
-        <RiskModal
-          count={followedPickIds.size}
-          onClose={() => {
-            setShowRiskModal(false);
-            setRiskModalSeen(true);
-          }}
-        />
+        <RiskModal count={followedPickIds.size} tips={riskTips} onClose={() => setShowRiskModal(false)} />
       )}
     </>
   );
