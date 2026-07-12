@@ -40,13 +40,19 @@ async function ensurePushSubscription(user) {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return 'denied';
     const registration = await navigator.serviceWorker.register('/sw.js');
+    // getSubscription() devuelve la existente sin importar si quedó
+    // creada con una llave VAPID vieja — si las llaves se regeneran
+    // (como pasó una vez), el navegador se queda pegado reusando la
+    // suscripción muerta para siempre. Se descarta y se crea siempre
+    // una nueva con la llave actual, para no depender de que coincida.
     let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
+    if (subscription) {
+      await subscription.unsubscribe();
     }
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
     const json = subscription.toJSON();
     // Se guarda vía API (service_role) en vez de insert/upsert directo
     // del cliente: el endpoint identifica al NAVEGADOR, no al usuario,
