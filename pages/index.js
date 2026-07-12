@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 
@@ -328,11 +328,119 @@ function MatchRow({ m, onClick }) {
   );
 }
 
+// Chat en vivo del partido — un cuarto por match_source_id. Cualquiera
+// puede leer; escribir requiere sesión iniciada. Usa Supabase Realtime
+// para que los mensajes nuevos aparezcan solos, sin refrescar.
+function LiveChat({ matchSourceId, user }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    if (!supabaseClient || !matchSourceId) return undefined;
+    let cancelled = false;
+
+    supabaseClient
+      .from('chat_messages')
+      .select('id, user_name, user_avatar, message, created_at')
+      .eq('match_source_id', matchSourceId)
+      .order('created_at', { ascending: true })
+      .limit(100)
+      .then(({ data }) => {
+        if (!cancelled && data) setMessages(data);
+      });
+
+    const channel = supabaseClient
+      .channel(`chat:${matchSourceId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `match_source_id=eq.${matchSourceId}` },
+        (payload) => setMessages((prev) => [...prev, payload.new])
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabaseClient.removeChannel(channel);
+    };
+  }, [matchSourceId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  const send = async (e) => {
+    e.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed || !user || !supabaseClient) return;
+    setSending(true);
+    const { error } = await supabaseClient.from('chat_messages').insert({
+      match_source_id: matchSourceId,
+      user_id: user.id,
+      user_name: user.user_metadata?.full_name || user.email,
+      user_avatar: user.user_metadata?.avatar_url || null,
+      message: trimmed.slice(0, 300)
+    });
+    setSending(false);
+    if (!error) setText('');
+  };
+
+  return (
+    <div className="live-chat">
+      <div className="hist-title">
+        <span>Chat en vivo</span>
+      </div>
+      <div className="live-chat-list">
+        {messages.length === 0 ? (
+          <p className="page-sub" style={{ margin: 0 }}>
+            Nadie ha escrito todavía — sé el primero.
+          </p>
+        ) : (
+          messages.map((msg) => (
+            <div className="live-chat-msg" key={msg.id}>
+              {msg.user_avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={msg.user_avatar} alt="" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="live-chat-avatar-fallback">{(msg.user_name || '?')[0].toUpperCase()}</span>
+              )}
+              <div>
+                <div className="live-chat-name">{msg.user_name || 'Anónimo'}</div>
+                <div className="live-chat-text">{msg.message}</div>
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={bottomRef} />
+      </div>
+      {user ? (
+        <form className="live-chat-form" onSubmit={send}>
+          <input
+            type="text"
+            placeholder="Escribe algo..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={300}
+          />
+          <button type="submit" disabled={sending || !text.trim()}>
+            Enviar
+          </button>
+        </form>
+      ) : (
+        <p className="page-sub" style={{ margin: '10px 0 0' }}>
+          Inicia sesión con Google (arriba a la derecha) para escribir en el chat.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Modal de detalle de un partido. Solo mientras está abierto (y solo
 // si el partido sigue en vivo) consulta cada 8s el marcador real —
 // primero contra Rushbet (set por set + reloj), y si no lo tiene,
 // contra tt.league-pro.com directo.
-function MatchDetailModal({ m, onClose }) {
+function MatchDetailModal({ m, onClose, user }) {
   const [live, setLive] = useState(null);
 
   useEffect(() => {
@@ -449,6 +557,8 @@ function MatchDetailModal({ m, onClose }) {
         ) : (
           <p className="page-sub">Este partido todavía no empieza.</p>
         )}
+
+        {m.status === 'live' && !nowFinished ? <LiveChat matchSourceId={m.sourceId} user={user} /> : null}
       </div>
     </div>
   );
@@ -854,7 +964,7 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
         </div>
       )}
 
-      {modalMatch && <MatchDetailModal m={modalMatch} onClose={() => setModalMatch(null)} />}
+      {modalMatch && <MatchDetailModal m={modalMatch} onClose={() => setModalMatch(null)} user={user} />}
     </>
   );
 }
@@ -1152,6 +1262,32 @@ const CSS = `
   .live-set-col.current{background:var(--court-soft); border:1px solid rgba(226,68,74,.45);}
   .live-set-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;}
   .live-set-score{font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--ink);}
+
+  .live-chat{margin-top:18px; border-top:1px solid var(--line); padding-top:14px;}
+  .live-chat-list{
+    display:flex; flex-direction:column; gap:10px;
+    max-height:220px; overflow-y:auto; margin-bottom:10px;
+  }
+  .live-chat-msg{display:flex; align-items:flex-start; gap:8px;}
+  .live-chat-msg img{width:26px; height:26px; border-radius:50%; object-fit:cover; flex:none;}
+  .live-chat-avatar-fallback{
+    width:26px; height:26px; border-radius:50%; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--court); color:#fff; font-size:11px; font-weight:800;
+  }
+  .live-chat-name{font-size:11px; font-weight:700; color:var(--muted);}
+  .live-chat-text{font-size:13.5px; color:var(--ink); line-height:1.4; word-break:break-word;}
+  .live-chat-form{display:flex; gap:8px;}
+  .live-chat-form input{
+    flex:1; min-width:0; background:var(--bg-alt); border:1px solid var(--line); border-radius:999px;
+    padding:9px 14px; color:var(--ink); font-family:var(--font-body); font-size:13px;
+  }
+  .live-chat-form input:focus{outline:none; border-color:var(--court);}
+  .live-chat-form button{
+    font-family:var(--font-body); font-weight:700; font-size:13px; color:#fff;
+    background:var(--court); border:none; border-radius:999px; padding:9px 16px; cursor:pointer;
+  }
+  .live-chat-form button:disabled{opacity:.5; cursor:not-allowed;}
 
   .bankroll-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:18px;}
   table.bk{width:100%; border-collapse:collapse; font-size:13.5px;}
