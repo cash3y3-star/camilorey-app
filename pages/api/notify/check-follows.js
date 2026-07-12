@@ -79,7 +79,7 @@ export default async function handler(req, res) {
 
   const { data: matches } = await supabase
     .from('matches')
-    .select('id, source_id, player_a_id, player_b_id, scheduled_at, notified_sets_count, notified_finished')
+    .select('id, source_id, player_a_id, player_b_id, scheduled_at, notified_started, notified_sets_count, notified_finished')
     .in('id', matchIds)
     .eq('notified_finished', false);
 
@@ -112,6 +112,17 @@ export default async function handler(req, res) {
     const found = findLiveEvent(liveEvents, playerA.name, playerB.name);
 
     if (found && found.event.event?.state === 'STARTED') {
+      if (!match.notified_started) {
+        const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
+          title: '¡Comenzó el partido!',
+          body: label,
+          tag: `match-${match.id}-started`,
+          url: '/#seguidos'
+        });
+        await supabase.from('matches').update({ notified_started: true }).eq('id', match.id);
+        debug.push({ matchId: match.id, label, found: true, event: 'partido arrancó', ...r });
+      }
+
       const sets = extractSets(found.event, found.swapped);
       // Un set queda decidido en 11 (o más, en caso de deuce) con al menos 2 de ventaja —
       // si no, un set en curso tipo 11-10 se contaría como cerrado sin estarlo.
