@@ -1002,7 +1002,8 @@ export default function Home({ stats, picks, resolvedPicks, standings, matches, 
       .from('followed_picks')
       .select('pick_id')
       .eq('user_id', user.id)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error('Error cargando seguidos:', error);
         if (!cancelled && data) setFollowedPickIds(new Set(data.map((r) => r.pick_id)));
       });
     return () => {
@@ -1018,7 +1019,12 @@ export default function Home({ stats, picks, resolvedPicks, standings, matches, 
     }
     const already = followedPickIds.has(pick.id);
     if (already) {
-      await supabaseClient.from('followed_picks').delete().eq('user_id', user.id).eq('pick_id', pick.id);
+      const { error } = await supabaseClient.from('followed_picks').delete().eq('user_id', user.id).eq('pick_id', pick.id);
+      if (error) {
+        console.error('Error dejando de seguir:', error);
+        alert('No se pudo dejar de seguir: ' + error.message);
+        return;
+      }
       setFollowedPickIds((prev) => {
         const next = new Set(prev);
         next.delete(pick.id);
@@ -1028,10 +1034,13 @@ export default function Home({ stats, picks, resolvedPicks, standings, matches, 
       const { error } = await supabaseClient
         .from('followed_picks')
         .insert({ user_id: user.id, pick_id: pick.id, match_id: pick.matchId });
-      if (!error) {
-        setFollowedPickIds((prev) => new Set(prev).add(pick.id));
-        ensurePushSubscription(user);
+      if (error) {
+        console.error('Error siguiendo pick:', error);
+        alert('No se pudo seguir el pick: ' + error.message);
+        return;
       }
+      setFollowedPickIds((prev) => new Set(prev).add(pick.id));
+      ensurePushSubscription(user);
     }
   };
 
