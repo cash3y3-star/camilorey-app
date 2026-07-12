@@ -1414,16 +1414,22 @@ function RiskModal({ count, tips, onClose }) {
 // (confianza como probabilidad, cuota real de Rushbet) — f* = (b·p - q) / b,
 // b = cuota-1, p = confianza/100, q = 1-p. Si f* <= 0 el modelo no ve
 // ventaja real (la cuota no compensa el riesgo) y Kelly dice no
-// apostar. Se muestra a media Kelly (mitad del valor puro) porque
-// Kelly completo es agresivo — así es como se usa en la práctica.
-function kellyFraction(confidence, odds) {
+// apostar. multiplier ajusta qué tan agresivo se aplica ese f* puro —
+// 1/4, 1/2 o completo, según el nivel de riesgo elegido.
+function kellyFraction(confidence, odds, multiplier = 0.5) {
   if (!odds || odds <= 1) return 0;
   const p = confidence / 100;
   const q = 1 - p;
   const b = odds - 1;
   const f = (b * p - q) / b;
-  return Math.max(0, f / 2);
+  return Math.max(0, f * multiplier);
 }
+
+const RISK_LEVELS = {
+  seguro: { label: 'Seguro', sub: '1/4 Kelly', multiplier: 0.25 },
+  equilibrado: { label: 'Equilibrado', sub: '1/2 Kelly', multiplier: 0.5 },
+  agresivo: { label: 'Agresivo', sub: 'Kelly completo', multiplier: 1 }
+};
 
 export default function Home({
   stats: initialStats,
@@ -1452,6 +1458,24 @@ export default function Home({
   const [showRiskModal, setShowRiskModal] = useState(false);
   const [riskTips, setRiskTips] = useState([]);
   const prevFollowedCountRef = useRef(0);
+  const [bankrollTab, setBankrollTab] = useState('slip');
+  // Banco de PLANEACIÓN (para el Slip Kelly) — separado del balance
+  // real de "Rendimiento". Arranca igual al balance real, pero es
+  // editable a mano para simular con otro monto. Se guarda en el
+  // navegador (localStorage), no en la base de datos — es solo una
+  // herramienta de planeación personal, no cambia el bankroll real.
+  const [bankPlan, setBankPlan] = useState(initialStats.unidades);
+  const [riskLevel, setRiskLevel] = useState('equilibrado');
+  const [slipMode, setSlipMode] = useState('individual');
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem('camilorey_bankplan') : null;
+    if (saved != null && !Number.isNaN(Number(saved))) setBankPlan(Number(saved));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_bankplan', String(bankPlan));
+  }, [bankPlan]);
 
   useEffect(() => {
     const fromHash = () => {
@@ -1938,114 +1962,204 @@ export default function Home({
 
         {isAdmin && (
         <section className={`view ${view === 'bankroll' ? 'active' : ''}`}>
-          <span className="eyebrow">Gestión de banca</span>
+          <span className="eyebrow">🛡️ Planificación con Kelly</span>
           <h1 className="page-title">Bankroll</h1>
-          <p className="page-sub">Banco en pesos colombianos, arrancó en $2.000.000, para medir el rendimiento de forma responsable.</p>
 
-          <div className="balance-hero">
-            <div className="balance-hero-label">Balance actual</div>
-            <div className={`balance-hero-value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
-          </div>
-
-          <div className="stat-strip stat-strip-3">
-            <div className="stat-card">
-              <div className="label">ROI</div>
-              <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
-                {stats.roi >= 0 ? '+' : ''}
-                {stats.roi}%
-              </div>
+          <div className="tabs">
+            <div className={`tab ${bankrollTab === 'slip' ? 'active' : ''}`} onClick={() => setBankrollTab('slip')}>
+              📋 Slip
             </div>
-            <div className="stat-card">
-              <div className="label">Efectividad</div>
-              <div className="value hit num">{stats.efectividad}%</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">Balance</div>
-              <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
+            <div
+              className={`tab ${bankrollTab === 'rendimiento' ? 'active' : ''}`}
+              onClick={() => setBankrollTab('rendimiento')}
+            >
+              📈 Rendimiento
             </div>
           </div>
 
-          <div className="bankroll-card">
-            <strong>Evolución</strong>
-            <LineChart series={bankrollSeries} />
-          </div>
+          {bankrollTab === 'slip' ? (
+            (() => {
+              const slipPicks = followedDetail.filter((p) => p.matchStatus !== 'done' && p.odds);
+              const multiplier = RISK_LEVELS[riskLevel].multiplier;
+              const rows = slipPicks.map((p) => ({
+                ...p,
+                fraction: kellyFraction(p.confidence, p.odds, multiplier)
+              }));
+              const asignado = rows.reduce((sum, r) => sum + r.fraction * bankPlan, 0);
+              const potencial = rows.reduce((sum, r) => sum + r.fraction * bankPlan * (r.odds - 1), 0);
+              const pctAsignado = bankPlan > 0 ? Math.min(100, Math.round((asignado / bankPlan) * 100)) : 0;
 
-          <div className="bankroll-card">
-            <strong>Planificador Kelly</strong>
-            <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6', margin: '4px 0 14px' }}>
-              Fracción óptima del banco según el criterio de Kelly (a media Kelly, más conservador) — usa la
-              confianza real del modelo como probabilidad y la cuota real de Rushbet. Es solo referencia, el sistema
-              sigue apostando el monto fijo de siempre.
-            </p>
-            {picks.filter((p) => p.odds).length === 0 ? (
-              <p className="page-sub" style={{ margin: 0 }}>
-                Ningún pick pendiente tiene cuota real todavía.
-              </p>
-            ) : (
-              <table className="bk">
-                <thead>
-                  <tr>
-                    <th>Pick</th>
-                    <th>Confianza</th>
-                    <th>Cuota</th>
-                    <th>Kelly (½)</th>
-                    <th>Sugerido</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {picks
-                    .filter((p) => p.odds)
-                    .map((p) => {
-                      const f = kellyFraction(p.confidence, p.odds);
-                      return (
-                        <tr key={p.id}>
-                          <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{p.player}</td>
-                          <td className="num">{p.confidence}%</td>
-                          <td className="num">{p.odds.toFixed(2)}</td>
-                          <td className="num">{f > 0 ? `${(f * 100).toFixed(1)}%` : 'Sin ventaja'}</td>
-                          <td className="num">{f > 0 ? formatCOP(f * stats.unidades) : '—'}</td>
+              return (
+                <>
+                  <div className="bankroll-card">
+                    <div className="slip-label">TU BANKROLL</div>
+                    <div className="slip-bank-row">
+                      <span className="slip-bank-currency">$</span>
+                      <input
+                        type="number"
+                        className="slip-bank-input"
+                        value={bankPlan}
+                        onChange={(e) => setBankPlan(Number(e.target.value) || 0)}
+                      />
+                      <span className="slip-bank-tag">COP</span>
+                    </div>
+                    <div className="slip-asignado-row">
+                      <span>Asignado</span>
+                      <span className="num">
+                        {formatCOP(asignado)} ({pctAsignado}%)
+                      </span>
+                    </div>
+                    <div className="ia-bar-track">
+                      <div className="ia-bar-fill tier-alta" style={{ width: `${pctAsignado}%` }}></div>
+                    </div>
+
+                    <div className="slip-label" style={{ marginTop: 18 }}>
+                      NIVEL DE RIESGO
+                    </div>
+                    <div className="risk-level-row">
+                      {Object.entries(RISK_LEVELS).map(([key, rl]) => (
+                        <div
+                          key={key}
+                          className={`risk-level-btn ${riskLevel === key ? 'active' : ''}`}
+                          onClick={() => setRiskLevel(key)}
+                        >
+                          <div className="risk-level-label">{rl.label}</div>
+                          <div className="risk-level-sub">{rl.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="tabs">
+                    <div className={`tab ${slipMode === 'combinado' ? 'active' : ''}`} onClick={() => setSlipMode('combinado')}>
+                      Combinado
+                    </div>
+                    <div className={`tab ${slipMode === 'individual' ? 'active' : ''}`} onClick={() => setSlipMode('individual')}>
+                      Individual
+                    </div>
+                  </div>
+
+                  <div className="stat-strip stat-strip-3">
+                    <div className="stat-card">
+                      <div className="label">Picks</div>
+                      <div className="value num">{rows.length}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="label">Asignación</div>
+                      <div className="value num">{formatCOP(asignado)}</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="label">Potencial</div>
+                      <div className="value hit num">{formatCOP(potencial)}</div>
+                    </div>
+                  </div>
+
+                  <div className="section-head">
+                    <h2>Selecciones individuales</h2>
+                    <span className="see-all">{rows.length} picks</span>
+                  </div>
+
+                  {rows.length === 0 ? (
+                    <p className="page-sub">Sigue algunos picks para ver sugerencias de planificación con Kelly aquí.</p>
+                  ) : (
+                    <table className="bk">
+                      <thead>
+                        <tr>
+                          <th>Pick</th>
+                          <th>Confianza</th>
+                          <th>Cuota</th>
+                          <th>Kelly</th>
+                          <th>Sugerido</th>
                         </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                      </thead>
+                      <tbody>
+                        {rows.map((r) => (
+                          <tr key={r.id}>
+                            <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{r.player}</td>
+                            <td className="num">{r.confidence}%</td>
+                            <td className="num">{r.odds.toFixed(2)}</td>
+                            <td className="num">{r.fraction > 0 ? `${(r.fraction * 100).toFixed(1)}%` : 'Sin ventaja'}</td>
+                            <td className="num">{r.fraction > 0 ? formatCOP(r.fraction * bankPlan) : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
 
-          <div className="bankroll-card">
-            <strong>¿Cómo se mide?</strong>
-            <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6' }}>
-              Cada pick arriesga entre $100.000 y $250.000 según la confianza del modelo (ver lib/staking.js). El
-              pago sí usa la cuota real de Rushbet cuando logramos cruzar el partido en su feed; si no la
-              encontramos, se calcula 1:1. Ajusta siempre el tamaño de tus apuestas a lo que puedas permitirte
-              perder.
-            </p>
-          </div>
+                  <p className="page-sub" style={{ marginTop: 14 }}>
+                    "{slipMode === 'combinado' ? 'Combinado' : 'Individual'}" es solo cómo se agrupa la vista — el
+                    banco de planeación no cambia el bankroll real, es una simulación tuya. El sistema sigue
+                    apostando el monto fijo de siempre (ver Rendimiento).
+                  </p>
+                </>
+              );
+            })()
+          ) : (
+            <>
+              <div className="balance-hero">
+                <div className="balance-hero-label">Balance actual</div>
+                <div className={`balance-hero-value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
+              </div>
 
-          <div className="bankroll-card">
-            <table className="bk">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Pick</th>
-                  <th>Monto</th>
-                  <th>Resultado</th>
-                  <th>Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bankrollLog.map((r, i) => (
-                  <tr key={i}>
-                    <td>{r.fecha}</td>
-                    <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{r.pick}</td>
-                    <td className={r.ok ? 'hit' : 'miss'}>{r.u}</td>
-                    <td className={r.ok ? 'hit' : 'miss'}>{r.ok ? 'Acierto' : 'Fallo'}</td>
-                    <td>{r.balance}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              <div className="stat-strip stat-strip-3">
+                <div className="stat-card">
+                  <div className="label">ROI</div>
+                  <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
+                    {stats.roi >= 0 ? '+' : ''}
+                    {stats.roi}%
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="label">Efectividad</div>
+                  <div className="value hit num">{stats.efectividad}%</div>
+                </div>
+                <div className="stat-card">
+                  <div className="label">Balance</div>
+                  <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
+                </div>
+              </div>
+
+              <div className="bankroll-card">
+                <strong>Evolución</strong>
+                <LineChart series={bankrollSeries} />
+              </div>
+
+              <div className="bankroll-card">
+                <strong>¿Cómo se mide?</strong>
+                <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6' }}>
+                  Cada pick arriesga entre $100.000 y $250.000 según la confianza del modelo (ver lib/staking.js). El
+                  pago sí usa la cuota real de Rushbet cuando logramos cruzar el partido en su feed; si no la
+                  encontramos, se calcula 1:1. Ajusta siempre el tamaño de tus apuestas a lo que puedas permitirte
+                  perder. El banco arrancó en $2.000.000.
+                </p>
+              </div>
+
+              <div className="bankroll-card">
+                <table className="bk">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Pick</th>
+                      <th>Monto</th>
+                      <th>Resultado</th>
+                      <th>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bankrollLog.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.fecha}</td>
+                        <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{r.pick}</td>
+                        <td className={r.ok ? 'hit' : 'miss'}>{r.u}</td>
+                        <td className={r.ok ? 'hit' : 'miss'}>{r.ok ? 'Acierto' : 'Fallo'}</td>
+                        <td>{r.balance}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </section>
         )}
 
@@ -2537,6 +2651,26 @@ const CSS = `
   .balance-hero-label{font-size:12px; opacity:.85; margin-bottom:4px;}
   .balance-hero-value{font-family:var(--font-display); font-weight:800; font-size:32px;}
   .balance-hero-value.hit, .balance-hero-value.miss{color:#fff;}
+
+  .slip-label{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:8px;}
+  .slip-bank-row{display:flex; align-items:baseline; gap:6px; margin-bottom:12px;}
+  .slip-bank-currency{font-family:var(--font-display); font-weight:800; font-size:28px; color:var(--ink);}
+  .slip-bank-input{
+    flex:1; min-width:0; font-family:var(--font-display); font-weight:800; font-size:28px; color:var(--ink);
+    background:none; border:none; border-bottom:2px solid var(--line); padding:2px 0; outline:none;
+  }
+  .slip-bank-input:focus{border-color:var(--court);}
+  .slip-bank-tag{font-family:var(--font-mono); font-size:11px; color:var(--muted); background:var(--bg-alt); border-radius:999px; padding:3px 9px; flex:none;}
+  .slip-asignado-row{display:flex; justify-content:space-between; font-size:13px; color:var(--muted); margin-bottom:6px;}
+  .risk-level-row{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .risk-level-btn{
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:12px; padding:10px 6px;
+    text-align:center; cursor:pointer;
+  }
+  .risk-level-btn.active{background:var(--court); border-color:var(--court);}
+  .risk-level-label{font-size:12.5px; font-weight:700; color:var(--ink);}
+  .risk-level-sub{font-size:10.5px; color:var(--muted); margin-top:2px;}
+  .risk-level-btn.active .risk-level-sub{color:rgba(255,255,255,.85);}
 
   .donut-row{display:flex; align-items:center; gap:18px; margin-bottom:6px;}
   .donut{width:96px; height:96px; flex:none;}
