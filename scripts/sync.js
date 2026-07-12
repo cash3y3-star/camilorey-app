@@ -186,6 +186,57 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
 }
 
+// El cruce con Rushbet en generatePick es "una sola oportunidad": si
+// en ese momento el partido todavía no aparecía en su tablero (Rushbet
+// suele publicar la cuota más cerca de la hora del partido que
+// nuestra ventana de descubrimiento, que ahora mira varias horas
+// adelante), el pick se queda con odds=null para siempre, aunque
+// Rushbet sí lo liste minutos después. Esto reintenta el cruce en
+// cada corrida para todo pick pendiente que aún no tenga cuota.
+async function backfillMissingOdds(rushbetEvents) {
+  if (!rushbetEvents.length) return 0;
+
+  const { data: pendingPicks, error } = await supabase
+    .from('picks')
+    .select('id, match_id, predicted_winner_id')
+    .eq('result', 'pending')
+    .is('odds', null);
+  if (error) throw new Error(`select picks (odds backfill): ${error.message}`);
+  if (!pendingPicks || pendingPicks.length === 0) return 0;
+
+  const matchIds = [...new Set(pendingPicks.map((p) => p.match_id))];
+  const { data: matches, error: mErr } = await supabase
+    .from('matches')
+    .select('id, player_a_id, player_b_id, scheduled_at')
+    .in('id', matchIds);
+  if (mErr) throw new Error(`select matches (odds backfill): ${mErr.message}`);
+  const matchesById = new Map((matches || []).map((m) => [m.id, m]));
+
+  const playerIds = [...new Set((matches || []).flatMap((m) => [m.player_a_id, m.player_b_id]))];
+  const { data: players, error: plErr } = await supabase.from('players').select('id, name').in('id', playerIds);
+  if (plErr) throw new Error(`select players (odds backfill): ${plErr.message}`);
+  const playersById = new Map((players || []).map((p) => [p.id, p]));
+
+  let updated = 0;
+  for (const pick of pendingPicks) {
+    const match = matchesById.get(pick.match_id);
+    if (!match) continue;
+    const playerA = playersById.get(match.player_a_id);
+    const playerB = playersById.get(match.player_b_id);
+    if (!playerA || !playerB) continue;
+
+    const odds = findOdds(rushbetEvents, playerA.name, playerB.name, match.scheduled_at);
+    if (!odds) continue;
+    const favoredOdds = pick.predicted_winner_id === match.player_a_id ? odds.oddsA : odds.oddsB;
+    if (!favoredOdds) continue;
+
+    const { error: upErr } = await supabase.from('picks').update({ odds: favoredOdds }).eq('id', pick.id);
+    if (upErr) throw new Error(`update picks odds(${pick.id}): ${upErr.message}`);
+    updated++;
+  }
+  return updated;
+}
+
 async function syncTournamentMatches(t, widgets, rushbetEvents) {
   const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
   let matchesProcessed = 0;
@@ -369,6 +420,13 @@ async function run() {
     } catch (e) {
       console.error(`Error procesando torneo ${id}: ${e.message}`);
     }
+  }
+
+  try {
+    const oddsBackfilled = await backfillMissingOdds(rushbetEvents);
+    totals.oddsBackfilled = oddsBackfilled;
+  } catch (e) {
+    console.error(`Error completando cuotas pendientes: ${e.message}`);
   }
 
   console.log('--- RESUMEN ---');
