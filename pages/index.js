@@ -501,7 +501,15 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
           {navLink('calendario', 'Resultados')}
           {navLink('bankroll', 'Bankroll')}
         </nav>
-        <span className="badge18">+18 · Juega con cabeza</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <a href="https://t.me/+q_JbStqxCsFhYWE8" target="_blank" rel="noopener noreferrer" className="tg-badge">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+              <path d="M21.9 2.6c-.3-.2-.7-.3-1.1-.1L2.4 9.9c-.5.2-.8.6-.8 1.1 0 .5.4.9.9 1l4.9 1.5 1.9 6c.1.4.5.7.9.7.3 0 .5-.1.7-.3l2.7-2.6 4.8 3.5c.2.2.5.2.7.2.2 0 .4 0 .5-.1.4-.2.6-.5.7-.9l3.2-15.5c.1-.4-.1-.8-.5-1z" />
+            </svg>
+            Telegram
+          </a>
+          <span className="badge18">+18 · Juega con cabeza</span>
+        </div>
       </header>
 
       <main>
@@ -509,6 +517,19 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
           <span className="eyebrow">Liga Pro Checa · Tenis de mesa</span>
           <h1 className="page-title">Picks del día</h1>
           <p className="page-sub">Análisis propio sobre partidos de la Liga Pro Checa, contrastado con nuestro propio historial.</p>
+
+          <a href="https://t.me/+q_JbStqxCsFhYWE8" target="_blank" rel="noopener noreferrer" className="tg-banner">
+            <div className="tg-banner-text">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+                <path d="M21.9 2.6c-.3-.2-.7-.3-1.1-.1L2.4 9.9c-.5.2-.8.6-.8 1.1 0 .5.4.9.9 1l4.9 1.5 1.9 6c.1.4.5.7.9.7.3 0 .5-.1.7-.3l2.7-2.6 4.8 3.5c.2.2.5.2.7.2.2 0 .4 0 .5-.1.4-.2.6-.5.7-.9l3.2-15.5c.1-.4-.1-.8-.5-1z" />
+              </svg>
+              <div>
+                <div className="tg-banner-title">Únete al canal de Telegram</div>
+                <div className="tg-banner-sub">Picks, avisos y novedades en tiempo real</div>
+              </div>
+            </div>
+            <span className="tg-banner-cta">Entrar →</span>
+          </a>
 
           <div className="stat-strip">
             <div className="stat-card">
@@ -854,6 +875,29 @@ const CSS = `
     font-family:var(--font-mono); font-size:11px; font-weight:600;
     color:#FAC7C7; background:var(--court-soft);
     border-radius:999px; padding:4px 9px; margin-left:8px;
+  }
+  .tg-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12px; font-weight:700; color:#fff; text-decoration:none;
+    background:#26A5E4; border-radius:999px; padding:6px 12px;
+    transition:transform .12s ease;
+  }
+  .tg-badge:hover{transform:translateY(-1px);}
+
+  .tg-banner{
+    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    background:linear-gradient(135deg, #26A5E4, #1B87BF);
+    border-radius:16px; padding:16px 20px; margin:16px 0 22px;
+    text-decoration:none; color:#fff;
+    box-shadow:0 8px 20px rgba(38,165,228,.3);
+  }
+  .tg-banner-text{display:flex; align-items:center; gap:12px;}
+  .tg-banner-text svg{flex:none;}
+  .tg-banner-title{font-weight:800; font-size:15px;}
+  .tg-banner-sub{font-size:12.5px; opacity:.9;}
+  .tg-banner-cta{
+    font-size:13px; font-weight:700; background:rgba(255,255,255,.2);
+    border-radius:999px; padding:8px 16px; flex:none; white-space:nowrap;
   }
 
   main{max-width:980px; margin:0 auto; padding:24px 20px 60px;}
