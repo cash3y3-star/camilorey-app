@@ -76,7 +76,7 @@ export async function getServerSideProps({ query }) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
-    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url'),
+    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, league_range, rating'),
     supabase.from('picks').select('*').eq('result', 'pending').order('confidence', { ascending: false })
   ]);
 
@@ -131,6 +131,8 @@ export async function getServerSideProps({ query }) {
   // supuesto también una vez que ya arrancó o terminó.
   const HIDE_BEFORE_START_MS = 10 * 60 * 1000;
 
+  const activeLeagueRanges = new Set();
+
   const picks = [];
   for (const pick of pendingPicks || []) {
     const match = matchesById.get(pick.match_id);
@@ -148,6 +150,8 @@ export async function getServerSideProps({ query }) {
     const confidence = Math.round(pick.confidence);
     const history = await recentForm(pick.predicted_winner_id);
     const h2h = await h2hRecord(favored.id, opponent.id);
+    if (favored.league_range) activeLeagueRanges.add(favored.league_range);
+    if (opponent.league_range) activeLeagueRanges.add(opponent.league_range);
 
     picks.push({
       id: pick.id,
@@ -179,6 +183,35 @@ export async function getServerSideProps({ query }) {
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
   const topConfidence = [...picks].sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
+
+  // Tabla de posiciones — mismo criterio que usa tt.league-pro.com en
+  // su página de jugadores (/en/players): ranking por rating dentro de
+  // cada liga (league_range, ej. "800-900"). Solo se muestran las
+  // ligas de los jugadores que tienen un pick activo hoy, para no
+  // volcar las ~16 divisiones del sitio entero. players.rating ya se
+  // actualiza en cada sync con el rating real post-torneo, así que
+  // esta tabla queda al día sola, sin lógica nueva de standings.
+  const standings = [];
+  for (const range of activeLeagueRanges) {
+    const { data: rangePlayers } = await supabase
+      .from('players')
+      .select('id, name, avatar_url, avatar_cutout_url, rating')
+      .eq('league_range', range)
+      .order('rating', { ascending: false })
+      .limit(10);
+    standings.push({
+      range,
+      players: (rangePlayers || []).map((p, i) => ({
+        position: i + 1,
+        id: p.id,
+        name: p.name,
+        initials: initialsOf(p.name),
+        avatarUrl: p.avatar_cutout_url || p.avatar_url || null,
+        rating: p.rating != null ? Math.round(Number(p.rating)) : null
+      }))
+    });
+  }
+  standings.sort((a, b) => a.range.localeCompare(b.range, undefined, { numeric: true }));
 
   // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
   // sección Picks) — no se les calcula H2H/racha/forma reciente para
@@ -412,6 +445,7 @@ export async function getServerSideProps({ query }) {
       stats: { efectividad, racha, cuotaProm, roi, unidades },
       picks,
       resolvedPicks,
+      standings,
       matches,
       bankrollLog,
       bankrollSeries,
@@ -909,7 +943,23 @@ function LineChart({ series }) {
   );
 }
 
-export default function Home({ stats, picks, resolvedPicks, matches, bankrollLog, bankrollSeries, currentDateStr, userCount }) {
+function StandingsTable({ division }) {
+  return (
+    <div className="standings-card">
+      <div className="standings-head">Liga {division.range}</div>
+      {division.players.map((p) => (
+        <div className="standings-row" key={p.id}>
+          <span className="standings-pos num">{p.position}</span>
+          <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} initials={p.initials} className="standings-avatar" />
+          <span className="standings-name">{p.name}</span>
+          <span className="standings-rating num">{p.rating != null ? p.rating : '—'}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Home({ stats, picks, resolvedPicks, standings, matches, bankrollLog, bankrollSeries, currentDateStr, userCount }) {
   const [view, setView] = useState('inicio');
   const [pickTab, setPickTab] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
@@ -986,7 +1036,6 @@ export default function Home({ stats, picks, resolvedPicks, matches, bankrollLog
   };
 
   const featured = picks.find((p) => p.featured) || picks[0] || null;
-  const homePicks = featured ? picks.filter((p) => p.id !== featured.id).slice(0, 4) : [];
 
   const tabPicks =
     pickTab === 'pendientes'
@@ -1173,22 +1222,16 @@ export default function Home({ stats, picks, resolvedPicks, matches, bankrollLog
           )}
 
           <div className="section-head">
-            <h2>Todos los picks de hoy</h2>
+            <h2>Tabla de posiciones</h2>
             <a href="#picks" className="see-all">
-              Ver todo →
+              Ver todos los picks →
             </a>
           </div>
-          <div className="pick-grid">
-            {homePicks.map((p) => (
-              <PickCard
-                key={p.id}
-                pick={p}
-                onClick={() => setModalPick(p)}
-                followed={followedPickIds.has(p.id)}
-                onToggleFollow={toggleFollow}
-              />
-            ))}
-          </div>
+          {standings.length === 0 ? (
+            <p className="page-sub">Todavía no hay suficientes datos para mostrar tablas.</p>
+          ) : (
+            standings.map((d) => <StandingsTable division={d} key={d.range} />)
+          )}
         </section>
 
         <section className={`view ${view === 'picks' ? 'active' : ''}`}>
@@ -1627,6 +1670,21 @@ const CSS = `
   .stat-card .value{font-family:var(--font-mono); font-size:20px; font-weight:600;}
   .stat-card .value.hit{color:var(--hit);}
   .stat-card .value.miss{color:var(--miss);}
+
+  .standings-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:6px 16px; box-shadow:var(--shadow); margin-bottom:14px;
+  }
+  .standings-head{
+    font-family:var(--font-mono); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--court); padding:12px 0 8px; border-bottom:1px solid var(--line);
+  }
+  .standings-row{display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);}
+  .standings-row:last-child{border-bottom:none;}
+  .standings-pos{width:18px; flex:none; font-size:13px; font-weight:700; color:var(--muted); text-align:center;}
+  .standings-avatar{width:32px; height:32px; font-size:11px;}
+  .standings-name{flex:1; min-width:0; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .standings-rating{font-size:13px; font-weight:700; color:var(--ink);}
 
   .greeting-hi{font-family:var(--font-display); font-weight:800; font-size:28px; line-height:1.1;}
   .greeting-date{color:var(--muted); font-size:13px; text-transform:capitalize; margin-top:2px;}
