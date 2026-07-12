@@ -1266,7 +1266,7 @@ export default function Home({
   picks,
   resolvedPicks,
   tournamentGroups,
-  matches,
+  matches: initialMatches,
   bankrollLog,
   bankrollSeries,
   currentDateStr,
@@ -1274,7 +1274,8 @@ export default function Home({
 }) {
   const [view, setView] = useState('inicio');
   const [pickTab, setPickTab] = useState('todos');
-  const [matchFilter, setMatchFilter] = useState(matches.some((m) => m.status === 'live') ? 'vivo' : 'todos');
+  const [matches, setMatches] = useState(initialMatches);
+  const [matchFilter, setMatchFilter] = useState(initialMatches.some((m) => m.status === 'live') ? 'vivo' : 'todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
   const [user, setUser] = useState(null);
@@ -1290,6 +1291,32 @@ export default function Home({
     window.addEventListener('hashchange', fromHash);
     return () => window.removeEventListener('hashchange', fromHash);
   }, []);
+
+  // Calendario no se actualizaba solo — había que recargar la página
+  // para que un partido pasara de "Próximo" a "En vivo". Mientras esa
+  // vista esté abierta, se vuelve a consultar el estado del día cada
+  // 20s (estilo Sofascore/Flashscore), sin recargar nada más.
+  useEffect(() => {
+    if (view !== 'calendario') return undefined;
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const params = currentDateStr ? `?date=${currentDateStr}` : '';
+        const r = await fetch(`/api/matches-status${params}`);
+        const data = await r.json();
+        if (!cancelled && data.matches) setMatches(data.matches);
+      } catch (e) {
+        console.error('Error actualizando Calendario:', e);
+      }
+    }
+
+    const interval = setInterval(load, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [view, currentDateStr]);
 
   useEffect(() => {
     if (!supabaseClient) return undefined;
