@@ -705,6 +705,13 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
           </span>
         ) : pick.matchStatus === 'live' ? (
           <span className="pc-vs-badge pc-vs-live num">···</span>
+        ) : pick.matchStatus === 'done' && pick.score ? (
+          <span
+            className="pc-vs-badge pc-vs-live num"
+            style={{ color: pick.result === 'hit' ? 'var(--hit)' : pick.result === 'miss' ? 'var(--miss)' : 'var(--court)' }}
+          >
+            {pick.score}
+          </span>
         ) : (
           <span className="pc-vs-badge">VS</span>
         )}
@@ -725,6 +732,15 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
               {live.current.a}-{live.current.b}
             </span>
           ) : null}
+        </div>
+      ) : null}
+      {pick.matchStatus === 'done' && pick.setScores && pick.setScores.length > 0 ? (
+        <div className="mc-live-score mc-live-score-small">
+          {pick.setScores.map((s, i) => (
+            <span className="mc-set num" key={i}>
+              {s.a}-{s.b}
+            </span>
+          ))}
         </div>
       ) : null}
       {pick.streakLabel || pick.h2hTotal > 0 ? (

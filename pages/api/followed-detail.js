@@ -86,6 +86,24 @@ export default async function handler(req, res) {
 
       const confidence = Math.round(pick.confidence);
 
+      // El resultado final se guarda relativo a jugador A/B, no a
+      // favorito/rival — hay que reordenarlo para que quede a favor
+      // de "player" (izquierda, el favorito) igual que en el resto de
+      // la tarjeta.
+      const favoredIsA = pick.predicted_winner_id === match.player_a_id;
+      const finalScore =
+        status === 'done' && match.sets_a != null && match.sets_b != null
+          ? favoredIsA
+            ? `${match.sets_a}-${match.sets_b}`
+            : `${match.sets_b}-${match.sets_a}`
+          : null;
+      const finalSetScores =
+        status === 'done' && Array.isArray(match.set_scores)
+          ? favoredIsA
+            ? match.set_scores
+            : match.set_scores.map((s) => ({ a: s.b, b: s.a }))
+          : null;
+
       return {
         id: pick.id,
         matchId: match.id,
@@ -110,6 +128,8 @@ export default async function handler(req, res) {
         h2hTotal: 0,
         result: pick.result,
         matchStatus: status,
+        score: finalScore,
+        setScores: finalSetScores,
         sourceId: match.source_id,
         tournamentId: match.tournament_id
       };
