@@ -228,6 +228,16 @@ export async function getServerSideProps({ query }) {
   };
 }
 
+// Nivel del chat (estilo AiScore) — solo define el color/tier visual
+// de la insignia; el número de nivel ya viene calculado desde la
+// base de datos (migration_010, curva de raíz cuadrada por mensajes).
+function levelTier(level) {
+  if (level >= 10) return 'legend';
+  if (level >= 6) return 'fan';
+  if (level >= 3) return 'active';
+  return 'new';
+}
+
 function initialsOf(name) {
   if (!name) return '??';
   return name
@@ -343,7 +353,7 @@ function LiveChat({ matchSourceId, user }) {
 
     supabaseClient
       .from('chat_messages')
-      .select('id, user_name, user_avatar, message, created_at')
+      .select('id, user_name, user_avatar, message, created_at, sender_level')
       .eq('match_source_id', matchSourceId)
       .order('created_at', { ascending: true })
       .limit(100)
@@ -406,7 +416,12 @@ function LiveChat({ matchSourceId, user }) {
                 <span className="live-chat-avatar-fallback">{(msg.user_name || '?')[0].toUpperCase()}</span>
               )}
               <div>
-                <div className="live-chat-name">{msg.user_name || 'Anónimo'}</div>
+                <div className="live-chat-name">
+                  {msg.user_name || 'Anónimo'}
+                  {msg.sender_level ? (
+                    <span className={`level-badge tier-${levelTier(msg.sender_level)}`}>Nv.{msg.sender_level}</span>
+                  ) : null}
+                </div>
                 <div className="live-chat-text">{msg.message}</div>
               </div>
             </div>
@@ -1275,7 +1290,15 @@ const CSS = `
     display:flex; align-items:center; justify-content:center;
     background:var(--court); color:#fff; font-size:11px; font-weight:800;
   }
-  .live-chat-name{font-size:11px; font-weight:700; color:var(--muted);}
+  .live-chat-name{font-size:11px; font-weight:700; color:var(--muted); display:flex; align-items:center; gap:6px;}
+  .level-badge{
+    font-family:var(--font-mono); font-size:9.5px; font-weight:800;
+    padding:1px 6px; border-radius:999px; letter-spacing:.3px;
+  }
+  .level-badge.tier-new{background:var(--bg-alt); color:var(--muted);}
+  .level-badge.tier-active{background:rgba(93,202,165,.15); color:var(--hit);}
+  .level-badge.tier-fan{background:rgba(255,122,69,.18); color:var(--ball);}
+  .level-badge.tier-legend{background:linear-gradient(135deg, #FFD700, #FF7A45); color:#1a1a1a;}
   .live-chat-text{font-size:13.5px; color:var(--ink); line-height:1.4; word-break:break-word;}
   .live-chat-form{display:flex; gap:8px;}
   .live-chat-form input{
