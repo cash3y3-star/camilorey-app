@@ -1180,6 +1180,7 @@ export default function Home({
 }) {
   const [view, setView] = useState('inicio');
   const [pickTab, setPickTab] = useState('todos');
+  const [matchFilter, setMatchFilter] = useState(matches.some((m) => m.status === 'live') ? 'vivo' : 'todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
   const [user, setUser] = useState(null);
@@ -1285,6 +1286,16 @@ export default function Home({
     const dayNum = new Intl.DateTimeFormat('es-CO', { day: '2-digit', timeZone: 'America/Bogota' }).format(d);
     return { dateStr, weekday: weekday.replace('.', ''), dayNum };
   });
+
+  const liveCount = matches.filter((m) => m.status === 'live').length;
+  const filteredMatches =
+    matchFilter === 'vivo'
+      ? matches.filter((m) => m.status === 'live')
+      : matchFilter === 'finalizados'
+      ? matches.filter((m) => m.status === 'done')
+      : matchFilter === 'proximos'
+      ? matches.filter((m) => m.status === 'soon')
+      : matches;
 
   const greetingName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || null;
   const todayLabel = new Intl.DateTimeFormat('es-CO', {
@@ -1519,14 +1530,34 @@ export default function Home({
               </a>
             ))}
           </div>
+          <div className="match-filter-row">
+            <div
+              className={`match-filter-btn live ${matchFilter === 'vivo' ? 'active' : ''}`}
+              onClick={() => setMatchFilter('vivo')}
+            >
+              <span className="live-dot"></span> EN VIVO{liveCount > 0 ? ` (${liveCount})` : ''}
+            </div>
+            <div className={`match-filter-btn ${matchFilter === 'proximos' ? 'active' : ''}`} onClick={() => setMatchFilter('proximos')}>
+              PRÓXIMOS
+            </div>
+            <div
+              className={`match-filter-btn ${matchFilter === 'finalizados' ? 'active' : ''}`}
+              onClick={() => setMatchFilter('finalizados')}
+            >
+              FINALIZADOS
+            </div>
+            <div className={`match-filter-btn ${matchFilter === 'todos' ? 'active' : ''}`} onClick={() => setMatchFilter('todos')}>
+              TODOS
+            </div>
+          </div>
           <div className="section-head">
             <h2>Partidos {currentDateStr === dayStrip[0].dateStr ? 'de hoy' : ''}</h2>
           </div>
           <div>
-            {matches.length === 0 ? (
-              <p className="page-sub">No hay partidos programados este día.</p>
+            {filteredMatches.length === 0 ? (
+              <p className="page-sub">No hay partidos en esta categoría para este día.</p>
             ) : (
-              matches.map((m, i) => <MatchRow m={m} key={i} onClick={() => setModalMatch(m)} />)
+              filteredMatches.map((m, i) => <MatchRow m={m} key={i} onClick={() => setModalMatch(m)} />)
             )}
           </div>
         </section>
@@ -2039,6 +2070,19 @@ const CSS = `
   .day-chip.active{background:var(--court); border-color:var(--court); color:#fff;}
   .day-chip-weekday{font-size:10.5px; font-weight:700; text-transform:uppercase;}
   .day-chip-num{font-size:15px; font-weight:800;}
+
+  .match-filter-row{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+  .match-filter-btn{
+    font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:.4px;
+    padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card);
+    color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  .match-filter-btn.active{background:var(--court); border-color:var(--court); color:#fff;}
+  .match-filter-btn.live .live-dot{
+    width:7px; height:7px; border-radius:50%; background:var(--court);
+    animation:pulse-dot 1.8s ease-in-out infinite;
+  }
+  .match-filter-btn.live.active .live-dot{background:#fff; box-shadow:none;}
 
   .balance-hero{
     background:linear-gradient(135deg, var(--court), var(--court-dark));
