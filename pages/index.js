@@ -218,7 +218,7 @@ export async function getServerSideProps({ query }) {
       tournamentIds.map(async (tId) => {
         const { data: groupMatches } = await supabase
           .from('matches')
-          .select('player_a_id, player_b_id, sets_a, sets_b, status, scheduled_at')
+          .select('player_a_id, player_b_id, sets_a, sets_b, set_scores, status, scheduled_at')
           .eq('tournament_id', tId);
         if (!groupMatches || groupMatches.length === 0) return null;
 
@@ -241,23 +241,48 @@ export async function getServerSideProps({ query }) {
         }
 
         // matchupByPlayer.get(idA).get(idB) = sets de A contra B, visto desde A.
+        // ballsByPlayer = puntos (bolas) ganados/perdidos, solo sumando los
+        // partidos donde SÍ tenemos el detalle punto a punto (set_scores) —
+        // no todos los partidos lo tienen, solo los que alguien vio en vivo
+        // mientras se jugaban, así que puede quedar incompleto.
         const matchupByPlayer = new Map(groupPlayerIds.map((id) => [id, new Map()]));
+        const ballsByPlayer = new Map(groupPlayerIds.map((id) => [id, { for: 0, against: 0, hasData: false }]));
         for (const m of groupMatches) {
           if (m.sets_a == null || m.sets_b == null) continue;
           matchupByPlayer.get(m.player_a_id)?.set(m.player_b_id, { for: m.sets_a, against: m.sets_b });
           matchupByPlayer.get(m.player_b_id)?.set(m.player_a_id, { for: m.sets_b, against: m.sets_a });
+
+          if (Array.isArray(m.set_scores) && m.set_scores.length > 0) {
+            const ballsA = m.set_scores.reduce((s, set) => s + (set.a || 0), 0);
+            const ballsB = m.set_scores.reduce((s, set) => s + (set.b || 0), 0);
+            const ba = ballsByPlayer.get(m.player_a_id);
+            const bb = ballsByPlayer.get(m.player_b_id);
+            if (ba) {
+              ba.for += ballsA;
+              ba.against += ballsB;
+              ba.hasData = true;
+            }
+            if (bb) {
+              bb.for += ballsB;
+              bb.against += ballsA;
+              bb.hasData = true;
+            }
+          }
         }
 
         const rows = groupPlayerIds.map((id) => {
           const p = playersById.get(id);
           let wins = 0;
+          let losses = 0;
           let setsFor = 0;
           let setsAgainst = 0;
           for (const res of matchupByPlayer.get(id).values()) {
             setsFor += res.for;
             setsAgainst += res.against;
             if (res.for > res.against) wins++;
+            else losses++;
           }
+          const balls = ballsByPlayer.get(id);
           return {
             id,
             name: p?.name || '—',
@@ -266,7 +291,12 @@ export async function getServerSideProps({ query }) {
             rating: p?.rating != null ? Math.round(Number(p.rating)) : null,
             wins,
             setsFor,
-            setsAgainst
+            setsAgainst,
+            // 2 puntos por partido ganado, 1 por perdido (igual al criterio
+            // que usa tt.league-pro.com en su propia tabla de grupo).
+            points: wins * 2 + losses,
+            ballsFor: balls.hasData ? balls.for : null,
+            ballsAgainst: balls.hasData ? balls.against : null
           };
         });
         rows.sort((a, b) => b.wins - a.wins || b.setsFor - b.setsAgainst - (a.setsFor - a.setsAgainst));
@@ -1132,6 +1162,8 @@ function GroupTable({ group }) {
                 </th>
               ))}
               <th>Sets</th>
+              <th>Bolas</th>
+              <th>Puntos</th>
               <th>Puesto</th>
             </tr>
           </thead>
@@ -1157,6 +1189,8 @@ function GroupTable({ group }) {
                 <td className="num">
                   {row.setsFor}-{row.setsAgainst}
                 </td>
+                <td className="num">{row.ballsFor != null ? `${row.ballsFor}-${row.ballsAgainst}` : '—'}</td>
+                <td className="num">{row.points}</td>
                 <td className="num">{row.place}</td>
               </tr>
             ))}
