@@ -210,16 +210,23 @@ export async function getServerSideProps({ query }) {
   // resultados (sets a favor/en contra por rival) + total de sets +
   // puesto. Se reconstruye 100% desde nuestros propios "matches" del
   // torneo (no hace falta un campo nuevo de scraping) — solo se arma
-  // para los torneos que ya tienen algún pick activo, no todos los
-  // que corren en el sitio a la vez.
+  // para los torneos que tienen AL MENOS un partido en vivo ahora
+  // mismo, no todos los que tengan un pick pendiente (eso incluía
+  // torneos que ni siquiera habían arrancado, saturando Inicio).
   const tournamentGroups = (
     await Promise.all(
       tournamentIds.map(async (tId) => {
         const { data: groupMatches } = await supabase
           .from('matches')
-          .select('player_a_id, player_b_id, sets_a, sets_b')
+          .select('player_a_id, player_b_id, sets_a, sets_b, status, scheduled_at')
           .eq('tournament_id', tId);
         if (!groupMatches || groupMatches.length === 0) return null;
+
+        const now = Date.now();
+        const isLive = groupMatches.some(
+          (m) => m.status === 'live' || (m.status !== 'finished' && m.scheduled_at && new Date(m.scheduled_at).getTime() <= now)
+        );
+        if (!isLive) return null;
 
         const groupPlayerIds = [...new Set(groupMatches.flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(Boolean);
         if (groupPlayerIds.length < 3) return null;
@@ -1358,13 +1365,13 @@ export default function Home({
           )}
 
           <div className="section-head">
-            <h2>Tabla de posiciones</h2>
+            <h2>Torneos en vivo</h2>
             <a href="#picks" className="see-all">
               Ver todos los picks →
             </a>
           </div>
           {tournamentGroups.length === 0 ? (
-            <p className="page-sub">Todavía no hay suficientes partidos jugados para mostrar tablas.</p>
+            <p className="page-sub">No hay ningún torneo en vivo en este momento.</p>
           ) : (
             tournamentGroups.map((g) => <GroupTable group={g} key={g.tournamentId} />)
           )}
