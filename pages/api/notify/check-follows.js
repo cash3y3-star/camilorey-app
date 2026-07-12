@@ -63,6 +63,16 @@ export default async function handler(req, res) {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+  // Debug: reinicia el contador de un partido para forzar que se
+  // vuelva a intentar el aviso en esta misma corrida (para ver el
+  // error real de por qué no llegó, sin esperar al próximo set).
+  if (req.query.reset) {
+    await supabase
+      .from('matches')
+      .update({ notified_sets_count: 0, notified_finished: false })
+      .eq('id', Number(req.query.reset));
+  }
+
   const { data: follows } = await supabase.from('followed_picks').select('match_id');
   const matchIds = [...new Set((follows || []).map((f) => f.match_id))];
   if (matchIds.length === 0) return res.status(200).json({ checked: 0 });
