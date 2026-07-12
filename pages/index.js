@@ -1257,6 +1257,163 @@ function LineChart({ series }) {
   );
 }
 
+// Modal de detalle de un pick, en pestañas: Análisis (el texto de por
+// qué es favorito), Estadísticas (forma reciente con selector L5/L10/
+// H2H) y Resumen (los datos clave de un vistazo). Antes era todo
+// apilado en vertical — se separa en pestañas para que no haya que
+// hacer scroll por todo para llegar a una sola cosa.
+function PickDetailModal({ pick, onClose }) {
+  const [tab, setTab] = useState('analisis');
+  const [formView, setFormView] = useState('l10');
+
+  const displayHistory = formView === 'l5' ? pick.history.slice(-5) : pick.history;
+  const hitsInView = displayHistory.filter((v) => v === 1).length;
+
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal">
+        <div className="modal-head">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {pick.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="featured-avatar" src={pick.avatarUrl} alt="" referrerPolicy="no-referrer" />
+            ) : null}
+            <div>
+              <div className="sub">
+                {pick.tournament} · {pick.time}
+              </div>
+              <h3>
+                <span className="flag">🇨🇿</span> {pick.player}
+              </h3>
+              <div className="sub">vs {pick.opponent}</div>
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="modal-market">{pick.market}</div>
+
+        <div className="kpis">
+          <div className="kpi">
+            <div className="l">Índice IA</div>
+            <div className="v num">{pick.confidence}%</div>
+          </div>
+          <div className="kpi">
+            <div className="l">Cuota (Rushbet)</div>
+            <div className="v num">{pick.odds ? pick.odds.toFixed(2) : 'No disponible'}</div>
+          </div>
+        </div>
+
+        <div className="tabs">
+          <div className={`tab ${tab === 'analisis' ? 'active' : ''}`} onClick={() => setTab('analisis')}>
+            Análisis
+          </div>
+          <div className={`tab ${tab === 'estadisticas' ? 'active' : ''}`} onClick={() => setTab('estadisticas')}>
+            Estadísticas
+          </div>
+          <div className={`tab ${tab === 'resumen' ? 'active' : ''}`} onClick={() => setTab('resumen')}>
+            Resumen
+          </div>
+        </div>
+
+        {tab === 'analisis' ? (
+          <div className="analysis">{pick.analysis}</div>
+        ) : tab === 'estadisticas' ? (
+          <>
+            <div className="tabs" style={{ marginBottom: '14px' }}>
+              <div className={`tab ${formView === 'l5' ? 'active' : ''}`} onClick={() => setFormView('l5')}>
+                L5
+              </div>
+              <div className={`tab ${formView === 'l10' ? 'active' : ''}`} onClick={() => setFormView('l10')}>
+                L10
+              </div>
+              {pick.h2hTotal > 0 ? (
+                <div className={`tab ${formView === 'h2h' ? 'active' : ''}`} onClick={() => setFormView('h2h')}>
+                  H2H
+                </div>
+              ) : null}
+            </div>
+
+            {formView === 'h2h' ? (
+              <>
+                <div className="hist-title">
+                  <span>H2H contra {pick.opponent}</span>
+                  <span className="num">{pick.h2h}</span>
+                </div>
+                <div className="h2h-bar-track">
+                  <div
+                    className="h2h-bar-fill"
+                    style={{ width: `${(Number(pick.h2h.split('-')[0]) / pick.h2hTotal) * 100}%` }}
+                  ></div>
+                </div>
+              </>
+            ) : displayHistory.length > 0 ? (
+              <>
+                <div className="hist-title">
+                  <span>Últimos {displayHistory.length} partidos</span>
+                </div>
+                <div className="donut-row">
+                  <DonutChart wins={hitsInView} total={displayHistory.length} />
+                  <div className="chart">
+                    {displayHistory.map((v, i) => (
+                      <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`} style={{ height: '60px' }}></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="legend">
+                  <span>
+                    <i className="sw" style={{ background: 'var(--hit)' }}></i>Victoria
+                  </span>
+                  <span>
+                    <i className="sw" style={{ background: 'var(--miss)' }}></i>Derrota
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="page-sub">Sin historial reciente todavía.</p>
+            )}
+          </>
+        ) : (
+          <div className="resumen-grid">
+            <div className="resumen-item">
+              <span className="l">Torneo</span>
+              <span className="v">{pick.tournament}</span>
+            </div>
+            <div className="resumen-item">
+              <span className="l">Hora</span>
+              <span className="v num">{pick.time}</span>
+            </div>
+            <div className="resumen-item">
+              <span className="l">Mercado</span>
+              <span className="v">{pick.market}</span>
+            </div>
+            <div className="resumen-item">
+              <span className="l">Índice IA</span>
+              <span className="v num">{pick.confidence}%</span>
+            </div>
+            <div className="resumen-item">
+              <span className="l">Cuota</span>
+              <span className="v num">{pick.odds ? pick.odds.toFixed(2) : 'N/D'}</span>
+            </div>
+            <div className="resumen-item">
+              <span className="l">Racha</span>
+              <span className="v num">{pick.streakLabel || '—'}</span>
+            </div>
+            {pick.h2hTotal > 0 ? (
+              <div className="resumen-item">
+                <span className="l">H2H</span>
+                <span className="v num">{pick.h2h}</span>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Tabla de grupo de un torneo — todos contra todos, igual a como la
 // muestra tt.league-pro.com dentro de cada torneo: una fila por
 // jugador, una columna por cada rival con el marcador de sets de ese
@@ -2361,87 +2518,7 @@ export default function Home({
         ) : null}
       </nav>
 
-      {modalPick && (
-        <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && setModalPick(null)}>
-          <div className="modal">
-            <div className="modal-head">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {modalPick.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="featured-avatar" src={modalPick.avatarUrl} alt="" referrerPolicy="no-referrer" />
-                ) : null}
-                <div>
-                  <div className="sub">
-                    {modalPick.tournament} · {modalPick.time}
-                  </div>
-                  <h3>
-                    <span className="flag">🇨🇿</span> {modalPick.player}
-                  </h3>
-                  <div className="sub">vs {modalPick.opponent}</div>
-                </div>
-              </div>
-              <button className="modal-close" onClick={() => setModalPick(null)}>
-                ✕
-              </button>
-            </div>
-            <div className="modal-market">{modalPick.market}</div>
-
-            <div className="kpis">
-              <div className="kpi">
-                <div className="l">Índice IA</div>
-                <div className="v num">{modalPick.confidence}%</div>
-              </div>
-              <div className="kpi">
-                <div className="l">Cuota (Rushbet)</div>
-                <div className="v num">{modalPick.odds ? modalPick.odds.toFixed(2) : 'No disponible'}</div>
-              </div>
-            </div>
-
-            {modalPick.history.length > 0 ? (
-              <>
-                <div className="hist-title">
-                  <span>Últimos {modalPick.history.length} partidos</span>
-                </div>
-                <div className="donut-row">
-                  <DonutChart wins={modalPick.history.filter((v) => v === 1).length} total={modalPick.history.length} />
-                  <div className="chart">
-                    {modalPick.history.map((v, i) => (
-                      <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`} style={{ height: '60px' }}></div>
-                    ))}
-                  </div>
-                </div>
-                <div className="legend">
-                  <span>
-                    <i className="sw" style={{ background: 'var(--hit)' }}></i>Victoria
-                  </span>
-                  <span>
-                    <i className="sw" style={{ background: 'var(--miss)' }}></i>Derrota
-                  </span>
-                </div>
-              </>
-            ) : (
-              <p className="page-sub">Sin historial reciente todavía.</p>
-            )}
-
-            {modalPick.h2hTotal > 0 ? (
-              <>
-                <div className="hist-title">
-                  <span>H2H contra {modalPick.opponent}</span>
-                  <span className="num">{modalPick.h2h}</span>
-                </div>
-                <div className="h2h-bar-track">
-                  <div
-                    className="h2h-bar-fill"
-                    style={{ width: `${(Number(modalPick.h2h.split('-')[0]) / modalPick.h2hTotal) * 100}%` }}
-                  ></div>
-                </div>
-              </>
-            ) : null}
-
-            <div className="analysis">{modalPick.analysis}</div>
-          </div>
-        </div>
-      )}
+      {modalPick && <PickDetailModal pick={modalPick} onClose={() => setModalPick(null)} />}
 
       {modalMatch && <MatchDetailModal m={modalMatch} onClose={() => setModalMatch(null)} user={user} />}
 
@@ -2916,6 +2993,11 @@ const CSS = `
   .kpi .l{font-size:11px; color:var(--muted);}
   .kpi .v{font-family:var(--font-mono); font-weight:700; font-size:18px;}
   .analysis{font-size:13.5px; line-height:1.55; color:var(--ink); background:var(--bg-alt); border-radius:12px; padding:14px; margin-top:6px; border:1px solid var(--line);}
+
+  .resumen-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+  .resumen-item{background:var(--bg-alt); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:3px;}
+  .resumen-item .l{font-size:11px; color:var(--muted);}
+  .resumen-item .v{font-size:13.5px; font-weight:700; color:var(--ink);}
 
   footer.site{
     max-width:980px; margin:0 auto; padding:20px 20px 40px; color:var(--muted); font-size:12px; line-height:1.6;
