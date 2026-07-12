@@ -169,7 +169,13 @@ export default async function handler(req, res) {
   );
   const picks = pickResults.filter(Boolean);
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
-  const topConfidence = [...picks].sort((a, b) => b.confidence - a.confidence)[0];
+  // El pick destacado prioriza cuota real arriba de 1.60 — entre esos,
+  // el de mayor confianza. Si ninguno tiene cuota >1.60 (o cuota del
+  // todo), cae al de mayor confianza general para no dejar Inicio sin
+  // destacado solo porque el cruce con Rushbet no encontró esa cuota.
+  const picksWithGoodOdds = picks.filter((p) => p.odds && p.odds > 1.6);
+  const topConfidence =
+    (picksWithGoodOdds.length ? picksWithGoodOdds : picks).slice().sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
 
   const tournamentGroups = (
