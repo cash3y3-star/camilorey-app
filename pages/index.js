@@ -563,9 +563,9 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
           )}
         </div>
       </header>
-      {userCount > 0 && (
+      {userCount > 0 && user?.email && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
         <div className="user-count-strip">
-          {userCount} {userCount === 1 ? 'persona registrada' : 'personas registradas'}
+          {userCount} {userCount === 1 ? 'persona registrada' : 'personas registradas'} (solo tú ves esto)
         </div>
       )}
 
