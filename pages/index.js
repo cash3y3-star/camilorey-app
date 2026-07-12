@@ -94,15 +94,17 @@ function confidenceTier(confidence) {
   return 'baja';
 }
 
+// history viene del más reciente al más viejo (index 0 = último
+// partido jugado) — la racha se cuenta desde el principio del array.
 function streakLabelFromHistory(history) {
   if (!history || history.length === 0) return null;
-  const last = history[history.length - 1];
+  const last = history[0].win;
   let count = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i] === last) count++;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i].win === last) count++;
     else break;
   }
-  return `${count}${last === 1 ? 'W' : 'L'}`;
+  return `${count}${last ? 'W' : 'L'}`;
 }
 
 export async function getServerSideProps({ query }) {
@@ -127,19 +129,37 @@ export async function getServerSideProps({ query }) {
     : { data: [] };
   const tournamentsById = new Map((tournaments || []).map((t) => [t.id, t]));
 
-  // Forma reciente (victoria/derrota) del jugador favorito de cada
-  // pick, para el gráfico del modal de detalle y para derivar la
-  // racha ("3W"/"2L") sin hacer una consulta aparte.
+  // Forma reciente real (no solo victoria/derrota) del jugador
+  // favorito de cada pick: fecha, contra quién, y marcador de sets de
+  // ESE partido — estilo la lista de "últimos partidos" de Sofascore,
+  // no un puntito de color. Más reciente primero (index 0).
   async function recentForm(playerId) {
     if (!playerId) return [];
     const { data } = await supabase
       .from('matches')
-      .select('winner_id, player_a_id, player_b_id')
+      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
       .or(`player_a_id.eq.${playerId},player_b_id.eq.${playerId}`)
       .eq('status', 'finished')
       .order('scheduled_at', { ascending: false })
       .limit(10);
-    return (data || []).map((m) => (m.winner_id === playerId ? 1 : 0)).reverse();
+    const rows = data || [];
+    const opponentIds = [...new Set(rows.map((m) => (m.player_a_id === playerId ? m.player_b_id : m.player_a_id)))];
+    const missing = opponentIds.filter((id) => id && !playersById.has(id));
+    if (missing.length) {
+      const { data: extra } = await supabase.from('players').select('id, name, avatar_url, avatar_cutout_url').in('id', missing);
+      for (const p of extra || []) playersById.set(p.id, p);
+    }
+    return rows.map((m) => {
+      const isA = m.player_a_id === playerId;
+      const oppId = isA ? m.player_b_id : m.player_a_id;
+      return {
+        date: m.scheduled_at,
+        opponent: playersById.get(oppId)?.name || '?',
+        setsFor: isA ? m.sets_a : m.sets_b,
+        setsAgainst: isA ? m.sets_b : m.sets_a,
+        win: m.winner_id === playerId
+      };
+    });
   }
 
   // Cruce directo histórico entre los dos jugadores de un pick, real
@@ -631,6 +651,18 @@ function dayLabel(iso) {
   if (target === today) return 'hoy';
   if (target === tomorrow) return 'mañana';
   return 'otro';
+}
+
+// Fecha corta para las filas de "últimos partidos" (d/m/aa), estilo
+// Sofascore.
+function shortDate(iso) {
+  if (!iso) return '';
+  return new Intl.DateTimeFormat('es-CO', {
+    day: 'numeric',
+    month: 'numeric',
+    year: '2-digit',
+    timeZone: 'America/Bogota'
+  }).format(new Date(iso));
 }
 
 // Bankroll en pesos colombianos, banco inicial $2.000.000 (ver
@@ -1222,32 +1254,15 @@ function MatchDetailModal({ m, onClose, user }) {
         {form ? (
           <>
             <div className="hist-title">
-              <span>Forma reciente</span>
+              <span>Forma reciente · {m.playerA}</span>
             </div>
-            <div className="form-row">
-              <span className="form-row-name">{m.playerA}</span>
-              <div className="chart chart-mini">
-                {form.historyA.length === 0 ? (
-                  <span className="page-sub" style={{ margin: 0, fontSize: '11px' }}>
-                    Sin historial
-                  </span>
-                ) : (
-                  form.historyA.map((v, i) => <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`}></div>)
-                )}
-              </div>
+            <RecentFormList history={form.historyA.slice(0, 5)} />
+
+            <div className="hist-title">
+              <span>Forma reciente · {m.playerB}</span>
             </div>
-            <div className="form-row">
-              <span className="form-row-name">{m.playerB}</span>
-              <div className="chart chart-mini">
-                {form.historyB.length === 0 ? (
-                  <span className="page-sub" style={{ margin: 0, fontSize: '11px' }}>
-                    Sin historial
-                  </span>
-                ) : (
-                  form.historyB.map((v, i) => <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`}></div>)
-                )}
-              </div>
-            </div>
+            <RecentFormList history={form.historyB.slice(0, 5)} />
+
             {form.h2hTotal > 0 ? (
               <>
                 <div className="hist-title">
@@ -1303,6 +1318,35 @@ function DonutChart({ wins, total }) {
   );
 }
 
+// Lista de "últimos partidos" estilo Sofascore/AiScore: una fila por
+// partido real, con fecha, contra quién, el marcador de sets de ESE
+// cruce, y un círculo verde/rojo de victoria o derrota — no puntos ni
+// barras abstractas.
+function RecentFormList({ history }) {
+  if (!history || history.length === 0) {
+    return <p className="page-sub">Sin historial reciente todavía.</p>;
+  }
+  return (
+    <div className="form-list">
+      {history.map((m, i) => (
+        <div className="form-list-row" key={i}>
+          <div className="form-list-meta">
+            <span className="form-list-date">{shortDate(m.date)}</span>
+            <span className="form-list-ft">FT</span>
+          </div>
+          <div className="form-list-opp">
+            vs {m.opponent}
+            <span className="form-list-score num">
+              {m.setsFor}-{m.setsAgainst}
+            </span>
+          </div>
+          <span className={`form-list-badge ${m.win ? 'win' : 'loss'}`}>{m.win ? 'W' : 'L'}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LineChart({ series }) {
   if (!series || series.length < 2) {
     return <p className="page-sub">Todavía no hay suficiente historial para graficar.</p>;
@@ -1337,8 +1381,10 @@ function PickDetailModal({ pick, onClose }) {
   const [tab, setTab] = useState('analisis');
   const [formView, setFormView] = useState('l10');
 
-  const displayHistory = formView === 'l5' ? pick.history.slice(-5) : pick.history;
-  const hitsInView = displayHistory.filter((v) => v === 1).length;
+  // history viene del más reciente al más viejo (index 0 = último
+  // partido) — L5 son los primeros 5 elementos, no los últimos.
+  const displayHistory = formView === 'l5' ? pick.history.slice(0, 5) : pick.history;
+  const hitsInView = displayHistory.filter((m) => m.win).length;
 
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
@@ -1422,25 +1468,18 @@ function PickDetailModal({ pick, onClose }) {
               </>
             ) : displayHistory.length > 0 ? (
               <>
-                <div className="hist-title">
-                  <span>Últimos {displayHistory.length} partidos</span>
-                </div>
                 <div className="donut-row">
                   <DonutChart wins={hitsInView} total={displayHistory.length} />
-                  <div className="chart">
-                    {displayHistory.map((v, i) => (
-                      <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`} style={{ height: '60px' }}></div>
-                    ))}
+                  <div>
+                    <div className="hist-title" style={{ margin: 0 }}>
+                      <span>Últimos {displayHistory.length} partidos</span>
+                    </div>
+                    <p className="page-sub" style={{ margin: '4px 0 0' }}>
+                      {hitsInView} victorias, {displayHistory.length - hitsInView} derrotas
+                    </p>
                   </div>
                 </div>
-                <div className="legend">
-                  <span>
-                    <i className="sw" style={{ background: 'var(--hit)' }}></i>Victoria
-                  </span>
-                  <span>
-                    <i className="sw" style={{ background: 'var(--miss)' }}></i>Derrota
-                  </span>
-                </div>
+                <RecentFormList history={displayHistory} />
               </>
             ) : (
               <p className="page-sub">Sin historial reciente todavía.</p>
@@ -3056,10 +3095,20 @@ const CSS = `
   .bar{flex:1; border-radius:4px 4px 0 0; min-height:6px;}
   .bar.hit{background:var(--hit);}
   .bar.miss{background:var(--miss);}
-  .form-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
-  .form-row-name{font-size:12.5px; font-weight:700; width:100px; flex:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .chart-mini{height:22px; margin-bottom:0; border-bottom:none; flex:1;}
-  .chart-mini .bar{height:100%; border-radius:3px; min-height:100%;}
+  .form-list{display:flex; flex-direction:column;}
+  .form-list-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);}
+  .form-list-row:last-child{border-bottom:none;}
+  .form-list-meta{display:flex; flex-direction:column; align-items:flex-start; gap:1px; width:56px; flex:none;}
+  .form-list-date{font-family:var(--font-mono); font-size:10.5px; color:var(--muted);}
+  .form-list-ft{font-family:var(--font-mono); font-size:9.5px; color:var(--muted); text-transform:uppercase;}
+  .form-list-opp{flex:1; min-width:0; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .form-list-score{color:var(--muted); font-weight:700;}
+  .form-list-badge{
+    width:22px; height:22px; border-radius:50%; flex:none; font-size:11px; font-weight:800;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .form-list-badge.win{background:rgba(93,202,165,.16); color:var(--hit);}
+  .form-list-badge.loss{background:rgba(240,149,149,.16); color:var(--miss);}
   .legend{display:flex; gap:14px; font-size:11.5px; color:var(--muted); margin-bottom:16px;}
   .legend span{display:inline-flex; align-items:center; gap:5px;}
   .legend .sw{width:8px; height:8px; border-radius:50%;}

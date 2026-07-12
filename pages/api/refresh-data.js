@@ -44,15 +44,17 @@ function confidenceTier(confidence) {
   return 'baja';
 }
 
+// history viene del más reciente al más viejo (index 0 = último
+// partido jugado) — la racha se cuenta desde el principio del array.
 function streakLabelFromHistory(history) {
   if (!history || history.length === 0) return null;
-  const last = history[history.length - 1];
+  const last = history[0].win;
   let count = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i] === last) count++;
+  for (let i = 0; i < history.length; i++) {
+    if (history[i].win === last) count++;
     else break;
   }
-  return `${count}${last === 1 ? 'W' : 'L'}`;
+  return `${count}${last ? 'W' : 'L'}`;
 }
 
 function buildAnalysis(factors) {
@@ -93,12 +95,29 @@ export default async function handler(req, res) {
     if (!playerId) return [];
     const { data } = await supabase
       .from('matches')
-      .select('winner_id, player_a_id, player_b_id')
+      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
       .or(`player_a_id.eq.${playerId},player_b_id.eq.${playerId}`)
       .eq('status', 'finished')
       .order('scheduled_at', { ascending: false })
       .limit(10);
-    return (data || []).map((m) => (m.winner_id === playerId ? 1 : 0)).reverse();
+    const rows = data || [];
+    const opponentIds = [...new Set(rows.map((m) => (m.player_a_id === playerId ? m.player_b_id : m.player_a_id)))];
+    const missing = opponentIds.filter((id) => id && !playersById.has(id));
+    if (missing.length) {
+      const { data: extra } = await supabase.from('players').select('id, name, avatar_url, avatar_cutout_url').in('id', missing);
+      for (const p of extra || []) playersById.set(p.id, p);
+    }
+    return rows.map((m) => {
+      const isA = m.player_a_id === playerId;
+      const oppId = isA ? m.player_b_id : m.player_a_id;
+      return {
+        date: m.scheduled_at,
+        opponent: playersById.get(oppId)?.name || '?',
+        setsFor: isA ? m.sets_a : m.sets_b,
+        setsAgainst: isA ? m.sets_b : m.sets_a,
+        win: m.winner_id === playerId
+      };
+    });
   }
 
   async function h2hRecord(idA, idB) {
