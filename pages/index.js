@@ -759,6 +759,15 @@ function MatchRow({ m, onClick }) {
           <span className="pc-vs-badge pc-vs-live num">
             {liveSetsWonA}-{liveSetsWonB}
           </span>
+        ) : m.status === 'done' && m.score ? (
+          <span
+            className="pc-vs-badge pc-vs-live num"
+            style={{
+              color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--court)'
+            }}
+          >
+            {m.score}
+          </span>
         ) : (
           <span className="pc-vs-badge">VS</span>
         )}
@@ -769,12 +778,13 @@ function MatchRow({ m, onClick }) {
           </span>
         </div>
       </div>
-      {m.status === 'done' && m.score ? (
-        <div
-          className="mc-score num"
-          style={{ color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)' }}
-        >
-          Resultado: {m.score}
+      {m.status === 'done' && m.setScores && m.setScores.length > 0 ? (
+        <div className="mc-live-score mc-live-score-small">
+          {m.setScores.map((s, i) => (
+            <span className="mc-set num" key={i}>
+              {s.a}-{s.b}
+            </span>
+          ))}
         </div>
       ) : null}
       {m.status === 'live' ? (
@@ -2068,6 +2078,8 @@ const CSS = `
   }
   .mc-set-current{background:var(--court-soft); color:#FAC7C7; border:1px solid rgba(226,68,74,.45);}
   .mc-live-loading{font-size:12px; color:var(--muted);}
+  .mc-live-score-small{margin-top:8px; padding-top:8px; gap:5px;}
+  .mc-live-score-small .mc-set{padding:3px 7px; font-size:11px; background:transparent; border:1px solid var(--line); color:var(--muted);}
 
   .live-clock{
     font-family:var(--font-mono); font-size:13px; color:var(--ball); font-weight:700;
