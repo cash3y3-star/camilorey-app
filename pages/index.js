@@ -1050,12 +1050,6 @@ export default function Home({ stats, picks, resolvedPicks, matches, bankrollLog
           {navLink('bankroll', 'Bankroll')}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <a href="https://t.me/+q_JbStqxCsFhYWE8" target="_blank" rel="noopener noreferrer" className="tg-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-              <path d="M21.9 2.6c-.3-.2-.7-.3-1.1-.1L2.4 9.9c-.5.2-.8.6-.8 1.1 0 .5.4.9.9 1l4.9 1.5 1.9 6c.1.4.5.7.9.7.3 0 .5-.1.7-.3l2.7-2.6 4.8 3.5c.2.2.5.2.7.2.2 0 .4 0 .5-.1.4-.2.6-.5.7-.9l3.2-15.5c.1-.4-.1-.8-.5-1z" />
-            </svg>
-            Telegram
-          </a>
           <span className="badge18">+18 · Juega con cabeza</span>
           {user ? (
             <button
@@ -1569,14 +1563,6 @@ const CSS = `
     color:#FAC7C7; background:var(--court-soft);
     border-radius:999px; padding:4px 9px; margin-left:8px;
   }
-  .tg-badge{
-    display:inline-flex; align-items:center; gap:6px;
-    font-size:12px; font-weight:700; color:#fff; text-decoration:none;
-    background:#26A5E4; border-radius:999px; padding:6px 12px;
-    transition:transform .12s ease;
-  }
-  .tg-badge:hover{transform:translateY(-1px);}
-
   .login-btn{
     display:inline-flex; align-items:center; gap:6px;
     font-family:var(--font-body); font-size:12px; font-weight:700; color:var(--ink);
