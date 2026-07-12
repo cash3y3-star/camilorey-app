@@ -4,12 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 
 const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll'];
-const AVATAR_COLORS = ['#E2444A', '#FF7A45', '#A32D2D', '#D85A30', '#C23B4C', '#B84A2E'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-
-function avatarColor(seed) {
-  return AVATAR_COLORS[(seed || '').length % AVATAR_COLORS.length];
-}
 
 // El navegador pide la llave pública del servidor push en este
 // formato (Uint8Array), pero VAPID la da como base64 url-safe.
@@ -618,9 +613,11 @@ function buildAnalysis(factors) {
 
 const TIER_LABEL = { alta: 'Alta confianza', media: 'Media confianza', baja: 'Confianza baja' };
 
-function PlayerAvatar({ name, avatarUrl, initials, className = '' }) {
+const SIDE_TONE = { left: 'var(--court)', right: 'var(--blue)' };
+
+function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = '' }) {
   return (
-    <div className={`avatar ${className}`} style={{ '--tone': avatarColor(name) }}>
+    <div className={`avatar ${className}`} style={{ '--tone': SIDE_TONE[side] }}>
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
@@ -658,12 +655,12 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
       </div>
       <div className="pc-vs">
         <div className="pc-player">
-          <PlayerAvatar name={pick.player} avatarUrl={pick.avatarUrl} initials={pick.initials} />
+          <PlayerAvatar name={pick.player} avatarUrl={pick.avatarUrl} initials={pick.initials} side="left" />
           <span className="pc-player-name">{pick.player}</span>
         </div>
         <span className="pc-vs-badge">VS</span>
         <div className="pc-player">
-          <PlayerAvatar name={pick.opponent} avatarUrl={pick.opponentAvatarUrl} initials={pick.opponentInitials} />
+          <PlayerAvatar name={pick.opponent} avatarUrl={pick.opponentAvatarUrl} initials={pick.opponentInitials} side="right" />
           <span className="pc-player-name">{pick.opponent}</span>
         </div>
       </div>
@@ -780,7 +777,7 @@ function MatchRow({ m, onClick }) {
       </div>
       <div className="pc-vs">
         <div className="pc-player">
-          <PlayerAvatar name={m.playerA} avatarUrl={m.playerAAvatar} initials={m.playerAInitials} />
+          <PlayerAvatar name={m.playerA} avatarUrl={m.playerAAvatar} initials={m.playerAInitials} side="left" />
           <span className="pc-player-name">
             <span className="flag">🇨🇿</span> {m.playerA}
           </span>
@@ -802,7 +799,7 @@ function MatchRow({ m, onClick }) {
           <span className="pc-vs-badge">VS</span>
         )}
         <div className="pc-player">
-          <PlayerAvatar name={m.playerB} avatarUrl={m.playerBAvatar} initials={m.playerBInitials} />
+          <PlayerAvatar name={m.playerB} avatarUrl={m.playerBAvatar} initials={m.playerBInitials} side="right" />
           <span className="pc-player-name">
             <span className="flag">🇨🇿</span> {m.playerB}
           </span>
@@ -1848,6 +1845,8 @@ const CSS = `
     --ball-dark:#D85A30;
     --hit:#5DCAA5;
     --miss:#F09595;
+    --blue:#3B82C4;
+    --blue-dark:#245A8C;
     --font-display:'Big Shoulders Display', sans-serif;
     --font-body:'Manrope', sans-serif;
     --font-mono:'IBM Plex Mono', monospace;
