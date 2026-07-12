@@ -307,46 +307,49 @@ export default async function handler(req, res) {
     for (const t of extra || []) tournamentsById.set(t.id, t);
   }
 
-  const resolvedPicks = [];
-  for (const pick of resolvedPicksRaw || []) {
-    const match = resolvedMatchesById.get(pick.match_id);
-    if (!match) continue;
-    const favored = playersById.get(pick.predicted_winner_id);
-    const opponent =
-      pick.predicted_winner_id === match.player_a_id
-        ? playersById.get(match.player_b_id)
-        : playersById.get(match.player_a_id);
-    if (!favored || !opponent) continue;
-    const tournament = tournamentsById.get(match.tournament_id);
-    const confidence = Math.round(pick.confidence);
+  const resolvedPicksResults = await Promise.all(
+    (resolvedPicksRaw || []).map(async (pick) => {
+      const match = resolvedMatchesById.get(pick.match_id);
+      if (!match) return null;
+      const favored = playersById.get(pick.predicted_winner_id);
+      const opponent =
+        pick.predicted_winner_id === match.player_a_id
+          ? playersById.get(match.player_b_id)
+          : playersById.get(match.player_a_id);
+      if (!favored || !opponent) return null;
+      const tournament = tournamentsById.get(match.tournament_id);
+      const confidence = Math.round(pick.confidence);
+      const [history, h2h] = await Promise.all([recentForm(favored.id), h2hRecord(favored.id, opponent.id)]);
 
-    resolvedPicks.push({
-      id: pick.id,
-      matchId: match.id,
-      day: dayLabel(match.scheduled_at),
-      scheduledAt: new Date(match.scheduled_at).getTime(),
-      player: favored.name,
-      initials: initialsOf(favored.name),
-      avatarUrl: favored.avatar_cutout_url || favored.avatar_url || null,
-      hasCutout: Boolean(favored.avatar_cutout_url),
-      opponent: opponent.name,
-      opponentInitials: initialsOf(opponent.name),
-      opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
-      opponentHasCutout: Boolean(opponent.avatar_cutout_url),
-      time: timeLabel(match.scheduled_at),
-      tournament: tournament?.name || 'Torneo',
-      market: pick.market,
-      confidence,
-      tier: confidenceTier(confidence),
-      odds: pick.odds ? Number(pick.odds) : null,
-      analysis: buildAnalysis(pick.factors),
-      history: [],
-      streakLabel: null,
-      h2h: null,
-      h2hTotal: 0,
-      result: pick.result
-    });
-  }
+      return {
+        id: pick.id,
+        matchId: match.id,
+        day: dayLabel(match.scheduled_at),
+        scheduledAt: new Date(match.scheduled_at).getTime(),
+        player: favored.name,
+        initials: initialsOf(favored.name),
+        avatarUrl: favored.avatar_cutout_url || favored.avatar_url || null,
+        hasCutout: Boolean(favored.avatar_cutout_url),
+        opponent: opponent.name,
+        opponentInitials: initialsOf(opponent.name),
+        opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
+        opponentHasCutout: Boolean(opponent.avatar_cutout_url),
+        time: timeLabel(match.scheduled_at),
+        tournament: tournament?.name || 'Torneo',
+        market: pick.market,
+        confidence,
+        tier: confidenceTier(confidence),
+        odds: pick.odds ? Number(pick.odds) : null,
+        analysis: buildAnalysis(pick.factors),
+        history,
+        streakLabel: streakLabelFromHistory(history),
+        h2h: `${h2h.winsA}-${h2h.winsB}`,
+        h2hTotal: h2h.winsA + h2h.winsB,
+        result: pick.result
+      };
+    })
+  );
+  const resolvedPicks = resolvedPicksResults.filter(Boolean);
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
 
   const { data: bankrollRows } = await supabase
