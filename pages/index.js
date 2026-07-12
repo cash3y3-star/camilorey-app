@@ -22,14 +22,28 @@ function urlBase64ToUint8Array(base64String) {
 
 // Pide permiso de notificaciones, registra el service worker y guarda
 // la suscripción en Supabase. Se llama la primera vez que alguien
-// sigue un pick — no se pide de entrada, solo cuando de verdad la va
-// a usar (menos molesto, más probable que acepte).
+// sigue un pick (silencioso) y también desde el botón de campana del
+// header (ahí sí con feedback, ver bell-btn) — por eso devuelve un
+// estado en vez de tragarse el resultado.
 async function ensurePushSubscription(user) {
-  if (!supabaseClient || !user || !VAPID_PUBLIC_KEY) return;
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (!supabaseClient || !user) return 'error';
+  if (!VAPID_PUBLIC_KEY) return 'unsupported';
+  if (
+    typeof window === 'undefined' ||
+    !('serviceWorker' in navigator) ||
+    !('PushManager' in window) ||
+    typeof Notification === 'undefined'
+  ) {
+    return 'unsupported';
+  }
+  // El navegador NO vuelve a preguntar si ya se bloqueó una vez —
+  // hay que decirle a la persona que lo active a mano desde los
+  // permisos del sitio, en vez de quedarnos callados otra vez.
+  if (Notification.permission === 'denied') return 'denied';
+
   try {
     const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return;
+    if (permission !== 'granted') return 'denied';
     const registration = await navigator.serviceWorker.register('/sw.js');
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
@@ -39,14 +53,20 @@ async function ensurePushSubscription(user) {
       });
     }
     const json = subscription.toJSON();
-    await supabaseClient
+    const { error } = await supabaseClient
       .from('push_subscriptions')
       .upsert(
         { user_id: user.id, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
         { onConflict: 'endpoint' }
       );
+    if (error) {
+      console.error('No se pudo guardar la suscripción push:', error);
+      return 'error';
+    }
+    return 'ok';
   } catch (e) {
     console.error('No se pudo activar notificaciones push:', e.message);
+    return 'error';
   }
 }
 
@@ -1112,7 +1132,16 @@ export default function Home({ stats, picks, resolvedPicks, standings, matches, 
           {user ? (
             <button
               className="bell-btn"
-              onClick={() => ensurePushSubscription(user)}
+              onClick={async () => {
+                const result = await ensurePushSubscription(user);
+                if (result === 'ok') alert('Notificaciones activadas ✅ — te avisaremos cuando termine un set o un partido que sigas.');
+                else if (result === 'denied')
+                  alert(
+                    'Tienes las notificaciones bloqueadas para este sitio. Actívalas desde la configuración/permisos del navegador para este dominio y vuelve a intentar.'
+                  );
+                else if (result === 'unsupported') alert('Tu navegador no soporta notificaciones push.');
+                else alert('No se pudo activar las notificaciones, intenta de nuevo.');
+              }}
               title="Activar notificaciones push"
             >
               🔔
