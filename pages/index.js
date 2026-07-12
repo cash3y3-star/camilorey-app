@@ -96,7 +96,7 @@ export async function getServerSideProps({ query }) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
-    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, league_range, rating'),
+    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
     supabase.from('picks').select('*').eq('result', 'pending').order('confidence', { ascending: false })
   ]);
 
@@ -151,8 +151,6 @@ export async function getServerSideProps({ query }) {
   // supuesto también una vez que ya arrancó o terminó.
   const HIDE_BEFORE_START_MS = 10 * 60 * 1000;
 
-  const activeLeagueRanges = new Set();
-
   // Un round-trip por pick (recentForm + h2hRecord) en serie se nota
   // mucho en el tiempo de carga apenas hay varios picks activos — se
   // lanzan todos en paralelo con Promise.all en vez de un for..await.
@@ -172,8 +170,6 @@ export async function getServerSideProps({ query }) {
       const tournament = tournamentsById.get(match.tournament_id);
       const confidence = Math.round(pick.confidence);
       const [history, h2h] = await Promise.all([recentForm(pick.predicted_winner_id), h2hRecord(favored.id, opponent.id)]);
-      if (favored.league_range) activeLeagueRanges.add(favored.league_range);
-      if (opponent.league_range) activeLeagueRanges.add(opponent.league_range);
 
       return {
         id: pick.id,
@@ -208,35 +204,82 @@ export async function getServerSideProps({ query }) {
   const topConfidence = [...picks].sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
 
-  // Tabla de posiciones — mismo criterio que usa tt.league-pro.com en
-  // su página de jugadores (/en/players): ranking por rating dentro de
-  // cada liga (league_range, ej. "800-900"). Solo se muestran las
-  // ligas de los jugadores que tienen un pick activo hoy, para no
-  // volcar las ~16 divisiones del sitio entero. players.rating ya se
-  // actualiza en cada sync con el rating real post-torneo, así que
-  // esta tabla queda al día sola, sin lógica nueva de standings.
-  const standings = await Promise.all(
-    [...activeLeagueRanges].map(async (range) => {
-      const { data: rangePlayers } = await supabase
-        .from('players')
-        .select('id, name, avatar_url, avatar_cutout_url, rating')
-        .eq('league_range', range)
-        .order('rating', { ascending: false })
-        .limit(10);
-      return {
-        range,
-        players: (rangePlayers || []).map((p, i) => ({
-          position: i + 1,
-          id: p.id,
-          name: p.name,
-          initials: initialsOf(p.name),
-          avatarUrl: p.avatar_cutout_url || p.avatar_url || null,
-          rating: p.rating != null ? Math.round(Number(p.rating)) : null
-        }))
-      };
-    })
-  );
-  standings.sort((a, b) => a.range.localeCompare(b.range, undefined, { numeric: true }));
+  // Tabla de grupo por torneo — igual a como tt.league-pro.com la
+  // muestra dentro de cada torneo: los jugadores de ESE grupo se
+  // enfrentan todos contra todos, y la tabla es el cruce de
+  // resultados (sets a favor/en contra por rival) + total de sets +
+  // puesto. Se reconstruye 100% desde nuestros propios "matches" del
+  // torneo (no hace falta un campo nuevo de scraping) — solo se arma
+  // para los torneos que ya tienen algún pick activo, no todos los
+  // que corren en el sitio a la vez.
+  const tournamentGroups = (
+    await Promise.all(
+      tournamentIds.map(async (tId) => {
+        const { data: groupMatches } = await supabase
+          .from('matches')
+          .select('player_a_id, player_b_id, sets_a, sets_b')
+          .eq('tournament_id', tId);
+        if (!groupMatches || groupMatches.length === 0) return null;
+
+        const groupPlayerIds = [...new Set(groupMatches.flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(Boolean);
+        if (groupPlayerIds.length < 3) return null;
+
+        const missingIds = groupPlayerIds.filter((id) => !playersById.has(id));
+        if (missingIds.length) {
+          const { data: extra } = await supabase
+            .from('players')
+            .select('id, name, avatar_url, avatar_cutout_url, rating')
+            .in('id', missingIds);
+          for (const p of extra || []) playersById.set(p.id, p);
+        }
+
+        // matchupByPlayer.get(idA).get(idB) = sets de A contra B, visto desde A.
+        const matchupByPlayer = new Map(groupPlayerIds.map((id) => [id, new Map()]));
+        for (const m of groupMatches) {
+          if (m.sets_a == null || m.sets_b == null) continue;
+          matchupByPlayer.get(m.player_a_id)?.set(m.player_b_id, { for: m.sets_a, against: m.sets_b });
+          matchupByPlayer.get(m.player_b_id)?.set(m.player_a_id, { for: m.sets_b, against: m.sets_a });
+        }
+
+        const rows = groupPlayerIds.map((id) => {
+          const p = playersById.get(id);
+          let wins = 0;
+          let setsFor = 0;
+          let setsAgainst = 0;
+          for (const res of matchupByPlayer.get(id).values()) {
+            setsFor += res.for;
+            setsAgainst += res.against;
+            if (res.for > res.against) wins++;
+          }
+          return {
+            id,
+            name: p?.name || '—',
+            initials: initialsOf(p?.name),
+            avatarUrl: p?.avatar_cutout_url || p?.avatar_url || null,
+            rating: p?.rating != null ? Math.round(Number(p.rating)) : null,
+            wins,
+            setsFor,
+            setsAgainst
+          };
+        });
+        rows.sort((a, b) => b.wins - a.wins || b.setsFor - b.setsAgainst - (a.setsFor - a.setsAgainst));
+        rows.forEach((r, i) => (r.place = i + 1));
+
+        const matchup = {};
+        for (const id of groupPlayerIds) {
+          matchup[id] = {};
+          for (const [oppId, res] of matchupByPlayer.get(id)) {
+            matchup[id][oppId] = `${res.for}:${res.against}`;
+          }
+        }
+
+        const tournament = tournamentsById.get(tId);
+        return { tournamentId: tId, name: tournament?.name || 'Torneo', players: rows, matchup };
+      })
+    )
+  )
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
   // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
   // sección Picks) — no se les calcula H2H/racha/forma reciente para
@@ -470,7 +513,7 @@ export async function getServerSideProps({ query }) {
       stats: { efectividad, racha, cuotaProm, roi, unidades },
       picks,
       resolvedPicks,
-      standings,
+      tournamentGroups,
       matches,
       bankrollLog,
       bankrollSeries,
@@ -968,23 +1011,73 @@ function LineChart({ series }) {
   );
 }
 
-function StandingsTable({ division }) {
+// Tabla de grupo de un torneo — todos contra todos, igual a como la
+// muestra tt.league-pro.com dentro de cada torneo: una fila por
+// jugador, una columna por cada rival con el marcador de sets de ese
+// cruce, y el total de sets + puesto a la derecha.
+function GroupTable({ group }) {
   return (
     <div className="standings-card">
-      <div className="standings-head">Liga {division.range}</div>
-      {division.players.map((p) => (
-        <div className="standings-row" key={p.id}>
-          <span className="standings-pos num">{p.position}</span>
-          <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} initials={p.initials} className="standings-avatar" />
-          <span className="standings-name">{p.name}</span>
-          <span className="standings-rating num">{p.rating != null ? p.rating : '—'}</span>
-        </div>
-      ))}
+      <div className="standings-head">{group.name}</div>
+      <div className="group-table-wrap">
+        <table className="group-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Jugador</th>
+              <th>Rating</th>
+              {group.players.map((p) => (
+                <th key={p.id} className="num">
+                  {p.name.split(' ')[0]}
+                </th>
+              ))}
+              <th>Sets</th>
+              <th>Puesto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {group.players.map((row) => (
+              <tr key={row.id}>
+                <td>
+                  <PlayerAvatar name={row.name} avatarUrl={row.avatarUrl} initials={row.initials} className="standings-avatar" />
+                </td>
+                <td className="group-player-name">{row.name}</td>
+                <td className="num">{row.rating ?? '—'}</td>
+                {group.players.map((col) =>
+                  col.id === row.id ? (
+                    <td key={col.id} className="num group-self">
+                      ·
+                    </td>
+                  ) : (
+                    <td key={col.id} className="num">
+                      {group.matchup[row.id]?.[col.id] || '—'}
+                    </td>
+                  )
+                )}
+                <td className="num">
+                  {row.setsFor}-{row.setsAgainst}
+                </td>
+                <td className="num">{row.place}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-export default function Home({ stats, picks, resolvedPicks, standings, matches, bankrollLog, bankrollSeries, currentDateStr, userCount }) {
+export default function Home({
+  stats,
+  picks,
+  resolvedPicks,
+  tournamentGroups,
+  matches,
+  bankrollLog,
+  bankrollSeries,
+  currentDateStr,
+  userCount
+}) {
   const [view, setView] = useState('inicio');
   const [pickTab, setPickTab] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
@@ -1270,10 +1363,10 @@ export default function Home({ stats, picks, resolvedPicks, standings, matches, 
               Ver todos los picks →
             </a>
           </div>
-          {standings.length === 0 ? (
-            <p className="page-sub">Todavía no hay suficientes datos para mostrar tablas.</p>
+          {tournamentGroups.length === 0 ? (
+            <p className="page-sub">Todavía no hay suficientes partidos jugados para mostrar tablas.</p>
           ) : (
-            standings.map((d) => <StandingsTable division={d} key={d.range} />)
+            tournamentGroups.map((g) => <GroupTable group={g} key={g.tournamentId} />)
           )}
         </section>
 
@@ -1716,18 +1809,23 @@ const CSS = `
 
   .standings-card{
     background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
-    padding:6px 16px; box-shadow:var(--shadow); margin-bottom:14px;
+    padding:14px 16px; box-shadow:var(--shadow); margin-bottom:14px;
   }
   .standings-head{
     font-family:var(--font-mono); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
-    color:var(--court); padding:12px 0 8px; border-bottom:1px solid var(--line);
+    color:var(--court); padding-bottom:10px; margin-bottom:6px; border-bottom:1px solid var(--line);
   }
-  .standings-row{display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);}
-  .standings-row:last-child{border-bottom:none;}
-  .standings-pos{width:18px; flex:none; font-size:13px; font-weight:700; color:var(--muted); text-align:center;}
-  .standings-avatar{width:32px; height:32px; font-size:11px;}
-  .standings-name{flex:1; min-width:0; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .standings-rating{font-size:13px; font-weight:700; color:var(--ink);}
+  .standings-avatar{width:28px; height:28px; font-size:10px;}
+  .group-table-wrap{overflow-x:auto;}
+  table.group-table{width:100%; border-collapse:collapse; font-size:12.5px; white-space:nowrap;}
+  table.group-table th{
+    text-align:center; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted);
+    padding:6px 8px; border-bottom:1px solid var(--line); font-weight:700;
+  }
+  table.group-table td{padding:7px 8px; border-bottom:1px solid var(--line); text-align:center;}
+  table.group-table tr:last-child td{border-bottom:none;}
+  .group-player-name{text-align:left !important; font-weight:600; font-size:13px;}
+  .group-self{color:var(--muted);}
 
   .greeting-hi{font-family:var(--font-display); font-weight:800; font-size:28px; line-height:1.1;}
   .greeting-date{color:var(--muted); font-size:13px; text-transform:capitalize; margin-top:2px;}
