@@ -836,7 +836,11 @@ const CSS = `
     width:9px; height:9px; border-radius:50%;
     background:var(--court);
     display:inline-block;
-    box-shadow:0 0 0 3px var(--court-soft);
+    animation: pulse-dot 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse-dot{
+    0%, 100%{box-shadow:0 0 0 3px var(--court-soft);}
+    50%{box-shadow:0 0 0 6px rgba(226,68,74,.12);}
   }
   nav.top-nav{display:flex; gap:6px;}
   nav.top-nav a{
