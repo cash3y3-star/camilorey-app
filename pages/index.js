@@ -1317,6 +1317,68 @@ function GroupTable({ group }) {
   );
 }
 
+// Aparece la primera vez que alguien entra a Seguidos con al menos un
+// pick seguido en esa sesión — mismos 3 consejos que un tip de gestión
+// de riesgo estándar (repartir el banco, seguir pocas cosas a la vez,
+// límite diario), no algo específico de CAMILOREY.
+function RiskModal({ count, onClose }) {
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal risk-modal">
+        <div className="risk-modal-head">
+          <div className="risk-modal-icon">🛡️</div>
+          <div>
+            <div className="risk-modal-eyebrow">Gestión de riesgo</div>
+            <h3>Estás siguiendo {count} pick{count === 1 ? '' : 's'}</h3>
+          </div>
+        </div>
+
+        <div className="risk-tip">
+          <span className="risk-tip-icon">📉</span>
+          <div>
+            <strong>Protege tu bankroll</strong>
+            <p>Reparte tu banco entre las selecciones que sigues. Evita concentrar más de lo que te sientas cómodo gestionando en un solo día.</p>
+          </div>
+        </div>
+        <div className="risk-tip">
+          <span className="risk-tip-icon">📚</span>
+          <div>
+            <strong>Mantén una jornada enfocada</strong>
+            <p>Seguir menos selecciones facilita revisar el rendimiento y controlar mejor la exposición diaria.</p>
+          </div>
+        </div>
+        <div className="risk-tip">
+          <span className="risk-tip-icon">🛡️</span>
+          <div>
+            <strong>Define un límite diario de asignación</strong>
+            <p>Usa el planificador Kelly en la pestaña Bankroll como referencia para no arriesgar más de la cuenta.</p>
+          </div>
+        </div>
+
+        <button className="btn btn-ball risk-modal-btn" onClick={onClose}>
+          ✓ Entendido
+        </button>
+        <p className="risk-modal-disclaimer">Esto no es asesoría financiera. Usa estos datos con responsabilidad.</p>
+      </div>
+    </div>
+  );
+}
+
+// Kelly: fracción óptima del banco a arriesgar dado el edge real
+// (confianza como probabilidad, cuota real de Rushbet) — f* = (b·p - q) / b,
+// b = cuota-1, p = confianza/100, q = 1-p. Si f* <= 0 el modelo no ve
+// ventaja real (la cuota no compensa el riesgo) y Kelly dice no
+// apostar. Se muestra a media Kelly (mitad del valor puro) porque
+// Kelly completo es agresivo — así es como se usa en la práctica.
+function kellyFraction(confidence, odds) {
+  if (!odds || odds <= 1) return 0;
+  const p = confidence / 100;
+  const q = 1 - p;
+  const b = odds - 1;
+  const f = (b * p - q) / b;
+  return Math.max(0, f / 2);
+}
+
 export default function Home({
   stats: initialStats,
   picks: initialPicks,
@@ -1341,6 +1403,8 @@ export default function Home({
   const [user, setUser] = useState(null);
   const [followedPickIds, setFollowedPickIds] = useState(new Set());
   const [followedDetail, setFollowedDetail] = useState([]);
+  const [showRiskModal, setShowRiskModal] = useState(false);
+  const [riskModalSeen, setRiskModalSeen] = useState(false);
 
   useEffect(() => {
     const fromHash = () => {
@@ -1441,6 +1505,12 @@ export default function Home({
       cancelled = true;
     };
   }, [user]);
+
+  useEffect(() => {
+    if (view === 'seguidos' && followedPickIds.size > 0 && !riskModalSeen) {
+      setShowRiskModal(true);
+    }
+  }, [view, followedPickIds, riskModalSeen]);
 
   // Detalle completo de los picks seguidos — aparte del array "picks"
   // de la SSR, que oculta un pick apenas el partido está por arrancar
@@ -1848,6 +1918,48 @@ export default function Home({
           </div>
 
           <div className="bankroll-card">
+            <strong>Planificador Kelly</strong>
+            <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6', margin: '4px 0 14px' }}>
+              Fracción óptima del banco según el criterio de Kelly (a media Kelly, más conservador) — usa la
+              confianza real del modelo como probabilidad y la cuota real de Rushbet. Es solo referencia, el sistema
+              sigue apostando el monto fijo de siempre.
+            </p>
+            {picks.filter((p) => p.odds).length === 0 ? (
+              <p className="page-sub" style={{ margin: 0 }}>
+                Ningún pick pendiente tiene cuota real todavía.
+              </p>
+            ) : (
+              <table className="bk">
+                <thead>
+                  <tr>
+                    <th>Pick</th>
+                    <th>Confianza</th>
+                    <th>Cuota</th>
+                    <th>Kelly (½)</th>
+                    <th>Sugerido</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {picks
+                    .filter((p) => p.odds)
+                    .map((p) => {
+                      const f = kellyFraction(p.confidence, p.odds);
+                      return (
+                        <tr key={p.id}>
+                          <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{p.player}</td>
+                          <td className="num">{p.confidence}%</td>
+                          <td className="num">{p.odds.toFixed(2)}</td>
+                          <td className="num">{f > 0 ? `${(f * 100).toFixed(1)}%` : 'Sin ventaja'}</td>
+                          <td className="num">{f > 0 ? formatCOP(f * stats.unidades) : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="bankroll-card">
             <strong>¿Cómo se mide?</strong>
             <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6' }}>
               Cada pick arriesga entre $100.000 y $250.000 según la confianza del modelo (ver lib/staking.js). El
@@ -2068,6 +2180,16 @@ export default function Home({
       )}
 
       {modalMatch && <MatchDetailModal m={modalMatch} onClose={() => setModalMatch(null)} user={user} />}
+
+      {showRiskModal && (
+        <RiskModal
+          count={followedPickIds.size}
+          onClose={() => {
+            setShowRiskModal(false);
+            setRiskModalSeen(true);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -2475,6 +2597,20 @@ const CSS = `
   }
   .modal h3{font-family:var(--font-display); font-size:24px; margin:2px 0 2px; color:var(--ink);}
   .modal .sub{color:var(--muted); font-size:13px;}
+
+  .risk-modal-head{display:flex; align-items:center; gap:14px; margin-bottom:18px;}
+  .risk-modal-icon{
+    width:44px; height:44px; border-radius:12px; flex:none; font-size:20px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--court-soft); border:1px solid rgba(226,68,74,.4);
+  }
+  .risk-modal-eyebrow{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--court); margin-bottom:2px;}
+  .risk-tip{display:flex; gap:12px; padding:14px 0; border-top:1px solid var(--line);}
+  .risk-tip-icon{font-size:20px; flex:none; width:30px; text-align:center;}
+  .risk-tip strong{display:block; font-size:14px; margin-bottom:3px;}
+  .risk-tip p{margin:0; font-size:13px; color:var(--muted); line-height:1.5;}
+  .risk-modal-btn{width:100%; justify-content:center; margin-top:16px; padding:13px;}
+  .risk-modal-disclaimer{font-size:11px; color:var(--muted); text-align:center; margin:10px 0 0;}
   .modal-market{
     display:inline-block; margin:12px 0; font-weight:700; font-size:14px;
     background:var(--court-soft); color:#FAC7C7; padding:8px 14px; border-radius:10px;
