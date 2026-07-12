@@ -45,7 +45,13 @@ async function notifyFollowers(supabase, match, playerAName, playerBName, payloa
           message: e.message,
           body: e.body || null
         });
-        if (e.statusCode === 404 || e.statusCode === 410) {
+        // 404/410 = el navegador ya no tiene esa suscripción. 403 con
+        // "VAPID credentials... do not correspond" = quedó creada con
+        // una llave pública vieja (se regeneraron las llaves VAPID
+        // después) — nunca va a funcionar sola, hay que borrarla para
+        // que la persona la vuelva a crear con la llave actual.
+        const isVapidMismatch = e.statusCode === 403 && /vapid credentials/i.test(e.body || '');
+        if (e.statusCode === 404 || e.statusCode === 410 || isVapidMismatch) {
           await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
         }
       }
