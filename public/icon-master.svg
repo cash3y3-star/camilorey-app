@@ -1,0 +1,30 @@
+<svg width="512" height="512" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#1c1c1f"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f7e2a0"/>
+      <stop offset="50%" stop-color="#d4a13a"/>
+      <stop offset="100%" stop-color="#8a6111"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fondo con esquinas redondeadas tipo app icon -->
+  <rect x="0" y="0" width="200" height="200" rx="44" fill="url(#bg)"/>
+
+  <!-- anillo circular -->
+  <circle cx="100" cy="100" r="88" fill="none" stroke="url(#gold)" stroke-width="3"/>
+
+  <!-- corona -->
+  <g transform="translate(100,40)">
+    <polygon points="-26,20 -26,4 -14,14 0,-8 14,14 26,4 26,20" fill="url(#gold)"/>
+    <circle cx="-26" cy="2" r="4.5" fill="url(#gold)"/>
+    <circle cx="0" cy="-10" r="5" fill="url(#gold)"/>
+    <circle cx="26" cy="2" r="4.5" fill="url(#gold)"/>
+  </g>
+
+  <!-- monograma CR -->
+  <text x="100" y="134" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="78" font-weight="700" fill="url(#gold)">CR</text>
+</svg>
