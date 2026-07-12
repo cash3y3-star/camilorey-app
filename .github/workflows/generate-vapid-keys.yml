@@ -1,0 +1,14 @@
+name: Generate VAPID keys (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate keys
+        run: npx --yes web-push generate-vapid-keys

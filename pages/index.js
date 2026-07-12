@@ -3,11 +3,51 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 
-const VIEWS = ['inicio', 'predicciones', 'calendario', 'bankroll'];
+const VIEWS = ['inicio', 'predicciones', 'calendario', 'bankroll', 'favoritos'];
 const AVATAR_COLORS = ['#E2444A', '#FF7A45', '#A32D2D', '#D85A30', '#C23B4C', '#B84A2E'];
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 function avatarColor(seed) {
   return AVATAR_COLORS[(seed || '').length % AVATAR_COLORS.length];
+}
+
+// El navegador pide la llave pública del servidor push en este
+// formato (Uint8Array), pero VAPID la da como base64 url-safe.
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = typeof window !== 'undefined' ? window.atob(base64) : '';
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+// Pide permiso de notificaciones, registra el service worker y guarda
+// la suscripción en Supabase. Se llama la primera vez que alguien
+// sigue un pick — no se pide de entrada, solo cuando de verdad la va
+// a usar (menos molesto, más probable que acepte).
+async function ensurePushSubscription(user) {
+  if (!supabaseClient || !user || !VAPID_PUBLIC_KEY) return;
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    const json = subscription.toJSON();
+    await supabaseClient
+      .from('push_subscriptions')
+      .upsert(
+        { user_id: user.id, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth },
+        { onConflict: 'endpoint' }
+      );
+  } catch (e) {
+    console.error('No se pudo activar notificaciones push:', e.message);
+  }
 }
 
 // ============================================================
@@ -73,6 +113,7 @@ export async function getServerSideProps({ query }) {
 
     picks.push({
       id: pick.id,
+      matchId: match.id,
       day: dayLabel(match.scheduled_at),
       scheduledAt: new Date(match.scheduled_at).getTime(),
       player: favored?.name || '—',
@@ -281,9 +322,21 @@ function buildAnalysis(factors) {
   return `Favorito según ${bits.join(', ')}.`;
 }
 
-function PickCard({ pick, onClick }) {
+function PickCard({ pick, onClick, followed, onToggleFollow }) {
   return (
     <div className="pick-card" onClick={onClick}>
+      {onToggleFollow ? (
+        <button
+          className={`follow-btn ${followed ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFollow(pick);
+          }}
+          title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
+        >
+          {followed ? '★' : '☆'}
+        </button>
+      ) : null}
       <div className="avatar" style={{ '--tone': avatarColor(pick.player) }}>
         {pick.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -586,6 +639,7 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
   const [modalMatch, setModalMatch] = useState(null);
   const [resultsFilter, setResultsFilter] = useState(matches.some((m) => m.status === 'live') ? 'en-vivo' : 'proximos');
   const [user, setUser] = useState(null);
+  const [followedPickIds, setFollowedPickIds] = useState(new Set());
 
   useEffect(() => {
     const fromHash = () => {
@@ -611,6 +665,49 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
     supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
   };
   const logout = () => supabaseClient?.auth.signOut();
+
+  useEffect(() => {
+    if (!supabaseClient || !user) {
+      setFollowedPickIds(new Set());
+      return undefined;
+    }
+    let cancelled = false;
+    supabaseClient
+      .from('followed_picks')
+      .select('pick_id')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (!cancelled && data) setFollowedPickIds(new Set(data.map((r) => r.pick_id)));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const toggleFollow = async (pick) => {
+    if (!supabaseClient) return;
+    if (!user) {
+      loginWithGoogle();
+      return;
+    }
+    const already = followedPickIds.has(pick.id);
+    if (already) {
+      await supabaseClient.from('followed_picks').delete().eq('user_id', user.id).eq('pick_id', pick.id);
+      setFollowedPickIds((prev) => {
+        const next = new Set(prev);
+        next.delete(pick.id);
+        return next;
+      });
+    } else {
+      const { error } = await supabaseClient
+        .from('followed_picks')
+        .insert({ user_id: user.id, pick_id: pick.id, match_id: pick.matchId });
+      if (!error) {
+        setFollowedPickIds((prev) => new Set(prev).add(pick.id));
+        ensurePushSubscription(user);
+      }
+    }
+  };
 
   const featured = picks.find((p) => p.featured) || picks[0] || null;
   const homePicks = featured ? picks.filter((p) => p.id !== featured.id).slice(0, 4) : [];
@@ -645,6 +742,7 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
           {navLink('predicciones', 'Predicciones')}
           {navLink('calendario', 'Resultados')}
           {navLink('bankroll', 'Bankroll')}
+          {navLink('favoritos', 'Favoritos')}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <a href="https://t.me/+q_JbStqxCsFhYWE8" target="_blank" rel="noopener noreferrer" className="tg-badge">
@@ -782,7 +880,13 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
           </div>
           <div className="pick-grid">
             {homePicks.map((p) => (
-              <PickCard key={p.id} pick={p} onClick={() => setModalPick(p)} />
+              <PickCard
+                key={p.id}
+                pick={p}
+                onClick={() => setModalPick(p)}
+                followed={followedPickIds.has(p.id)}
+                onToggleFollow={toggleFollow}
+              />
             ))}
           </div>
         </section>
@@ -804,7 +908,13 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
           </div>
           <div className="pick-grid">
             {filteredPicks.map((p) => (
-              <PickCard key={p.id} pick={p} onClick={() => setModalPick(p)} />
+              <PickCard
+                key={p.id}
+                pick={p}
+                onClick={() => setModalPick(p)}
+                followed={followedPickIds.has(p.id)}
+                onToggleFollow={toggleFollow}
+              />
             ))}
           </div>
         </section>
@@ -878,6 +988,37 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
             </table>
           </div>
         </section>
+
+        <section className={`view ${view === 'favoritos' ? 'active' : ''}`}>
+          <span className="eyebrow">Tus picks seguidos</span>
+          <h1 className="page-title">Favoritos</h1>
+          <p className="page-sub">
+            Sigue un pick tocando la estrella y te avisamos con una notificación cuando termine un set o el partido.
+          </p>
+          {!user ? (
+            <p className="page-sub">Inicia sesión con Google (arriba a la derecha) para seguir picks.</p>
+          ) : (
+            (() => {
+              const favPicks = picks.filter((p) => followedPickIds.has(p.id));
+              if (favPicks.length === 0) {
+                return <p className="page-sub">Todavía no sigues ningún pick — toca la ☆ en cualquier tarjeta.</p>;
+              }
+              return (
+                <div className="pick-grid">
+                  {favPicks.map((p) => (
+                    <PickCard
+                      key={p.id}
+                      pick={p}
+                      onClick={() => setModalPick(p)}
+                      followed={true}
+                      onToggleFollow={toggleFollow}
+                    />
+                  ))}
+                </div>
+              );
+            })()
+          )}
+        </section>
       </main>
 
       <footer className="site">
@@ -915,6 +1056,12 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
             <path d="M3 10h18M15 14h3" />
           </svg>
           Bankroll
+        </a>
+        <a href="#favoritos" className={view === 'favoritos' ? 'active' : ''}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 17.3l-6.2 3.6 1.6-7-5.3-4.6 7-.6L12 2l2.9 6.7 7 .6-5.3 4.6 1.6 7z" />
+          </svg>
+          Favoritos
         </a>
       </nav>
 
@@ -1200,10 +1347,18 @@ const CSS = `
   .pick-card{
     background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
     padding:14px 16px; box-shadow:var(--shadow); cursor:pointer;
-    display:flex; align-items:center; gap:14px;
+    display:flex; align-items:center; gap:14px; position:relative;
     transition:border-color .15s, transform .12s;
   }
   .pick-card:hover{border-color:var(--court); transform:translateY(-1px);}
+  .follow-btn{
+    position:absolute; top:8px; right:10px; z-index:2;
+    background:none; border:none; cursor:pointer; padding:4px;
+    font-size:18px; line-height:1; color:var(--muted);
+    transition:color .15s, transform .12s;
+  }
+  .follow-btn:hover{transform:scale(1.15);}
+  .follow-btn.active{color:var(--ball);}
   .avatar{
     width:48px; height:48px; border-radius:12px; flex:none;
     display:flex; align-items:center; justify-content:center;
