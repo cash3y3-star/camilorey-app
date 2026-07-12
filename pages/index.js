@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { supabaseClient } from '../lib/supabaseClient';
 
 const VIEWS = ['inicio', 'predicciones', 'calendario', 'bankroll'];
 const AVATAR_COLORS = ['#E2444A', '#FF7A45', '#A32D2D', '#D85A30', '#C23B4C', '#B84A2E'];
@@ -210,6 +211,8 @@ export async function getServerSideProps({ query }) {
     ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
     : null;
 
+  const { count: userCount } = await supabase.from('profiles').select('id', { count: 'exact', head: true });
+
   return {
     props: {
       stats: { efectividad, racha, cuotaProm },
@@ -219,7 +222,8 @@ export async function getServerSideProps({ query }) {
       currentDateStr,
       prevDateStr,
       nextDateStr,
-      isToday: !selectedDate
+      isToday: !selectedDate,
+      userCount: userCount || 0
     }
   };
 }
@@ -450,12 +454,13 @@ function MatchDetailModal({ m, onClose }) {
   );
 }
 
-export default function Home({ stats, picks, matches, bankrollLog }) {
+export default function Home({ stats, picks, matches, bankrollLog, userCount }) {
   const [view, setView] = useState('inicio');
   const [dayFilter, setDayFilter] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
   const [resultsFilter, setResultsFilter] = useState(matches.some((m) => m.status === 'live') ? 'en-vivo' : 'proximos');
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const fromHash = () => {
@@ -466,6 +471,19 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
     window.addEventListener('hashchange', fromHash);
     return () => window.removeEventListener('hashchange', fromHash);
   }, []);
+
+  useEffect(() => {
+    supabaseClient.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
+    const { data: listener } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const loginWithGoogle = () => {
+    supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+  };
+  const logout = () => supabaseClient.auth.signOut();
 
   const featured = picks.find((p) => p.featured) || picks[0] || null;
   const homePicks = featured ? picks.filter((p) => p.id !== featured.id).slice(0, 4) : [];
@@ -509,8 +527,45 @@ export default function Home({ stats, picks, matches, bankrollLog }) {
             Telegram
           </a>
           <span className="badge18">+18 · Juega con cabeza</span>
+          {user ? (
+            <div className="user-chip" onClick={logout} title="Cerrar sesión">
+              {user.user_metadata?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.user_metadata.avatar_url} alt="" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="user-chip-fallback">{(user.email || '?')[0].toUpperCase()}</span>
+              )}
+            </div>
+          ) : (
+            <button className="login-btn" onClick={loginWithGoogle}>
+              <svg viewBox="0 0 48 48" width="14" height="14">
+                <path
+                  fill="#FFC107"
+                  d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"
+                />
+                <path
+                  fill="#FF3D00"
+                  d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"
+                />
+                <path
+                  fill="#4CAF50"
+                  d="M24 44c5.5 0 10.4-2.1 14.1-5.6l-6.5-5.5C29.6 34.9 27 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.3 44 24 44z"
+                />
+                <path
+                  fill="#1976D2"
+                  d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 30.8 44 24c0-1.3-.1-2.7-.4-3.5z"
+                />
+              </svg>
+              Entrar
+            </button>
+          )}
         </div>
       </header>
+      {userCount > 0 && (
+        <div className="user-count-strip">
+          {userCount} {userCount === 1 ? 'persona registrada' : 'personas registradas'}
+        </div>
+      )}
 
       <main>
         <section className={`view ${view === 'inicio' ? 'active' : ''}`}>
@@ -883,6 +938,27 @@ const CSS = `
     transition:transform .12s ease;
   }
   .tg-badge:hover{transform:translateY(-1px);}
+
+  .login-btn{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:var(--font-body); font-size:12px; font-weight:700; color:var(--ink);
+    background:var(--card); border:1px solid var(--line); border-radius:999px;
+    padding:6px 12px; cursor:pointer;
+  }
+  .login-btn:hover{border-color:var(--court);}
+  .user-chip{
+    width:28px; height:28px; border-radius:50%; overflow:hidden; cursor:pointer;
+    border:1px solid var(--line); flex:none;
+  }
+  .user-chip img{width:100%; height:100%; object-fit:cover;}
+  .user-chip-fallback{
+    width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+    background:var(--court); color:#fff; font-weight:800; font-size:13px;
+  }
+  .user-count-strip{
+    text-align:center; font-family:var(--font-mono); font-size:11px; color:var(--muted);
+    padding:6px; border-bottom:1px solid var(--line);
+  }
 
   .tg-banner{
     display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
