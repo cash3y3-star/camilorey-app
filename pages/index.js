@@ -725,6 +725,21 @@ function MatchRow({ m, onClick }) {
   const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Pendiente';
   const live = useLiveScore(m);
 
+  // Mientras está en vivo, el centro de la tarjeta muestra sets
+  // ganados por cada lado en vez de "VS" — se cuenta a partir de los
+  // sets ya cerrados que trae el marcador en vivo.
+  let liveSetsWonA = null;
+  let liveSetsWonB = null;
+  if (m.status === 'live' && live) {
+    if (live.source === 'kambi') {
+      liveSetsWonA = (live.sets || []).filter((s) => s.a > s.b).length;
+      liveSetsWonB = (live.sets || []).filter((s) => s.b > s.a).length;
+    } else if (live.source === 'tt' && live.scoreOne != null) {
+      liveSetsWonA = live.scoreOne;
+      liveSetsWonB = live.scoreTwo;
+    }
+  }
+
   return (
     <div className="match-card" onClick={onClick} style={{ cursor: 'pointer' }}>
       <div className="mc-head">
@@ -740,7 +755,13 @@ function MatchRow({ m, onClick }) {
             <span className="flag">🇨🇿</span> {m.playerA}
           </span>
         </div>
-        <span className="pc-vs-badge">VS</span>
+        {liveSetsWonA != null ? (
+          <span className="pc-vs-badge pc-vs-live num">
+            {liveSetsWonA}-{liveSetsWonB}
+          </span>
+        ) : (
+          <span className="pc-vs-badge">VS</span>
+        )}
         <div className="pc-player">
           <PlayerAvatar name={m.playerB} avatarUrl={m.playerBAvatar} initials={m.playerBInitials} />
           <span className="pc-player-name">
@@ -1956,6 +1977,9 @@ const CSS = `
   .pc-vs-badge{
     font-family:var(--font-display); font-weight:800; font-size:13px; color:var(--muted);
     flex:none;
+  }
+  .pc-vs-live{
+    color:var(--court); font-size:17px; background:var(--court-soft); border-radius:8px; padding:3px 10px;
   }
   .avatar{
     width:56px; height:56px; border-radius:50%; flex:none;
