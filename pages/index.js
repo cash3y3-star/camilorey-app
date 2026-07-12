@@ -50,18 +50,16 @@ export async function getServerSideProps({ query }) {
     return (data || []).map((m) => (m.winner_id === playerId ? 1 : 0)).reverse();
   }
 
-  // Estos partidos duran 10-20 minutos — un pick deja de ser "próximo"
-  // en cuanto arranca el partido, no dos horas después. Dejamos un
-  // margen chico (no cero) solo por si el usuario carga la página
-  // justo en el segundo exacto de inicio, o por pequeños desfases de
-  // reloj entre servidores.
-  const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+  // Un pick deja de mostrarse como "próximo" un rato ANTES de que
+  // arranque el partido (no justo cuando ya casi empieza), y por
+  // supuesto también una vez que ya arrancó o terminó.
+  const HIDE_BEFORE_START_MS = 10 * 60 * 1000;
 
   const picks = [];
   for (const pick of pendingPicks || []) {
     const match = matchesById.get(pick.match_id);
     if (!match) continue;
-    if (match.scheduled_at && Date.now() - new Date(match.scheduled_at).getTime() > STALE_THRESHOLD_MS) continue;
+    if (match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS) continue;
     const playerA = playersById.get(match.player_a_id);
     const playerB = playersById.get(match.player_b_id);
     const favored = playersById.get(pick.predicted_winner_id);
