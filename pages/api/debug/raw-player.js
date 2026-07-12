@@ -14,10 +14,17 @@ export default async function handler(req, res) {
   }
 
   const id = req.query.id || '826';
+  const suffix = req.query.suffix || '';
 
   try {
-    const detail = await fetchNuxtData(`/en/players/${id}`);
-    return res.status(200).json({ id, keys: Object.keys(detail), detail });
+    const detail = await fetchNuxtData(`/en/players/${id}${suffix}`);
+    const pagination = detail['player-previous-tournaments']?.pagination;
+    const items = detail['player-previous-tournaments']?.items || [];
+    return res.status(200).json({
+      id,
+      pagination,
+      firstThreeTournamentIds: items.slice(0, 3).map((t) => t.id)
+    });
   } catch (e) {
     return res.status(502).json({ error: e.message });
   }
