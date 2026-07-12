@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 
-const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll'];
+const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
 // El navegador pide la llave pública del servidor push en este
@@ -1576,6 +1576,7 @@ export default function Home({
           {navLink('picks', 'Picks')}
           {navLink('seguidos', 'Seguidos')}
           {isAdmin ? navLink('bankroll', 'Bankroll') : null}
+          {isAdmin ? navLink('grupos', 'Grupos') : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className="badge18">+18 · Juega con cabeza</span>
@@ -1710,16 +1711,10 @@ export default function Home({
           )}
 
           <div className="section-head">
-            <h2>Torneos en vivo</h2>
             <a href="#picks" className="see-all">
               Ver todos los picks →
             </a>
           </div>
-          {tournamentGroups.length === 0 ? (
-            <p className="page-sub">No hay ningún torneo en vivo en este momento.</p>
-          ) : (
-            tournamentGroups.map((g) => <GroupTable group={g} key={g.tournamentId} />)
-          )}
         </section>
 
         <section className={`view ${view === 'picks' ? 'active' : ''}`}>
@@ -1887,6 +1882,19 @@ export default function Home({
         </section>
         )}
 
+        {isAdmin && (
+        <section className={`view ${view === 'grupos' ? 'active' : ''}`}>
+          <span className="eyebrow">Solo tú ves esto</span>
+          <h1 className="page-title">Grupos</h1>
+          <p className="page-sub">Tablas de los torneos que están en vivo ahora mismo.</p>
+          {tournamentGroups.length === 0 ? (
+            <p className="page-sub">No hay ningún torneo en vivo en este momento.</p>
+          ) : (
+            tournamentGroups.map((g) => <GroupTable group={g} key={g.tournamentId} />)
+          )}
+        </section>
+        )}
+
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">Tus picks seguidos</span>
           <h1 className="page-title">Seguidos</h1>
@@ -1960,6 +1968,17 @@ export default function Home({
               <path d="M3 10h18M15 14h3" />
             </svg>
             Bankroll
+          </a>
+        ) : null}
+        {isAdmin ? (
+          <a href="#grupos" className={view === 'grupos' ? 'active' : ''}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            Grupos
           </a>
         ) : null}
       </nav>
