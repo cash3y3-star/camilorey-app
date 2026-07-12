@@ -454,12 +454,16 @@ export async function getServerSideProps({ query }) {
   }
 
   // Para pintar de verde/rojo el resultado del partido según si
-  // nuestro pick acertó o falló (no según quién ganó a secas).
+  // nuestro pick acertó o falló (no según quién ganó a secas), y para
+  // poder seguir el pick directo desde la tarjeta de Calendario.
   const windowMatchIds = (windowMatches || []).map((m) => m.id);
   const { data: windowPicks } = windowMatchIds.length
-    ? await supabase.from('picks').select('match_id, result').in('match_id', windowMatchIds)
+    ? await supabase.from('picks').select('id, match_id, result').in('match_id', windowMatchIds)
     : { data: [] };
   const pickResultByMatchId = new Map((windowPicks || []).map((p) => [p.match_id, p.result]));
+  const pendingPickIdByMatchId = new Map(
+    (windowPicks || []).filter((p) => p.result === 'pending').map((p) => [p.match_id, p.id])
+  );
 
   const matches = (windowMatches || []).map((m) => {
     const a = playersById.get(m.player_a_id);
@@ -471,6 +475,8 @@ export async function getServerSideProps({ query }) {
     else if (new Date(m.scheduled_at) <= new Date()) status = 'live';
     const pickResult = pickResultByMatchId.get(m.id);
     return {
+      matchId: m.id,
+      pickId: pendingPickIdByMatchId.get(m.id) || null,
       time: timeLabel(m.scheduled_at),
       tournament: t?.name || 'Torneo',
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
@@ -833,7 +839,7 @@ function useLiveScore(m) {
 }
 
 // Tarjeta de doble foto.
-function MatchRow({ m, onClick }) {
+function MatchRow({ m, onClick, followed, onToggleFollow }) {
   const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Pendiente';
   const live = useLiveScore(m);
 
@@ -854,6 +860,18 @@ function MatchRow({ m, onClick }) {
 
   return (
     <div className="match-card" onClick={onClick} style={{ cursor: 'pointer' }}>
+      {m.pickId && onToggleFollow ? (
+        <button
+          className={`follow-btn ${followed ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFollow({ id: m.pickId, matchId: m.matchId });
+          }}
+          title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
+        >
+          {followed ? '★' : '☆'}
+        </button>
+      ) : null}
       <div className="mc-head">
         <span className="pc-meta">
           {m.time} · {m.tournament}
@@ -1774,7 +1792,15 @@ export default function Home({
             {filteredMatches.length === 0 ? (
               <p className="page-sub">No hay partidos en esta categoría para este día.</p>
             ) : (
-              filteredMatches.map((m, i) => <MatchRow m={m} key={i} onClick={() => setModalMatch(m)} />)
+              filteredMatches.map((m, i) => (
+                <MatchRow
+                  m={m}
+                  key={i}
+                  onClick={() => setModalMatch(m)}
+                  followed={m.pickId ? followedPickIds.has(m.pickId) : false}
+                  onToggleFollow={toggleFollow}
+                />
+              ))
             )}
           </div>
         </section>
@@ -2281,7 +2307,7 @@ const CSS = `
   .result-pill.miss{background:rgba(240,149,149,.16); color:var(--miss);}
   .flag{font-size:11px;}
 
-  .mc-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px;}
+  .mc-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; padding-right:24px;}
   .mc-score{text-align:center; font-size:13px; font-weight:700; margin-top:2px;}
 
   .day-strip{display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:18px;}

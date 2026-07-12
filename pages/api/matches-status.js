@@ -65,9 +65,12 @@ export default async function handler(req, res) {
 
   const windowMatchIds = (windowMatches || []).map((m) => m.id);
   const { data: windowPicks } = windowMatchIds.length
-    ? await supabase.from('picks').select('match_id, result').in('match_id', windowMatchIds)
+    ? await supabase.from('picks').select('id, match_id, result').in('match_id', windowMatchIds)
     : { data: [] };
   const pickResultByMatchId = new Map((windowPicks || []).map((p) => [p.match_id, p.result]));
+  const pendingPickIdByMatchId = new Map(
+    (windowPicks || []).filter((p) => p.result === 'pending').map((p) => [p.match_id, p.id])
+  );
 
   const matches = (windowMatches || []).map((m) => {
     const a = playersById.get(m.player_a_id);
@@ -79,6 +82,8 @@ export default async function handler(req, res) {
     else if (new Date(m.scheduled_at) <= new Date()) status = 'live';
     const pickResult = pickResultByMatchId.get(m.id);
     return {
+      matchId: m.id,
+      pickId: pendingPickIdByMatchId.get(m.id) || null,
       time: timeLabel(m.scheduled_at),
       tournament: t?.name || 'Torneo',
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
