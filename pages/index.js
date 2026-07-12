@@ -649,8 +649,15 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
         ) : (
           <span className={`tier-badge tier-${pick.tier}`}>{TIER_LABEL[pick.tier]}</span>
         )}
-        <span className="pc-meta">
-          {pick.tournament} · {pick.time}
+        <span className="pc-head-right">
+          <span className="pc-meta">
+            {pick.tournament} · {pick.time}
+          </span>
+          {pick.matchStatus === 'live' ? (
+            <span className="status live">En vivo</span>
+          ) : pick.matchStatus === 'done' ? (
+            <span className="status done">Finalizado</span>
+          ) : null}
         </span>
       </div>
       <div className="pc-vs">
@@ -1216,6 +1223,7 @@ export default function Home({
   const [modalMatch, setModalMatch] = useState(null);
   const [user, setUser] = useState(null);
   const [followedPickIds, setFollowedPickIds] = useState(new Set());
+  const [followedDetail, setFollowedDetail] = useState([]);
 
   useEffect(() => {
     const fromHash = () => {
@@ -1260,6 +1268,27 @@ export default function Home({
       cancelled = true;
     };
   }, [user]);
+
+  // Detalle completo de los picks seguidos — aparte del array "picks"
+  // de la SSR, que oculta un pick apenas el partido está por arrancar
+  // o ya arrancó (regla pensada para "Picks", no para lo que alguien
+  // sigue a propósito para recibir la notificación).
+  useEffect(() => {
+    if (followedPickIds.size === 0) {
+      setFollowedDetail([]);
+      return undefined;
+    }
+    let cancelled = false;
+    fetch(`/api/followed-detail?ids=${[...followedPickIds].join(',')}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setFollowedDetail(data.picks || []);
+      })
+      .catch((e) => console.error('Error cargando detalle de seguidos:', e));
+    return () => {
+      cancelled = true;
+    };
+  }, [followedPickIds]);
 
   const toggleFollow = async (pick) => {
     if (!supabaseClient) return;
@@ -1677,13 +1706,12 @@ export default function Home({
             <p className="page-sub">Inicia sesión con Google (arriba a la derecha) para seguir picks.</p>
           ) : (
             (() => {
-              const favPicks = picks.filter((p) => followedPickIds.has(p.id));
-              if (favPicks.length === 0) {
+              if (followedDetail.length === 0) {
                 return <p className="page-sub">Todavía no sigues ningún pick — toca la ☆ en cualquier tarjeta.</p>;
               }
               return (
                 <div className="pick-grid">
-                  {favPicks.map((p) => (
+                  {followedDetail.map((p) => (
                     <PickCard
                       key={p.id}
                       pick={p}
@@ -2035,6 +2063,7 @@ const CSS = `
   .follow-btn.active{color:var(--ball);}
 
   .pc-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; padding-right:24px;}
+  .pc-head-right{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
   .pc-meta{font-size:11px; color:var(--muted); font-family:var(--font-mono);}
   .tier-badge{
     font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px;
