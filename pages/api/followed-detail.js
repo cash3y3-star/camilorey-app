@@ -120,17 +120,29 @@ export default async function handler(req, res) {
     });
   }
 
-  async function h2hRecord(idA, idB) {
-    if (!idA || !idB) return { winsA: 0, winsB: 0 };
+  async function h2hRecord(idA, idB, nameB) {
+    if (!idA || !idB) return { winsA: 0, winsB: 0, matches: [] };
     const { data } = await supabase
       .from('matches')
-      .select('winner_id')
+      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
       .eq('status', 'finished')
       .or(`and(player_a_id.eq.${idA},player_b_id.eq.${idB}),and(player_a_id.eq.${idB},player_b_id.eq.${idA})`)
+      .order('scheduled_at', { ascending: false })
       .limit(20);
+    const rows = data || [];
     return {
-      winsA: (data || []).filter((m) => m.winner_id === idA).length,
-      winsB: (data || []).filter((m) => m.winner_id === idB).length
+      winsA: rows.filter((m) => m.winner_id === idA).length,
+      winsB: rows.filter((m) => m.winner_id === idB).length,
+      matches: rows.map((m) => {
+        const isA = m.player_a_id === idA;
+        return {
+          date: m.scheduled_at,
+          opponent: nameB,
+          setsFor: isA ? m.sets_a : m.sets_b,
+          setsAgainst: isA ? m.sets_b : m.sets_a,
+          win: m.winner_id === idA
+        };
+      })
     };
   }
 
@@ -172,7 +184,10 @@ export default async function handler(req, res) {
             : match.set_scores.map((s) => ({ a: s.b, b: s.a }))
           : null;
 
-      const [history, h2h] = await Promise.all([recentForm(favored.id), h2hRecord(favored.id, opponent.id)]);
+      const [history, h2h] = await Promise.all([
+        recentForm(favored.id),
+        h2hRecord(favored.id, opponent.id, opponent.name)
+      ]);
 
       return {
         id: pick.id,
@@ -196,6 +211,7 @@ export default async function handler(req, res) {
         streakLabel: streakLabelFromHistory(history),
         h2h: `${h2h.winsA}-${h2h.winsB}`,
         h2hTotal: h2h.winsA + h2h.winsB,
+        h2hMatches: h2h.matches,
         result: pick.result,
         matchStatus: status,
         score: finalScore,

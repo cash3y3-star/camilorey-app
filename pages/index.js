@@ -164,18 +164,32 @@ export async function getServerSideProps({ query }) {
 
   // Cruce directo histórico entre los dos jugadores de un pick, real
   // (no viene de picks.factors porque ahí solo se guarda el puntaje
-  // normalizado, no el marcador "6-1" que se ve en la tarjeta).
-  async function h2hRecord(idA, idB) {
-    if (!idA || !idB) return { winsA: 0, winsB: 0 };
+  // normalizado, no el marcador "6-1" que se ve en la tarjeta). Trae
+  // también la lista partido por partido (mismo shape que recentForm)
+  // para la pestaña H2H del modal de detalle.
+  async function h2hRecord(idA, idB, nameB) {
+    if (!idA || !idB) return { winsA: 0, winsB: 0, matches: [] };
     const { data } = await supabase
       .from('matches')
-      .select('winner_id')
+      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
       .eq('status', 'finished')
       .or(`and(player_a_id.eq.${idA},player_b_id.eq.${idB}),and(player_a_id.eq.${idB},player_b_id.eq.${idA})`)
+      .order('scheduled_at', { ascending: false })
       .limit(20);
+    const rows = data || [];
     return {
-      winsA: (data || []).filter((m) => m.winner_id === idA).length,
-      winsB: (data || []).filter((m) => m.winner_id === idB).length
+      winsA: rows.filter((m) => m.winner_id === idA).length,
+      winsB: rows.filter((m) => m.winner_id === idB).length,
+      matches: rows.map((m) => {
+        const isA = m.player_a_id === idA;
+        return {
+          date: m.scheduled_at,
+          opponent: nameB,
+          setsFor: isA ? m.sets_a : m.sets_b,
+          setsAgainst: isA ? m.sets_b : m.sets_a,
+          win: m.winner_id === idA
+        };
+      })
     };
   }
 
@@ -202,7 +216,10 @@ export async function getServerSideProps({ query }) {
       if (!favored || !opponent) return null;
       const tournament = tournamentsById.get(match.tournament_id);
       const confidence = Math.round(pick.confidence);
-      const [history, h2h] = await Promise.all([recentForm(pick.predicted_winner_id), h2hRecord(favored.id, opponent.id)]);
+      const [history, h2h] = await Promise.all([
+        recentForm(pick.predicted_winner_id),
+        h2hRecord(favored.id, opponent.id, opponent.name)
+      ]);
 
       return {
         id: pick.id,
@@ -228,6 +245,9 @@ export async function getServerSideProps({ query }) {
         streakLabel: streakLabelFromHistory(history),
         h2h: `${h2h.winsA}-${h2h.winsB}`,
         h2hTotal: h2h.winsA + h2h.winsB,
+        h2hMatches: h2h.matches,
+        score: null,
+        setScores: null,
         result: 'pending'
       };
     })
@@ -403,7 +423,26 @@ export async function getServerSideProps({ query }) {
       if (!favored || !opponent) return null;
       const tournament = tournamentsById.get(match.tournament_id);
       const confidence = Math.round(pick.confidence);
-      const [history, h2h] = await Promise.all([recentForm(favored.id), h2hRecord(favored.id, opponent.id)]);
+      const [history, h2h] = await Promise.all([
+        recentForm(favored.id),
+        h2hRecord(favored.id, opponent.id, opponent.name)
+      ]);
+
+      // El resultado final se guarda relativo a jugador A/B, no a
+      // favorito/rival — hay que reordenarlo a favor del favorito
+      // (izquierda en la tarjeta), igual que en followed-detail.js.
+      const favoredIsA = pick.predicted_winner_id === match.player_a_id;
+      const score =
+        match.sets_a != null && match.sets_b != null
+          ? favoredIsA
+            ? `${match.sets_a}-${match.sets_b}`
+            : `${match.sets_b}-${match.sets_a}`
+          : null;
+      const setScores = Array.isArray(match.set_scores)
+        ? favoredIsA
+          ? match.set_scores
+          : match.set_scores.map((s) => ({ a: s.b, b: s.a }))
+        : null;
 
       return {
         id: pick.id,
@@ -429,6 +468,9 @@ export async function getServerSideProps({ query }) {
         streakLabel: streakLabelFromHistory(history),
         h2h: `${h2h.winsA}-${h2h.winsB}`,
         h2hTotal: h2h.winsA + h2h.winsB,
+        h2hMatches: h2h.matches,
+        score,
+        setScores,
         result: pick.result
       };
     })
@@ -1372,13 +1414,15 @@ function LineChart({ series }) {
   );
 }
 
-// Modal de detalle de un pick, en pestañas: Análisis (el texto de por
-// qué es favorito), Estadísticas (forma reciente con selector L5/L10/
-// H2H) y Resumen (los datos clave de un vistazo). Antes era todo
-// apilado en vertical — se separa en pestañas para que no haya que
-// hacer scroll por todo para llegar a una sola cosa.
+// Modal de detalle de un pick — "partido detallado" con el jugador y
+// su rival de frente (marcador real si ya se jugó, VS si todavía no),
+// y 4 pestañas: Resumen (sets si los tenemos + los datos clave de un
+// vistazo), Estadísticas (forma reciente con selector L5/L10),
+// Análisis (el texto de por qué es favorito) y H2H (cruce directo
+// partido por partido). Todo lo que se muestra sale de datos reales
+// que ya calculamos — no se inventa ningún número.
 function PickDetailModal({ pick, onClose }) {
-  const [tab, setTab] = useState('analisis');
+  const [tab, setTab] = useState('resumen');
   const [formView, setFormView] = useState('l10');
 
   // history viene del más reciente al más viejo (index 0 = último
@@ -1386,57 +1430,124 @@ function PickDetailModal({ pick, onClose }) {
   const displayHistory = formView === 'l5' ? pick.history.slice(0, 5) : pick.history;
   const hitsInView = displayHistory.filter((m) => m.win).length;
 
+  const isDone = pick.result === 'hit' || pick.result === 'miss';
+  const won = pick.result === 'hit';
+
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
         <div className="modal-head">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {pick.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="featured-avatar" src={pick.avatarUrl} alt="" referrerPolicy="no-referrer" />
-            ) : null}
-            <div>
-              <div className="sub">
-                {pick.tournament} · {pick.time}
-              </div>
-              <h3>
-                <span className="flag">🇨🇿</span> {pick.player}
-              </h3>
-              <div className="sub">vs {pick.opponent}</div>
-            </div>
-          </div>
+          <span className="eyebrow">Partido detallado</span>
           <button className="modal-close" onClick={onClose}>
             ✕
           </button>
         </div>
 
-        <div className="modal-market">{pick.market}</div>
-
-        <div className="kpis">
-          <div className="kpi">
-            <div className="l">Índice IA</div>
-            <div className="v num">{pick.confidence}%</div>
+        <div className="match-hero">
+          <div className="match-hero-side">
+            <PlayerAvatar name={pick.player} avatarUrl={pick.avatarUrl} initials={pick.initials} side="left" className="match-hero-avatar" />
+            <span className="match-hero-name">
+              <span className="flag">🇨🇿</span> {pick.player}
+            </span>
           </div>
-          <div className="kpi">
-            <div className="l">Cuota (Rushbet)</div>
-            <div className="v num">{pick.odds ? pick.odds.toFixed(2) : 'No disponible'}</div>
+
+          <div className="match-hero-center">
+            {isDone && pick.score ? (
+              <div className="match-hero-score num">{pick.score}</div>
+            ) : (
+              <div className="match-hero-vs">VS</div>
+            )}
+            <div className="match-hero-meta">
+              {pick.tournament} · {pick.time}
+            </div>
+            {isDone ? (
+              <span className={`match-hero-pill ${won ? 'win' : 'loss'}`}>{won ? 'Acertado' : 'Fallado'}</span>
+            ) : (
+              <span className="match-hero-pill pending">{pick.market}</span>
+            )}
+          </div>
+
+          <div className="match-hero-side">
+            <PlayerAvatar
+              name={pick.opponent}
+              avatarUrl={pick.opponentAvatarUrl}
+              initials={pick.opponentInitials}
+              side="right"
+              className="match-hero-avatar"
+            />
+            <span className="match-hero-name">
+              <span className="flag">🇨🇿</span> {pick.opponent}
+            </span>
           </div>
         </div>
 
         <div className="tabs">
-          <div className={`tab ${tab === 'analisis' ? 'active' : ''}`} onClick={() => setTab('analisis')}>
-            Análisis
+          <div className={`tab ${tab === 'resumen' ? 'active' : ''}`} onClick={() => setTab('resumen')}>
+            Resumen
           </div>
           <div className={`tab ${tab === 'estadisticas' ? 'active' : ''}`} onClick={() => setTab('estadisticas')}>
             Estadísticas
           </div>
-          <div className={`tab ${tab === 'resumen' ? 'active' : ''}`} onClick={() => setTab('resumen')}>
-            Resumen
+          <div className={`tab ${tab === 'analisis' ? 'active' : ''}`} onClick={() => setTab('analisis')}>
+            Análisis
+          </div>
+          <div className={`tab ${tab === 'h2h' ? 'active' : ''}`} onClick={() => setTab('h2h')}>
+            H2H
           </div>
         </div>
 
-        {tab === 'analisis' ? (
-          <div className="analysis">{pick.analysis}</div>
+        {tab === 'resumen' ? (
+          <>
+            {pick.setScores && pick.setScores.length > 0 ? (
+              <>
+                <div className="hist-title">
+                  <span>Sets</span>
+                </div>
+                <div className="live-sets-grid">
+                  {pick.setScores.map((s, i) => (
+                    <div className="live-set-col" key={i}>
+                      <div className="live-set-label">Set {i + 1}</div>
+                      <div className="live-set-score">
+                        {s.a}-{s.b}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            <div className="stat-rows">
+              <div className="stat-row">
+                <div className="stat-row-top">
+                  <span className="stat-row-label">📊 Índice IA</span>
+                  <span className="stat-row-value num">{pick.confidence}%</span>
+                </div>
+                <div className="stat-row-bar">
+                  <div className="stat-row-bar-fill" style={{ width: `${pick.confidence}%` }}></div>
+                </div>
+              </div>
+              <div className="stat-row">
+                <div className="stat-row-top">
+                  <span className="stat-row-label">🎯 Cuota (Rushbet)</span>
+                  <span className="stat-row-value num">{pick.odds ? pick.odds.toFixed(2) : 'No disponible'}</span>
+                </div>
+              </div>
+              <div className="stat-row">
+                <div className="stat-row-top">
+                  <span className="stat-row-label">🔥 Racha</span>
+                  <span className="stat-row-value num">{pick.streakLabel || '—'}</span>
+                </div>
+              </div>
+              {pick.h2hTotal > 0 ? (
+                <div className="stat-row">
+                  <div className="stat-row-top">
+                    <span className="stat-row-label">⚔️ H2H</span>
+                    <span className="stat-row-value num">{pick.h2h}</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </>
         ) : tab === 'estadisticas' ? (
           <>
             <div className="tabs" style={{ marginBottom: '14px' }}>
@@ -1446,27 +1557,9 @@ function PickDetailModal({ pick, onClose }) {
               <div className={`tab ${formView === 'l10' ? 'active' : ''}`} onClick={() => setFormView('l10')}>
                 L10
               </div>
-              {pick.h2hTotal > 0 ? (
-                <div className={`tab ${formView === 'h2h' ? 'active' : ''}`} onClick={() => setFormView('h2h')}>
-                  H2H
-                </div>
-              ) : null}
             </div>
 
-            {formView === 'h2h' ? (
-              <>
-                <div className="hist-title">
-                  <span>H2H contra {pick.opponent}</span>
-                  <span className="num">{pick.h2h}</span>
-                </div>
-                <div className="h2h-bar-track">
-                  <div
-                    className="h2h-bar-fill"
-                    style={{ width: `${(Number(pick.h2h.split('-')[0]) / pick.h2hTotal) * 100}%` }}
-                  ></div>
-                </div>
-              </>
-            ) : displayHistory.length > 0 ? (
+            {displayHistory.length > 0 ? (
               <>
                 <div className="donut-row">
                   <DonutChart wins={hitsInView} total={displayHistory.length} />
@@ -1485,39 +1578,24 @@ function PickDetailModal({ pick, onClose }) {
               <p className="page-sub">Sin historial reciente todavía.</p>
             )}
           </>
+        ) : tab === 'analisis' ? (
+          <div className="analysis">{pick.analysis}</div>
+        ) : pick.h2hTotal > 0 ? (
+          <>
+            <div className="hist-title">
+              <span>H2H contra {pick.opponent}</span>
+              <span className="num">{pick.h2h}</span>
+            </div>
+            <div className="h2h-bar-track">
+              <div
+                className="h2h-bar-fill"
+                style={{ width: `${(Number(pick.h2h.split('-')[0]) / pick.h2hTotal) * 100}%` }}
+              ></div>
+            </div>
+            <RecentFormList history={pick.h2hMatches} />
+          </>
         ) : (
-          <div className="resumen-grid">
-            <div className="resumen-item">
-              <span className="l">Torneo</span>
-              <span className="v">{pick.tournament}</span>
-            </div>
-            <div className="resumen-item">
-              <span className="l">Hora</span>
-              <span className="v num">{pick.time}</span>
-            </div>
-            <div className="resumen-item">
-              <span className="l">Mercado</span>
-              <span className="v">{pick.market}</span>
-            </div>
-            <div className="resumen-item">
-              <span className="l">Índice IA</span>
-              <span className="v num">{pick.confidence}%</span>
-            </div>
-            <div className="resumen-item">
-              <span className="l">Cuota</span>
-              <span className="v num">{pick.odds ? pick.odds.toFixed(2) : 'N/D'}</span>
-            </div>
-            <div className="resumen-item">
-              <span className="l">Racha</span>
-              <span className="v num">{pick.streakLabel || '—'}</span>
-            </div>
-            {pick.h2hTotal > 0 ? (
-              <div className="resumen-item">
-                <span className="l">H2H</span>
-                <span className="v num">{pick.h2h}</span>
-              </div>
-            ) : null}
-          </div>
+          <p className="page-sub">Todavía no se han enfrentado.</p>
         )}
       </div>
     </div>
@@ -3112,16 +3190,36 @@ const CSS = `
   .legend{display:flex; gap:14px; font-size:11.5px; color:var(--muted); margin-bottom:16px;}
   .legend span{display:inline-flex; align-items:center; gap:5px;}
   .legend .sw{width:8px; height:8px; border-radius:50%;}
-  .kpis{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0;}
-  .kpi{background:var(--bg-alt); border-radius:10px; padding:10px 12px;}
-  .kpi .l{font-size:11px; color:var(--muted);}
-  .kpi .v{font-family:var(--font-mono); font-weight:700; font-size:18px;}
   .analysis{font-size:13.5px; line-height:1.55; color:var(--ink); background:var(--bg-alt); border-radius:12px; padding:14px; margin-top:6px; border:1px solid var(--line);}
 
-  .resumen-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
-  .resumen-item{background:var(--bg-alt); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:3px;}
-  .resumen-item .l{font-size:11px; color:var(--muted);}
-  .resumen-item .v{font-size:13.5px; font-weight:700; color:var(--ink);}
+  .match-hero{display:flex; align-items:flex-start; justify-content:space-between; gap:6px; margin:4px 0 16px;}
+  .match-hero-side{display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; min-width:0;}
+  .match-hero-avatar{width:56px; height:56px; font-size:16px;}
+  .match-hero-name{
+    font-size:12.5px; font-weight:700; text-align:center; display:flex; align-items:center; gap:4px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+  }
+  .match-hero-center{display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; padding-top:8px;}
+  .match-hero-score{font-family:var(--font-display); font-size:26px; font-weight:800; color:var(--ink); line-height:1;}
+  .match-hero-vs{font-family:var(--font-mono); font-size:14px; font-weight:800; color:var(--muted);}
+  .match-hero-meta{font-size:10.5px; color:var(--muted); text-align:center; white-space:nowrap;}
+  .match-hero-pill{
+    font-size:10.5px; font-weight:800; padding:4px 12px; border-radius:999px;
+    text-transform:uppercase; letter-spacing:.4px; text-align:center;
+  }
+  .match-hero-pill.win{background:rgba(93,202,165,.16); color:var(--hit);}
+  .match-hero-pill.loss{background:rgba(240,149,149,.16); color:var(--miss);}
+  .match-hero-pill.pending{
+    background:var(--court-soft); color:#FAC7C7; text-transform:none; font-weight:700; max-width:150px;
+    white-space:normal; line-height:1.3;
+  }
+
+  .stat-rows{display:flex; flex-direction:column; gap:14px; background:var(--bg-alt); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .stat-row-top{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px;}
+  .stat-row-label{color:var(--muted); font-weight:600;}
+  .stat-row-value{color:var(--ink); font-weight:800; font-size:14px;}
+  .stat-row-bar{height:6px; border-radius:999px; background:var(--line); overflow:hidden; margin-top:6px;}
+  .stat-row-bar-fill{height:100%; border-radius:999px; background:var(--court);}
 
   footer.site{
     max-width:980px; margin:0 auto; padding:20px 20px 40px; color:var(--muted); font-size:12px; line-height:1.6;
