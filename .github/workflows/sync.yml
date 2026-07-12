@@ -5,6 +5,14 @@ on:
     - cron: '*/30 * * * *'
   workflow_dispatch:
 
+# Con el cronjob externo disparando cada pocos minutos, una corrida
+# lenta (npm install + varios torneos) se puede topar con la
+# siguiente. Esto hace que la nueva espere a que termine la anterior
+# en vez de correr las dos en paralelo y pisarse escrituras.
+concurrency:
+  group: sync-camilorey
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
