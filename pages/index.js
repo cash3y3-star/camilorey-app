@@ -523,9 +523,9 @@ export async function getServerSideProps({ query }) {
         new Date(r.created_at)
       ),
       pick: pick?.market || 'Pick',
-      u: `${Number(r.units) >= 0 ? '+' : ''}${Number(r.units).toFixed(1)}u`,
+      u: formatCOP(Number(r.units), true),
       ok: Number(r.units) >= 0,
-      balance: `${Number(r.balance) >= 0 ? '+' : ''}${Number(r.balance).toFixed(1)}u`
+      balance: formatCOP(Number(r.balance))
     };
   });
 
@@ -626,6 +626,16 @@ function dayLabel(iso) {
   if (target === today) return 'hoy';
   if (target === tomorrow) return 'mañana';
   return 'otro';
+}
+
+// Bankroll en pesos colombianos, banco inicial $2.000.000 (ver
+// scripts/convert-bankroll-to-pesos.js). withSign se usa para
+// ganancia/pérdida de una apuesta puntual; el balance total no lleva
+// signo (siempre positivo salvo que el banco se acabe del todo).
+function formatCOP(n, withSign = false) {
+  const abs = Math.round(Math.abs(n)).toLocaleString('es-CO');
+  const sign = withSign ? (n >= 0 ? '+' : '-') : '';
+  return `${sign}$${abs}`;
 }
 
 // Frase corta y honesta armada a partir de los factores reales de
@@ -1685,11 +1695,8 @@ export default function Home({
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">Unidades</div>
-              <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>
-                {stats.unidades >= 0 ? '+' : ''}
-                {stats.unidades.toFixed(1)}U
-              </div>
+              <div className="label">Balance</div>
+              <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
             </div>
           </div>
 
@@ -1808,16 +1815,13 @@ export default function Home({
 
         {isAdmin && (
         <section className={`view ${view === 'bankroll' ? 'active' : ''}`}>
-          <span className="eyebrow">Gestión de unidades</span>
+          <span className="eyebrow">Gestión de banca</span>
           <h1 className="page-title">Bankroll</h1>
-          <p className="page-sub">Seguimiento en unidades (u), no en dinero real, para medir el rendimiento de forma responsable.</p>
+          <p className="page-sub">Banco en pesos colombianos, arrancó en $2.000.000, para medir el rendimiento de forma responsable.</p>
 
           <div className="balance-hero">
             <div className="balance-hero-label">Balance actual</div>
-            <div className={`balance-hero-value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>
-              {stats.unidades >= 0 ? '+' : ''}
-              {stats.unidades.toFixed(2)}U
-            </div>
+            <div className={`balance-hero-value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
           </div>
 
           <div className="stat-strip stat-strip-3">
@@ -1833,11 +1837,8 @@ export default function Home({
               <div className="value hit num">{stats.efectividad}%</div>
             </div>
             <div className="stat-card">
-              <div className="label">Unidades</div>
-              <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>
-                {stats.unidades >= 0 ? '+' : ''}
-                {stats.unidades.toFixed(1)}U
-              </div>
+              <div className="label">Balance</div>
+              <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
             </div>
           </div>
 
@@ -1849,9 +1850,10 @@ export default function Home({
           <div className="bankroll-card">
             <strong>¿Cómo se mide?</strong>
             <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6' }}>
-              Cada pick arriesga entre 0.5u y 2u según la confianza del modelo (ver lib/staking.js). El pago sí usa
-              la cuota real de Rushbet cuando logramos cruzar el partido en su feed; si no la encontramos, se calcula
-              1:1. Ajusta siempre el tamaño de tus apuestas a lo que puedas permitirte perder.
+              Cada pick arriesga entre $100.000 y $250.000 según la confianza del modelo (ver lib/staking.js). El
+              pago sí usa la cuota real de Rushbet cuando logramos cruzar el partido en su feed; si no la
+              encontramos, se calcula 1:1. Ajusta siempre el tamaño de tus apuestas a lo que puedas permitirte
+              perder.
             </p>
           </div>
 
@@ -1861,7 +1863,7 @@ export default function Home({
                 <tr>
                   <th>Fecha</th>
                   <th>Pick</th>
-                  <th>Unidades</th>
+                  <th>Monto</th>
                   <th>Resultado</th>
                   <th>Balance</th>
                 </tr>
