@@ -1323,6 +1323,7 @@ export default function Home({
     }
   };
 
+  const isAdmin = Boolean(user?.email && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
   const featured = picks.find((p) => p.featured) || picks[0] || null;
 
   const tabPicks =
@@ -1401,7 +1402,7 @@ export default function Home({
           {navLink('calendario', 'Calendario')}
           {navLink('picks', 'Picks')}
           {navLink('seguidos', 'Seguidos')}
-          {navLink('bankroll', 'Bankroll')}
+          {isAdmin ? navLink('bankroll', 'Bankroll') : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className="badge18">+18 · Juega con cabeza</span>
@@ -1457,7 +1458,7 @@ export default function Home({
           )}
         </div>
       </header>
-      {userCount > 0 && user?.email && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL && (
+      {userCount > 0 && isAdmin && (
         <div className="user-count-strip">
           {userCount} {userCount === 1 ? 'persona registrada' : 'personas registradas'} (solo tú ves esto)
         </div>
@@ -1629,6 +1630,7 @@ export default function Home({
           </div>
         </section>
 
+        {isAdmin && (
         <section className={`view ${view === 'bankroll' ? 'active' : ''}`}>
           <span className="eyebrow">Gestión de unidades</span>
           <h1 className="page-title">Bankroll</h1>
@@ -1702,6 +1704,7 @@ export default function Home({
             </table>
           </div>
         </section>
+        )}
 
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">Tus picks seguidos</span>
@@ -1769,13 +1772,15 @@ export default function Home({
           </svg>
           Seguidos
         </a>
-        <a href="#bankroll" className={view === 'bankroll' ? 'active' : ''}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="6" width="18" height="13" rx="2" />
-            <path d="M3 10h18M15 14h3" />
-          </svg>
-          Bankroll
-        </a>
+        {isAdmin ? (
+          <a href="#bankroll" className={view === 'bankroll' ? 'active' : ''}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="6" width="18" height="13" rx="2" />
+              <path d="M3 10h18M15 14h3" />
+            </svg>
+            Bankroll
+          </a>
+        ) : null}
       </nav>
 
       {modalPick && (
