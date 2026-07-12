@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 
-const VIEWS = ['inicio', 'predicciones', 'calendario', 'bankroll', 'favoritos'];
+const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll'];
 const AVATAR_COLORS = ['#E2444A', '#FF7A45', '#A32D2D', '#D85A30', '#C23B4C', '#B84A2E'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -55,6 +55,23 @@ async function ensurePushSubscription(user) {
 // Es SSR (no getStaticProps) porque los picks/resultados cambian
 // cada 30 min con el sync — siempre queremos la última data.
 // ============================================================
+function confidenceTier(confidence) {
+  if (confidence >= 85) return 'alta';
+  if (confidence >= 70) return 'media';
+  return 'baja';
+}
+
+function streakLabelFromHistory(history) {
+  if (!history || history.length === 0) return null;
+  const last = history[history.length - 1];
+  let count = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i] === last) count++;
+    else break;
+  }
+  return `${count}${last === 1 ? 'W' : 'L'}`;
+}
+
 export async function getServerSideProps({ query }) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -78,7 +95,8 @@ export async function getServerSideProps({ query }) {
   const tournamentsById = new Map((tournaments || []).map((t) => [t.id, t]));
 
   // Forma reciente (victoria/derrota) del jugador favorito de cada
-  // pick, para el gráfico del modal de detalle.
+  // pick, para el gráfico del modal de detalle y para derivar la
+  // racha ("3W"/"2L") sin hacer una consulta aparte.
   async function recentForm(playerId) {
     if (!playerId) return [];
     const { data } = await supabase
@@ -87,8 +105,25 @@ export async function getServerSideProps({ query }) {
       .or(`player_a_id.eq.${playerId},player_b_id.eq.${playerId}`)
       .eq('status', 'finished')
       .order('scheduled_at', { ascending: false })
-      .limit(8);
+      .limit(10);
     return (data || []).map((m) => (m.winner_id === playerId ? 1 : 0)).reverse();
+  }
+
+  // Cruce directo histórico entre los dos jugadores de un pick, real
+  // (no viene de picks.factors porque ahí solo se guarda el puntaje
+  // normalizado, no el marcador "6-1" que se ve en la tarjeta).
+  async function h2hRecord(idA, idB) {
+    if (!idA || !idB) return { winsA: 0, winsB: 0 };
+    const { data } = await supabase
+      .from('matches')
+      .select('winner_id')
+      .eq('status', 'finished')
+      .or(`and(player_a_id.eq.${idA},player_b_id.eq.${idB}),and(player_a_id.eq.${idB},player_b_id.eq.${idA})`)
+      .limit(20);
+    return {
+      winsA: (data || []).filter((m) => m.winner_id === idA).length,
+      winsB: (data || []).filter((m) => m.winner_id === idB).length
+    };
   }
 
   // Un pick deja de mostrarse como "próximo" un rato ANTES de que
@@ -110,6 +145,9 @@ export async function getServerSideProps({ query }) {
     // no mostrarlo que mostrar una tarjeta rota.
     if (!favored || !opponent) continue;
     const tournament = tournamentsById.get(match.tournament_id);
+    const confidence = Math.round(pick.confidence);
+    const history = await recentForm(pick.predicted_winner_id);
+    const h2h = await h2hRecord(favored.id, opponent.id);
 
     picks.push({
       id: pick.id,
@@ -121,18 +159,102 @@ export async function getServerSideProps({ query }) {
       avatarUrl: favored?.avatar_cutout_url || favored?.avatar_url || null,
       hasCutout: Boolean(favored?.avatar_cutout_url),
       opponent: opponent?.name || '—',
+      opponentInitials: initialsOf(opponent?.name),
+      opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
+      opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
       market: pick.market,
-      confidence: Math.round(pick.confidence),
+      confidence,
+      tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
       analysis: buildAnalysis(pick.factors),
-      history: await recentForm(pick.predicted_winner_id)
+      history,
+      streakLabel: streakLabelFromHistory(history),
+      h2h: `${h2h.winsA}-${h2h.winsB}`,
+      h2hTotal: h2h.winsA + h2h.winsB,
+      result: 'pending'
     });
   }
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
   const topConfidence = [...picks].sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
+
+  // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
+  // sección Picks) — no se les calcula H2H/racha/forma reciente para
+  // no multiplicar consultas por algo que ya no es accionable.
+  const { data: resolvedPicksRaw } = await supabase
+    .from('picks')
+    .select('*')
+    .neq('result', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(60);
+
+  const resolvedMatchIds = [...new Set((resolvedPicksRaw || []).map((p) => p.match_id))];
+  const { data: resolvedMatchesRaw } = resolvedMatchIds.length
+    ? await supabase.from('matches').select('*').in('id', resolvedMatchIds)
+    : { data: [] };
+  const resolvedMatchesById = new Map((resolvedMatchesRaw || []).map((m) => [m.id, m]));
+
+  const resolvedExtraPlayerIds = [
+    ...new Set((resolvedMatchesRaw || []).flatMap((m) => [m.player_a_id, m.player_b_id]))
+  ].filter((id) => id && !playersById.has(id));
+  if (resolvedExtraPlayerIds.length) {
+    const { data: extra } = await supabase
+      .from('players')
+      .select('id, name, avatar_url, avatar_cutout_url')
+      .in('id', resolvedExtraPlayerIds);
+    for (const p of extra || []) playersById.set(p.id, p);
+  }
+  const resolvedExtraTournamentIds = [...new Set((resolvedMatchesRaw || []).map((m) => m.tournament_id))].filter(
+    (id) => id && !tournamentsById.has(id)
+  );
+  if (resolvedExtraTournamentIds.length) {
+    const { data: extra } = await supabase.from('tournaments').select('id, name').in('id', resolvedExtraTournamentIds);
+    for (const t of extra || []) tournamentsById.set(t.id, t);
+  }
+
+  const resolvedPicks = [];
+  for (const pick of resolvedPicksRaw || []) {
+    const match = resolvedMatchesById.get(pick.match_id);
+    if (!match) continue;
+    const favored = playersById.get(pick.predicted_winner_id);
+    const opponent =
+      pick.predicted_winner_id === match.player_a_id
+        ? playersById.get(match.player_b_id)
+        : playersById.get(match.player_a_id);
+    if (!favored || !opponent) continue;
+    const tournament = tournamentsById.get(match.tournament_id);
+    const confidence = Math.round(pick.confidence);
+
+    resolvedPicks.push({
+      id: pick.id,
+      matchId: match.id,
+      day: dayLabel(match.scheduled_at),
+      scheduledAt: new Date(match.scheduled_at).getTime(),
+      player: favored.name,
+      initials: initialsOf(favored.name),
+      avatarUrl: favored.avatar_cutout_url || favored.avatar_url || null,
+      hasCutout: Boolean(favored.avatar_cutout_url),
+      opponent: opponent.name,
+      opponentInitials: initialsOf(opponent.name),
+      opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
+      opponentHasCutout: Boolean(opponent.avatar_cutout_url),
+      time: timeLabel(match.scheduled_at),
+      tournament: tournament?.name || 'Torneo',
+      market: pick.market,
+      confidence,
+      tier: confidenceTier(confidence),
+      odds: pick.odds ? Number(pick.odds) : null,
+      analysis: buildAnalysis(pick.factors),
+      history: [],
+      streakLabel: null,
+      h2h: null,
+      h2hTotal: 0,
+      result: pick.result
+    });
+  }
+  resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
 
   // Resultados: por default una ventana de "ahora mismo" (unas horas
   // atrás hasta mañana). Si viene ?date=YYYY-MM-DD, se muestra ese
@@ -166,7 +288,10 @@ export async function getServerSideProps({ query }) {
     (id) => id && !playersById.has(id)
   );
   if (missingPlayerIds.length) {
-    const { data: extra } = await supabase.from('players').select('id, name').in('id', missingPlayerIds);
+    const { data: extra } = await supabase
+      .from('players')
+      .select('id, name, avatar_url, avatar_cutout_url')
+      .in('id', missingPlayerIds);
     for (const p of extra || []) playersById.set(p.id, p);
   }
   const missingTournamentIds = [...new Set((windowMatches || []).map((m) => m.tournament_id))].filter(
@@ -200,6 +325,12 @@ export async function getServerSideProps({ query }) {
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
       playerA: a?.name || null,
       playerB: b?.name || null,
+      playerAInitials: initialsOf(a?.name),
+      playerBInitials: initialsOf(b?.name),
+      playerAAvatar: a?.avatar_cutout_url || a?.avatar_url || null,
+      playerBAvatar: b?.avatar_cutout_url || b?.avatar_url || null,
+      playerAHasCutout: Boolean(a?.avatar_cutout_url),
+      playerBHasCutout: Boolean(b?.avatar_cutout_url),
       tournamentId: m.tournament_id,
       sourceId: m.source_id,
       status,
@@ -214,11 +345,11 @@ export async function getServerSideProps({ query }) {
     .from('bankroll_log')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(30);
 
   const bkPickIds = [...new Set((bankrollRows || []).map((r) => r.pick_id).filter(Boolean))];
   const { data: bkPicks } = bkPickIds.length
-    ? await supabase.from('picks').select('id, market').in('id', bkPickIds)
+    ? await supabase.from('picks').select('id, market, odds').in('id', bkPickIds)
     : { data: [] };
   const bkPicksById = new Map((bkPicks || []).map((p) => [p.id, p]));
 
@@ -235,6 +366,11 @@ export async function getServerSideProps({ query }) {
     };
   });
 
+  // Serie cronológica (más viejo primero) del balance, para el
+  // gráfico de evolución — bankrollRows viene ordenado más nuevo
+  // primero, así que se invierte solo para el gráfico.
+  const bankrollSeries = [...(bankrollRows || [])].reverse().map((r) => Number(r.balance));
+
   const hits = (bankrollRows || []).filter((r) => Number(r.units) > 0).length;
   const misses = (bankrollRows || []).filter((r) => Number(r.units) < 0).length;
   const efectividad = hits + misses > 0 ? Math.round((hits / (hits + misses)) * 100) : 0;
@@ -247,6 +383,23 @@ export async function getServerSideProps({ query }) {
     else break;
   }
 
+  // ROI = ganancia neta / total apostado. bankroll_log.units ya es la
+  // ganancia/pérdida neta de cada apuesta, no el monto arriesgado, así
+  // que el monto arriesgado se reconstruye desde la cuota real cuando
+  // la tenemos (units = stake * (odds-1) en un acierto), y cae a 1:1
+  // si no hay cuota — mismo criterio que usa scripts/sync.js al pagar.
+  function stakeOf(r) {
+    const units = Number(r.units);
+    if (units < 0) return -units;
+    const pick = bkPicksById.get(r.pick_id);
+    const odds = pick?.odds ? Number(pick.odds) : null;
+    return odds && odds > 1 ? units / (odds - 1) : units;
+  }
+  const totalStake = (bankrollRows || []).reduce((sum, r) => sum + stakeOf(r), 0);
+  const totalProfit = (bankrollRows || []).reduce((sum, r) => sum + Number(r.units), 0);
+  const roi = totalStake > 0 ? Math.round((totalProfit / totalStake) * 1000) / 10 : 0;
+  const unidades = bankrollRows && bankrollRows.length ? Number(bankrollRows[0].balance) : 0;
+
   const picksWithOdds = picks.filter((p) => p.odds);
   const cuotaProm = picksWithOdds.length
     ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
@@ -256,10 +409,12 @@ export async function getServerSideProps({ query }) {
 
   return {
     props: {
-      stats: { efectividad, racha, cuotaProm },
+      stats: { efectividad, racha, cuotaProm, roi, unidades },
       picks,
+      resolvedPicks,
       matches,
       bankrollLog,
+      bankrollSeries,
       currentDateStr,
       prevDateStr,
       nextDateStr,
@@ -322,9 +477,24 @@ function buildAnalysis(factors) {
   return `Favorito según ${bits.join(', ')}.`;
 }
 
-function PickCard({ pick, onClick, followed, onToggleFollow }) {
+const TIER_LABEL = { alta: 'Alta confianza', media: 'Media confianza', baja: 'Confianza baja' };
+
+function PlayerAvatar({ name, avatarUrl, initials, className = '' }) {
   return (
-    <div className="pick-card" onClick={onClick}>
+    <div className={`avatar ${className}`} style={{ '--tone': avatarColor(name) }}>
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+}
+
+function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
+  return (
+    <div className={`pick-card ${featured ? 'pick-card-featured' : ''}`} onClick={onClick}>
       {onToggleFollow ? (
         <button
           className={`follow-btn ${followed ? 'active' : ''}`}
@@ -337,56 +507,108 @@ function PickCard({ pick, onClick, followed, onToggleFollow }) {
           {followed ? '★' : '☆'}
         </button>
       ) : null}
-      <div className="avatar" style={{ '--tone': avatarColor(pick.player) }}>
-        {pick.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={pick.avatarUrl} alt="" referrerPolicy="no-referrer" />
+      <div className="pc-head">
+        {featured ? (
+          <span className="tier-badge tier-featured">★ Pick destacado del día</span>
         ) : (
-          pick.initials
+          <span className={`tier-badge tier-${pick.tier}`}>{TIER_LABEL[pick.tier]}</span>
         )}
-      </div>
-      <div className="pick-info">
-        <div className="tour">
+        <span className="pc-meta">
           {pick.tournament} · {pick.time}
-        </div>
-        <div className="name">{pick.player}</div>
-        <div className="match">vs {pick.opponent}</div>
-        <span className="pick-market">{pick.market}</span>
+        </span>
       </div>
-      <div className="pick-right">
-        <div className="confidence">
-          <span className="dot"></span>
-          <span className="val num">{pick.confidence}%</span>
+      <div className="pc-vs">
+        <div className="pc-player">
+          <PlayerAvatar name={pick.player} avatarUrl={pick.avatarUrl} initials={pick.initials} />
+          <span className="pc-player-name">{pick.player}</span>
         </div>
-        <div className="odd-mini num">{pick.odds ? pick.odds.toFixed(2) : 'N/D'}</div>
+        <span className="pc-vs-badge">VS</span>
+        <div className="pc-player">
+          <PlayerAvatar name={pick.opponent} avatarUrl={pick.opponentAvatarUrl} initials={pick.opponentInitials} />
+          <span className="pc-player-name">{pick.opponent}</span>
+        </div>
+      </div>
+      {pick.streakLabel || pick.h2hTotal > 0 ? (
+        <div className="pc-stats-row">
+          {pick.h2hTotal > 0 ? (
+            <div className="pc-stat">
+              <span className="l">H2H</span>
+              <span className="v num">{pick.h2h}</span>
+            </div>
+          ) : null}
+          {pick.streakLabel ? (
+            <div className="pc-stat">
+              <span className="l">Racha</span>
+              <span className="v num">{pick.streakLabel}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="pc-ia-row">
+        <span className="pc-ia-label">Índice IA</span>
+        <span className="pc-ia-val num">{pick.confidence}%</span>
+      </div>
+      <div className="ia-bar-track">
+        <div className={`ia-bar-fill tier-${pick.tier}`} style={{ width: `${pick.confidence}%` }}></div>
+      </div>
+      <div className="pc-foot">
+        <span className="odd-mini num">{pick.odds ? pick.odds.toFixed(2) : 'Cuota N/D'}</span>
+        {featured ? (
+          <button
+            className="btn btn-ball"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            Ver análisis completo →
+          </button>
+        ) : pick.result && pick.result !== 'pending' ? (
+          <span className={`result-pill ${pick.result}`}>{pick.result === 'hit' ? 'Acierto' : 'Fallo'}</span>
+        ) : null}
       </div>
     </div>
   );
 }
 
-// Fila simple — el marcador en vivo ya no se consulta acá (sería una
-// consulta de red por fila, cada 8s, para cada partido en vivo a la
-// vez). Se consulta solo para el partido que el usuario abre en el
-// modal de detalle, ver MatchDetailModal.
+// Tarjeta de doble foto — el marcador en vivo ya no se consulta acá
+// (sería una consulta de red por tarjeta, cada 8s, para cada partido
+// en vivo a la vez). Se consulta solo para el partido que el usuario
+// abre en el modal de detalle, ver MatchDetailModal.
 function MatchRow({ m, onClick }) {
-  const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Próximo';
+  const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Pendiente';
 
   return (
-    <div className="match-row" onClick={onClick} style={{ cursor: 'pointer' }}>
-      <div className="match-time num">{m.time}</div>
-      <div className="match-mid">
-        <div className="tour">{m.tournament}</div>
-        <div className="players">{m.players}</div>
+    <div className="match-card" onClick={onClick} style={{ cursor: 'pointer' }}>
+      <div className="mc-head">
+        <span className="pc-meta">
+          {m.time} · {m.tournament}
+        </span>
+        <span className={`status ${m.status}`}>{label}</span>
+      </div>
+      <div className="pc-vs">
+        <div className="pc-player">
+          <PlayerAvatar name={m.playerA} avatarUrl={m.playerAAvatar} initials={m.playerAInitials} />
+          <span className="pc-player-name">
+            <span className="flag">🇨🇿</span> {m.playerA}
+          </span>
+        </div>
+        <span className="pc-vs-badge">VS</span>
+        <div className="pc-player">
+          <PlayerAvatar name={m.playerB} avatarUrl={m.playerBAvatar} initials={m.playerBInitials} />
+          <span className="pc-player-name">
+            <span className="flag">🇨🇿</span> {m.playerB}
+          </span>
+        </div>
       </div>
       {m.status === 'done' && m.score ? (
         <div
-          className="live-score"
-          style={{ color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)', fontWeight: 700 }}
+          className="mc-score num"
+          style={{ color: m.pickResult === 'hit' ? 'var(--hit)' : m.pickResult === 'miss' ? 'var(--miss)' : 'var(--muted)' }}
         >
-          {m.score}
+          Resultado: {m.score}
         </div>
       ) : null}
-      <div className={`status ${m.status}`}>{label}</div>
     </div>
   );
 }
@@ -632,12 +854,66 @@ function MatchDetailModal({ m, onClose, user }) {
   );
 }
 
-export default function Home({ stats, picks, matches, bankrollLog, userCount }) {
+function DonutChart({ wins, total }) {
+  if (!total) return null;
+  const pct = wins / total;
+  const r = 40;
+  const c = 2 * Math.PI * r;
+  const dash = c * pct;
+  return (
+    <svg viewBox="0 0 100 100" className="donut">
+      <circle cx="50" cy="50" r={r} fill="none" stroke="var(--bg-alt)" strokeWidth="12" />
+      <circle
+        cx="50"
+        cy="50"
+        r={r}
+        fill="none"
+        stroke="var(--hit)"
+        strokeWidth="12"
+        strokeDasharray={`${dash} ${c - dash}`}
+        strokeLinecap="round"
+        transform="rotate(-90 50 50)"
+      />
+      <text x="50" y="48" textAnchor="middle" className="donut-pct num" style={{ fill: 'var(--ink)' }}>
+        {Math.round(pct * 100)}%
+      </text>
+      <text x="50" y="65" textAnchor="middle" className="donut-sub" style={{ fill: 'var(--muted)' }}>
+        {wins}/{total}
+      </text>
+    </svg>
+  );
+}
+
+function LineChart({ series }) {
+  if (!series || series.length < 2) {
+    return <p className="page-sub">Todavía no hay suficiente historial para graficar.</p>;
+  }
+  const w = 100;
+  const h = 40;
+  const min = Math.min(...series, 0);
+  const max = Math.max(...series, 0);
+  const range = max - min || 1;
+  const points = series
+    .map((v, i) => {
+      const x = (i / (series.length - 1)) * w;
+      const y = h - ((v - min) / range) * h;
+      return `${x},${y}`;
+    })
+    .join(' ');
+  const zeroY = h - ((0 - min) / range) * h;
+  return (
+    <svg className="line-chart" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <line x1="0" y1={zeroY} x2={w} y2={zeroY} stroke="var(--line)" strokeWidth="0.6" strokeDasharray="2 2" />
+      <polyline points={points} fill="none" stroke="var(--court)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+export default function Home({ stats, picks, resolvedPicks, matches, bankrollLog, bankrollSeries, currentDateStr, userCount }) {
   const [view, setView] = useState('inicio');
-  const [dayFilter, setDayFilter] = useState('todos');
+  const [pickTab, setPickTab] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
-  const [resultsFilter, setResultsFilter] = useState(matches.some((m) => m.status === 'live') ? 'en-vivo' : 'proximos');
   const [user, setUser] = useState(null);
   const [followedPickIds, setFollowedPickIds] = useState(new Set());
 
@@ -711,7 +987,36 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
 
   const featured = picks.find((p) => p.featured) || picks[0] || null;
   const homePicks = featured ? picks.filter((p) => p.id !== featured.id).slice(0, 4) : [];
-  const filteredPicks = dayFilter === 'todos' ? picks : picks.filter((p) => p.day === dayFilter);
+
+  const tabPicks =
+    pickTab === 'pendientes'
+      ? picks
+      : pickTab === 'ganados'
+      ? resolvedPicks.filter((p) => p.result === 'hit')
+      : pickTab === 'perdidos'
+      ? resolvedPicks.filter((p) => p.result === 'miss')
+      : [...picks, ...resolvedPicks];
+
+  // Tira de 7 días (hoy + los próximos 6) para navegar Calendario —
+  // son links reales a "/?date=YYYY-MM-DD#calendario" (no hash-routing
+  // puro), así que getServerSideProps trae ese día completo al hacer
+  // click, igual que ya soporta ?date= desde antes.
+  const dayStrip = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d);
+    const weekday = i === 0 ? 'Hoy' : new Intl.DateTimeFormat('es-CO', { weekday: 'short', timeZone: 'America/Bogota' }).format(d);
+    const dayNum = new Intl.DateTimeFormat('es-CO', { day: '2-digit', timeZone: 'America/Bogota' }).format(d);
+    return { dateStr, weekday: weekday.replace('.', ''), dayNum };
+  });
+
+  const greetingName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || null;
+  const todayLabel = new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    timeZone: 'America/Bogota'
+  }).format(new Date());
 
   const navLink = (v, label) => (
     <a href={`#${v}`} data-view={v} className={view === v ? 'active' : ''}>
@@ -739,10 +1044,10 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
         </a>
         <nav className="top-nav">
           {navLink('inicio', 'Inicio')}
-          {navLink('predicciones', 'Predicciones')}
-          {navLink('calendario', 'Resultados')}
+          {navLink('calendario', 'Calendario')}
+          {navLink('picks', 'Picks')}
+          {navLink('seguidos', 'Seguidos')}
           {navLink('bankroll', 'Bankroll')}
-          {navLink('favoritos', 'Favoritos')}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <a href="https://t.me/+q_JbStqxCsFhYWE8" target="_blank" rel="noopener noreferrer" className="tg-badge">
@@ -752,6 +1057,15 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
             Telegram
           </a>
           <span className="badge18">+18 · Juega con cabeza</span>
+          {user ? (
+            <button
+              className="bell-btn"
+              onClick={() => ensurePushSubscription(user)}
+              title="Activar notificaciones push"
+            >
+              🔔
+            </button>
+          ) : null}
           {!supabaseClient ? null : user ? (
             <div className="user-chip" onClick={logout} title="Cerrar sesión">
               {user.user_metadata?.avatar_url ? (
@@ -794,8 +1108,17 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
 
       <main>
         <section className={`view ${view === 'inicio' ? 'active' : ''}`}>
-          <span className="eyebrow">Liga Pro Checa · Tenis de mesa</span>
-          <h1 className="page-title">Picks del día</h1>
+          {greetingName ? (
+            <div className="greeting">
+              <div className="greeting-hi">Hola, {greetingName} 👋</div>
+              <div className="greeting-date">{todayLabel}</div>
+            </div>
+          ) : (
+            <>
+              <span className="eyebrow">Liga Pro Checa · Tenis de mesa</span>
+              <h1 className="page-title">Picks del día</h1>
+            </>
+          )}
           <p className="page-sub">Análisis propio sobre partidos de la Liga Pro Checa, contrastado con nuestro propio historial.</p>
 
           <a href="https://t.me/+q_JbStqxCsFhYWE8" target="_blank" rel="noopener noreferrer" className="tg-banner">
@@ -811,7 +1134,7 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
             <span className="tg-banner-cta">Entrar →</span>
           </a>
 
-          <div className="stat-strip">
+          <div className="stat-strip stat-strip-4">
             <div className="stat-card">
               <div className="label">Efectividad</div>
               <div className="value hit num">{stats.efectividad}%</div>
@@ -823,58 +1146,41 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">Cuota prom.</div>
-              <div className="value num">{stats.cuotaProm ? stats.cuotaProm.toFixed(2) : '—'}</div>
+              <div className="label">ROI</div>
+              <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
+                {stats.roi >= 0 ? '+' : ''}
+                {stats.roi}%
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Unidades</div>
+              <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>
+                {stats.unidades >= 0 ? '+' : ''}
+                {stats.unidades.toFixed(1)}U
+              </div>
             </div>
           </div>
 
           {featured ? (
-            <div className="featured">
-              <div className="rally-wrap">
-                {featured.avatarUrl ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      className={featured.hasCutout ? 'cutout' : ''}
-                      src={featured.avatarUrl}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                    />
-                    {!featured.hasCutout ? <div className="rally-fade"></div> : null}
-                  </>
-                ) : (
-                  <>
-                    <svg viewBox="0 0 200 110">
-                      <path d="M10,95 Q100,5 190,95" stroke="rgba(255,255,255,.4)" strokeDasharray="4 6" fill="none" strokeWidth="2" />
-                    </svg>
-                    <div className="rally-ball"></div>
-                  </>
-                )}
+            <>
+              <div className="section-head">
+                <h2>Pick destacado del día</h2>
               </div>
-              <div className="pick-tag">
-                <span className="ball-dot"></span> Pick del día
-              </div>
-              <div className="match">
-                {featured.tournament} · {featured.time}
-              </div>
-              <div className="player">
-                {featured.player} vs {featured.opponent}
-              </div>
-              <div className="market">{featured.market}</div>
-              <div className="foot">
-                <span className="odd-pill num">{featured.odds ? featured.odds.toFixed(2) : 'Cuota N/D'}</span>
-                <button className="btn btn-ball" onClick={() => setModalPick(featured)}>
-                  Ver análisis →
-                </button>
-              </div>
-            </div>
+              <PickCard
+                pick={featured}
+                onClick={() => setModalPick(featured)}
+                followed={followedPickIds.has(featured.id)}
+                onToggleFollow={toggleFollow}
+                featured
+              />
+            </>
           ) : (
             <p className="page-sub">No hay picks activos en este momento.</p>
           )}
 
           <div className="section-head">
-            <h2>Picks principales</h2>
-            <a href="#predicciones" className="see-all">
+            <h2>Todos los picks de hoy</h2>
+            <a href="#picks" className="see-all">
               Ver todo →
             </a>
           </div>
@@ -891,61 +1197,64 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
           </div>
         </section>
 
-        <section className={`view ${view === 'predicciones' ? 'active' : ''}`}>
+        <section className={`view ${view === 'picks' ? 'active' : ''}`}>
           <span className="eyebrow">Todos los picks</span>
-          <h1 className="page-title">Predicciones</h1>
-          <p className="page-sub">{filteredPicks.length} picks disponibles</p>
+          <h1 className="page-title">Picks</h1>
+          <p className="page-sub">{tabPicks.length} picks en esta categoría</p>
           <div className="tabs">
             {[
               ['todos', 'Todos'],
-              ['hoy', 'Hoy'],
-              ['mañana', 'Mañana']
+              ['pendientes', 'Pendientes'],
+              ['ganados', 'Ganados'],
+              ['perdidos', 'Perdidos']
             ].map(([key, label]) => (
-              <div key={key} className={`tab ${dayFilter === key ? 'active' : ''}`} onClick={() => setDayFilter(key)}>
+              <div key={key} className={`tab ${pickTab === key ? 'active' : ''}`} onClick={() => setPickTab(key)}>
                 {label}
               </div>
             ))}
           </div>
           <div className="pick-grid">
-            {filteredPicks.map((p) => (
-              <PickCard
-                key={p.id}
-                pick={p}
-                onClick={() => setModalPick(p)}
-                followed={followedPickIds.has(p.id)}
-                onToggleFollow={toggleFollow}
-              />
-            ))}
+            {tabPicks.length === 0 ? (
+              <p className="page-sub">No hay picks en esta categoría todavía.</p>
+            ) : (
+              tabPicks.map((p) => (
+                <PickCard
+                  key={p.id}
+                  pick={p}
+                  onClick={() => setModalPick(p)}
+                  followed={followedPickIds.has(p.id)}
+                  onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
+                />
+              ))
+            )}
           </div>
         </section>
 
         <section className={`view ${view === 'calendario' ? 'active' : ''}`}>
-          <span className="eyebrow">Resultados</span>
-          <h1 className="page-title">Resultados</h1>
-          <p className="page-sub">
-            Cruces de la Liga Pro Checa cubiertos por CAMILOREY. Toca un partido en vivo para ver el marcador set por
-            set en tiempo real.
-          </p>
-          <div className="tabs">
-            {[
-              ['finalizados', 'Finalizados'],
-              ['en-vivo', 'En vivo'],
-              ['proximos', 'Próximos']
-            ].map(([key, label]) => (
-              <div key={key} className={`tab ${resultsFilter === key ? 'active' : ''}`} onClick={() => setResultsFilter(key)}>
-                {label}
-              </div>
+          <span className="eyebrow">Liga Pro Checa</span>
+          <h1 className="page-title">Calendario</h1>
+          <p className="page-sub">Toca un partido en vivo para ver el marcador set por set en tiempo real.</p>
+          <div className="day-strip">
+            {dayStrip.map((d) => (
+              <a
+                key={d.dateStr}
+                href={`/?date=${d.dateStr}#calendario`}
+                className={`day-chip ${currentDateStr === d.dateStr ? 'active' : ''}`}
+              >
+                <span className="day-chip-weekday">{d.weekday}</span>
+                <span className="day-chip-num num">{d.dayNum}</span>
+              </a>
             ))}
           </div>
+          <div className="section-head">
+            <h2>Partidos {currentDateStr === dayStrip[0].dateStr ? 'de hoy' : ''}</h2>
+          </div>
           <div>
-            {(() => {
-              const statusKey = resultsFilter === 'finalizados' ? 'done' : resultsFilter === 'en-vivo' ? 'live' : 'soon';
-              const filtered = matches.filter((m) => m.status === statusKey);
-              if (filtered.length === 0) {
-                return <p className="page-sub">No hay partidos en esta categoría ahora mismo.</p>;
-              }
-              return filtered.map((m, i) => <MatchRow m={m} key={i} onClick={() => setModalMatch(m)} />);
-            })()}
+            {matches.length === 0 ? (
+              <p className="page-sub">No hay partidos programados este día.</p>
+            ) : (
+              matches.map((m, i) => <MatchRow m={m} key={i} onClick={() => setModalMatch(m)} />)
+            )}
           </div>
         </section>
 
@@ -953,6 +1262,40 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
           <span className="eyebrow">Gestión de unidades</span>
           <h1 className="page-title">Bankroll</h1>
           <p className="page-sub">Seguimiento en unidades (u), no en dinero real, para medir el rendimiento de forma responsable.</p>
+
+          <div className="balance-hero">
+            <div className="balance-hero-label">Balance actual</div>
+            <div className={`balance-hero-value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>
+              {stats.unidades >= 0 ? '+' : ''}
+              {stats.unidades.toFixed(2)}U
+            </div>
+          </div>
+
+          <div className="stat-strip stat-strip-3">
+            <div className="stat-card">
+              <div className="label">ROI</div>
+              <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
+                {stats.roi >= 0 ? '+' : ''}
+                {stats.roi}%
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Efectividad</div>
+              <div className="value hit num">{stats.efectividad}%</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">Unidades</div>
+              <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>
+                {stats.unidades >= 0 ? '+' : ''}
+                {stats.unidades.toFixed(1)}U
+              </div>
+            </div>
+          </div>
+
+          <div className="bankroll-card">
+            <strong>Evolución</strong>
+            <LineChart series={bankrollSeries} />
+          </div>
 
           <div className="bankroll-card">
             <strong>¿Cómo se mide?</strong>
@@ -989,9 +1332,9 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
           </div>
         </section>
 
-        <section className={`view ${view === 'favoritos' ? 'active' : ''}`}>
+        <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">Tus picks seguidos</span>
-          <h1 className="page-title">Favoritos</h1>
+          <h1 className="page-title">Seguidos</h1>
           <p className="page-sub">
             Sigue un pick tocando la estrella y te avisamos con una notificación cuando termine un set o el partido.
           </p>
@@ -1036,19 +1379,25 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
           </svg>
           Inicio
         </a>
-        <a href="#predicciones" className={view === 'predicciones' ? 'active' : ''}>
+        <a href="#calendario" className={view === 'calendario' ? 'active' : ''}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M3 10h18M8 3v4M16 3v4" />
+          </svg>
+          Calendario
+        </a>
+        <a href="#picks" className={view === 'picks' ? 'active' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="9" />
             <path d="M12 3v18M3 12h18" />
           </svg>
           Picks
         </a>
-        <a href="#calendario" className={view === 'calendario' ? 'active' : ''}>
+        <a href="#seguidos" className={view === 'seguidos' ? 'active' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="5" width="18" height="16" rx="2" />
-            <path d="M3 10h18M8 3v4M16 3v4" />
+            <path d="M12 17.3l-6.2 3.6 1.6-7-5.3-4.6 7-.6L12 2l2.9 6.7 7 .6-5.3 4.6 1.6 7z" />
           </svg>
-          Resultados
+          Seguidos
         </a>
         <a href="#bankroll" className={view === 'bankroll' ? 'active' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1056,12 +1405,6 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
             <path d="M3 10h18M15 14h3" />
           </svg>
           Bankroll
-        </a>
-        <a href="#favoritos" className={view === 'favoritos' ? 'active' : ''}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 17.3l-6.2 3.6 1.6-7-5.3-4.6 7-.6L12 2l2.9 6.7 7 .6-5.3 4.6 1.6 7z" />
-          </svg>
-          Favoritos
         </a>
       </nav>
 
@@ -1078,7 +1421,9 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
                   <div className="sub">
                     {modalPick.tournament} · {modalPick.time}
                   </div>
-                  <h3>{modalPick.player}</h3>
+                  <h3>
+                    <span className="flag">🇨🇿</span> {modalPick.player}
+                  </h3>
                   <div className="sub">vs {modalPick.opponent}</div>
                 </div>
               </div>
@@ -1090,7 +1435,7 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
 
             <div className="kpis">
               <div className="kpi">
-                <div className="l">Confianza</div>
+                <div className="l">Índice IA</div>
                 <div className="v num">{modalPick.confidence}%</div>
               </div>
               <div className="kpi">
@@ -1099,27 +1444,46 @@ export default function Home({ stats, picks, matches, bankrollLog, userCount }) 
               </div>
             </div>
 
-            <div className="hist-title">
-              <span>Forma reciente ({modalPick.history.length} partidos)</span>
-              <span>{modalPick.history.filter((v) => v === 1).length}/{modalPick.history.length} victorias</span>
-            </div>
-            <div className="chart">
-              {modalPick.history.length === 0 ? (
-                <span style={{ color: 'var(--muted)', fontSize: '12px' }}>Sin historial todavía.</span>
-              ) : (
-                modalPick.history.map((v, i) => (
-                  <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`} style={{ height: '60px' }}></div>
-                ))
-              )}
-            </div>
-            <div className="legend">
-              <span>
-                <i className="sw" style={{ background: 'var(--hit)' }}></i>Victoria
-              </span>
-              <span>
-                <i className="sw" style={{ background: 'var(--miss)' }}></i>Derrota
-              </span>
-            </div>
+            {modalPick.history.length > 0 ? (
+              <>
+                <div className="hist-title">
+                  <span>Últimos {modalPick.history.length} partidos</span>
+                </div>
+                <div className="donut-row">
+                  <DonutChart wins={modalPick.history.filter((v) => v === 1).length} total={modalPick.history.length} />
+                  <div className="chart">
+                    {modalPick.history.map((v, i) => (
+                      <div key={i} className={`bar ${v === 1 ? 'hit' : 'miss'}`} style={{ height: '60px' }}></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="legend">
+                  <span>
+                    <i className="sw" style={{ background: 'var(--hit)' }}></i>Victoria
+                  </span>
+                  <span>
+                    <i className="sw" style={{ background: 'var(--miss)' }}></i>Derrota
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="page-sub">Sin historial reciente todavía.</p>
+            )}
+
+            {modalPick.h2hTotal > 0 ? (
+              <>
+                <div className="hist-title">
+                  <span>H2H contra {modalPick.opponent}</span>
+                  <span className="num">{modalPick.h2h}</span>
+                </div>
+                <div className="h2h-bar-track">
+                  <div
+                    className="h2h-bar-fill"
+                    style={{ width: `${(Number(modalPick.h2h.split('-')[0]) / modalPick.h2hTotal) * 100}%` }}
+                  ></div>
+                </div>
+              </>
+            ) : null}
 
             <div className="analysis">{modalPick.analysis}</div>
           </div>
@@ -1267,67 +1631,28 @@ const CSS = `
   }
 
   .stat-strip{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:16px 0 26px;}
+  .stat-strip-4{grid-template-columns:repeat(4,1fr);}
+  .stat-strip-3{grid-template-columns:repeat(3,1fr);}
   .stat-card{
     background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
     padding:14px 16px; box-shadow:var(--shadow);
   }
   .stat-card .label{font-size:12px; color:var(--muted); margin-bottom:4px;}
-  .stat-card .value{font-family:var(--font-mono); font-size:22px; font-weight:600;}
+  .stat-card .value{font-family:var(--font-mono); font-size:20px; font-weight:600;}
   .stat-card .value.hit{color:var(--hit);}
+  .stat-card .value.miss{color:var(--miss);}
 
-  .featured{
-    position:relative; overflow:hidden;
-    background:linear-gradient(160deg, #1B1917, #0E0D0C 75%);
-    border:1px solid var(--line);
-    border-radius:20px; padding:26px 24px 24px;
-    color:#fff; margin-bottom:28px;
-    box-shadow:0 10px 26px rgba(0,0,0,0.45);
+  .greeting-hi{font-family:var(--font-display); font-weight:800; font-size:28px; line-height:1.1;}
+  .greeting-date{color:var(--muted); font-size:13px; text-transform:capitalize; margin-top:2px;}
+  .bell-btn{
+    background:var(--card); border:1px solid var(--line); border-radius:50%;
+    width:32px; height:32px; cursor:pointer; font-size:14px;
+    display:flex; align-items:center; justify-content:center;
   }
-  .featured::before{
-    content:""; position:absolute; top:-40%; right:-15%; width:60%; height:180%;
-    background:radial-gradient(circle, rgba(226,68,74,.22), transparent 70%);
-    pointer-events:none;
-  }
-  .rally-wrap{position:absolute; right:0; top:0; bottom:72px; width:300px; pointer-events:none; overflow:hidden;}
-  .rally-wrap svg{width:100%; height:130px; opacity:.65;}
-  .rally-wrap img{width:100%; height:100%; object-fit:cover; object-position:center 20%; display:block;}
-  .rally-wrap img.cutout{object-fit:contain; object-position:bottom center;}
-  .rally-fade{
-    position:absolute; inset:0;
-    background:linear-gradient(100deg, #14100F 0%, rgba(20,16,15,.85) 22%, rgba(20,16,15,.35) 45%, transparent 68%);
-  }
-  .rally-ball{
-    position:absolute; width:9px; height:9px; border-radius:50%;
-    background:var(--ball);
-    offset-path: path("M10,95 Q100,5 190,95");
-    animation: rally 2.6s ease-in-out infinite alternate;
-    box-shadow:0 0 10px rgba(255,122,69,.85);
-  }
-  @keyframes rally{ from{offset-distance:0%;} to{offset-distance:100%;} }
-  .pick-tag{
-    display:inline-flex; align-items:center; gap:6px;
-    background:rgba(226,68,74,.16); border:1px solid rgba(226,68,74,.45);
-    color:#F09595;
-    border-radius:999px; padding:5px 12px; font-size:12px; font-weight:700;
-    margin-bottom:14px;
-  }
-  .pick-tag .ball-dot{width:7px; height:7px; border-radius:50%; background:var(--court);}
-  .featured .match{font-size:13px; opacity:.85; margin-bottom:2px;}
-  .featured .player{font-family:var(--font-display); font-weight:800; font-size:30px; line-height:1.05;}
+  .bell-btn:hover{border-color:var(--court);}
   .featured-avatar{
     width:64px; height:64px; border-radius:14px; flex:none; object-fit:cover;
     border:2px solid rgba(255,255,255,.18); box-shadow:0 4px 14px rgba(0,0,0,.4);
-  }
-  .featured .market{
-    display:inline-block; font-weight:700; font-size:15px;
-    background:rgba(226,68,74,.2); border:1px solid rgba(226,68,74,.55);
-    color:#fff; border-radius:10px; padding:8px 14px; margin-bottom:16px;
-  }
-  .featured .foot{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
-  .odd-pill{
-    font-family:var(--font-mono); background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.2); border-radius:10px;
-    padding:8px 12px; font-size:14px; color:var(--ink);
   }
   .btn{
     font-family:var(--font-body); font-weight:700; font-size:14px;
@@ -1344,49 +1669,105 @@ const CSS = `
   .see-all{font-size:13px; font-weight:700; color:var(--court); text-decoration:none;}
 
   .pick-grid{display:grid; gap:12px;}
-  .pick-card{
+  .pick-card, .match-card{
     background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
-    padding:14px 16px; box-shadow:var(--shadow); cursor:pointer;
-    display:flex; align-items:center; gap:14px; position:relative;
+    padding:16px; box-shadow:var(--shadow); cursor:pointer; position:relative;
     transition:border-color .15s, transform .12s;
   }
-  .pick-card:hover{border-color:var(--court); transform:translateY(-1px);}
+  .pick-card:hover, .match-card:hover{border-color:var(--court); transform:translateY(-1px);}
+  .pick-card-featured{border-color:var(--court); box-shadow:0 8px 22px rgba(226,68,74,.18);}
   .follow-btn{
-    position:absolute; top:8px; right:10px; z-index:2;
+    position:absolute; top:12px; right:12px; z-index:2;
     background:none; border:none; cursor:pointer; padding:4px;
-    font-size:18px; line-height:1; color:var(--muted);
+    font-size:20px; line-height:1; color:var(--muted);
     transition:color .15s, transform .12s;
   }
   .follow-btn:hover{transform:scale(1.15);}
   .follow-btn.active{color:var(--ball);}
+
+  .pc-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; padding-right:24px;}
+  .pc-meta{font-size:11px; color:var(--muted); font-family:var(--font-mono);}
+  .tier-badge{
+    font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px;
+    padding:4px 9px; border-radius:999px; white-space:nowrap;
+  }
+  .tier-badge.tier-alta{background:rgba(93,202,165,.16); color:var(--hit);}
+  .tier-badge.tier-media{background:rgba(255,193,7,.16); color:#FFC845;}
+  .tier-badge.tier-baja{background:var(--bg-alt); color:var(--muted);}
+  .tier-badge.tier-featured{background:rgba(255,122,69,.18); color:var(--ball);}
+
+  .pc-vs{display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:12px;}
+  .pc-player{display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; min-width:0;}
+  .pc-player-name{font-size:12.5px; font-weight:700; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+  .pc-vs-badge{
+    font-family:var(--font-display); font-weight:800; font-size:13px; color:var(--muted);
+    flex:none;
+  }
   .avatar{
-    width:48px; height:48px; border-radius:12px; flex:none;
+    width:56px; height:56px; border-radius:50%; flex:none;
     display:flex; align-items:center; justify-content:center;
     font-family:var(--font-display); font-weight:800; font-size:16px; color:#fff;
     position:relative; overflow:hidden;
     background:linear-gradient(150deg, var(--tone,var(--court)), #14100F 130%);
-    border:1px solid rgba(255,255,255,.08);
+    border:2px solid rgba(255,255,255,.1);
   }
   .avatar img{width:100%; height:100%; object-fit:cover; display:block;}
   .avatar::after{
-    content:""; position:absolute; inset:0; border-radius:12px;
+    content:""; position:absolute; inset:0; border-radius:50%;
     background:linear-gradient(155deg, rgba(255,255,255,.16), transparent 55%);
     pointer-events:none;
   }
-  .pick-info{flex:1; min-width:0;}
-  .pick-info .tour{font-size:11px; color:var(--muted); font-family:var(--font-mono);}
-  .pick-info .name{font-weight:700; font-size:15px; margin:1px 0;}
-  .pick-info .match{font-size:12.5px; color:var(--muted);}
-  .pick-market{
-    font-size:12px; font-weight:700; color:#FAC7C7;
-    background:var(--court-soft); border-radius:8px; padding:4px 8px;
-    display:inline-block; margin-top:4px;
+
+  .pc-stats-row{display:flex; gap:18px; justify-content:center; margin-bottom:12px; padding:10px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .pc-stat{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .pc-stat .l{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px;}
+  .pc-stat .v{font-size:13px; font-weight:700;}
+
+  .pc-ia-row{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px;}
+  .pc-ia-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px;}
+  .pc-ia-val{font-size:15px; font-weight:800;}
+  .ia-bar-track{height:6px; border-radius:999px; background:var(--bg-alt); overflow:hidden; margin-bottom:14px;}
+  .ia-bar-fill{height:100%; border-radius:999px;}
+  .ia-bar-fill.tier-alta{background:var(--hit);}
+  .ia-bar-fill.tier-media{background:#FFC845;}
+  .ia-bar-fill.tier-baja{background:var(--muted);}
+
+  .pc-foot{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .odd-mini{font-family:var(--font-mono); font-size:13px; color:var(--muted); font-weight:600;}
+  .result-pill{font-size:11px; font-weight:800; padding:4px 10px; border-radius:999px;}
+  .result-pill.hit{background:rgba(93,202,165,.16); color:var(--hit);}
+  .result-pill.miss{background:rgba(240,149,149,.16); color:var(--miss);}
+  .flag{font-size:11px;}
+
+  .mc-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px;}
+  .mc-score{text-align:center; font-size:13px; font-weight:700; margin-top:2px;}
+
+  .day-strip{display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:18px;}
+  .day-chip{
+    flex:none; display:flex; flex-direction:column; align-items:center; gap:4px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:10px 14px; text-decoration:none; color:var(--muted); min-width:52px;
   }
-  .pick-right{text-align:right; flex:none;}
-  .confidence{display:flex; align-items:center; gap:6px; justify-content:flex-end; margin-bottom:6px;}
-  .confidence .dot{width:7px; height:7px; border-radius:50%; background:var(--hit);}
-  .confidence .val{font-family:var(--font-mono); font-weight:700; color:var(--hit); font-size:14px;}
-  .odd-mini{font-family:var(--font-mono); font-size:12px; color:var(--muted);}
+  .day-chip.active{background:var(--court); border-color:var(--court); color:#fff;}
+  .day-chip-weekday{font-size:10.5px; font-weight:700; text-transform:uppercase;}
+  .day-chip-num{font-size:15px; font-weight:800;}
+
+  .balance-hero{
+    background:linear-gradient(135deg, var(--court), var(--court-dark));
+    border-radius:20px; padding:20px 22px; margin:16px 0; color:#fff;
+    box-shadow:0 10px 24px rgba(226,68,74,.3);
+  }
+  .balance-hero-label{font-size:12px; opacity:.85; margin-bottom:4px;}
+  .balance-hero-value{font-family:var(--font-display); font-weight:800; font-size:32px;}
+  .balance-hero-value.hit, .balance-hero-value.miss{color:#fff;}
+
+  .donut-row{display:flex; align-items:center; gap:18px; margin-bottom:6px;}
+  .donut{width:96px; height:96px; flex:none;}
+  .donut-pct{font-family:var(--font-mono); font-size:17px; font-weight:800;}
+  .donut-sub{font-size:9px;}
+  .h2h-bar-track{height:8px; border-radius:999px; background:var(--bg-alt); overflow:hidden; margin:6px 0 16px;}
+  .h2h-bar-fill{height:100%; border-radius:999px; background:var(--hit);}
+  .line-chart{width:100%; height:120px; margin-top:10px;}
 
   .tabs{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
   .tab{
@@ -1395,31 +1776,10 @@ const CSS = `
   }
   .tab.active{background:var(--court); color:#fff; border-color:var(--court);}
 
-  .match-row{
-    display:flex; align-items:center; gap:14px; padding:12px 14px;
-    background:var(--card); border:1px solid var(--line); border-radius:12px; margin-bottom:8px;
-  }
-  .match-time{font-family:var(--font-mono); font-weight:700; width:56px; flex:none;}
-  .match-mid{flex:1; min-width:0;}
-  .match-mid .tour{font-size:11px; color:var(--muted); font-family:var(--font-mono);}
-  .match-mid .players{font-weight:700; font-size:14.5px;}
   .status{font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; flex:none;}
   .status.live{background:rgba(255,122,69,.16); color:#FFB088; border:1px solid rgba(255,122,69,.4);}
   .status.soon{background:var(--court-soft); color:#FAC7C7;}
   .status.done{background:var(--bg-alt); color:var(--muted);}
-
-  .live-score{
-    flex:none; font-family:var(--font-mono); font-size:12px; font-weight:700;
-    color:var(--muted); text-align:right; max-width:180px; line-height:1.5;
-  }
-  .live-current{color:var(--ball); font-weight:800;}
-
-  .date-nav{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px;}
-  .date-nav-btn{
-    font-size:13px; font-weight:700; color:var(--court); text-decoration:none;
-    padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:var(--card);
-  }
-  .date-nav-current{font-family:var(--font-mono); font-size:13px; color:var(--ink); font-weight:600;}
 
   .live-clock{
     font-family:var(--font-mono); font-size:13px; color:var(--ball); font-weight:700;
@@ -1534,8 +1894,8 @@ const CSS = `
   @media (max-width:640px){
     header.site nav.top-nav{display:none;}
     nav.bottom-nav{display:flex;}
-    .featured .player{font-size:24px;}
     h1.page-title{font-size:30px;}
-    .rally-wrap{width:190px;}
+    .stat-strip-4{grid-template-columns:repeat(2,1fr);}
+    .pc-player-name{font-size:11.5px;}
   }
 `;
