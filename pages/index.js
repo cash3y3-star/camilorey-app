@@ -861,7 +861,7 @@ const CSS = `
   }
   @keyframes pulse-dot{
     0%, 100%{transform:scale(1); box-shadow:0 0 0 3px var(--court-soft), 0 0 6px rgba(226,68,74,.6);}
-    50%{transform:scale(1.6); box-shadow:0 0 0 7px rgba(226,68,74,.15), 0 0 14px rgba(226,68,74,.9);}
+    50%{transform:scale(1.25); box-shadow:0 0 0 5px rgba(226,68,74,.15), 0 0 10px rgba(226,68,74,.9);}
   }
   nav.top-nav{display:flex; gap:6px;}
   nav.top-nav a{
