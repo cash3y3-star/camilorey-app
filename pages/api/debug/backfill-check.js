@@ -32,11 +32,22 @@ export default async function handler(req, res) {
       .from('matches')
       .select('*', { count: 'exact', head: true })
       .or(`player_a_id.eq.${p.id},player_b_id.eq.${p.id}`);
-    const { data: pendingPickMatch } = await supabase
+    const { data: matchRows } = await supabase
       .from('matches')
       .select('id, status, scheduled_at, player_a_id, player_b_id')
       .or(`player_a_id.eq.${p.id},player_b_id.eq.${p.id}`);
-    details.push({ id: p.id, name: p.name, finishedMatches: finished, anyMatches: any, matchRows: pendingPickMatch });
+    const matchIdsForPlayer = (matchRows || []).map((m) => m.id);
+    const { data: picksForPlayer } = matchIdsForPlayer.length
+      ? await supabase.from('picks').select('id, match_id, result').in('match_id', matchIdsForPlayer)
+      : { data: [] };
+    details.push({
+      id: p.id,
+      name: p.name,
+      finishedMatches: finished,
+      anyMatches: any,
+      matchRows,
+      picksForPlayer
+    });
   }
 
   return res.status(200).json({ tournamentsCount, matchesCount, finishedCount, players: details });
