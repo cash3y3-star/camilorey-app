@@ -1113,6 +1113,49 @@ export async function getServerSideProps({ query }) {
       if (byPlayer.has(m.player_b_id)) byPlayer.get(m.player_b_id).push(m);
     }
 
+    // H2H aparte del lote de arriba: ese lote está compartido entre
+    // TODOS los jugadores de TODOS los picks a la vez, con un límite
+    // de 5000 filas — con tanto historial ya cargado (backfill), ese
+    // límite se llena antes de llegar a los cruces reales de la
+    // mayoría de parejas, y el H2H salía en 0 aunque sí se hayan
+    // enfrentado (confirmado: un cruce con 20 partidos reales salía
+    // como "0 enfrentamientos"). Esta consulta va directo por cada
+    // pareja exacta (favorito↔rival), en lotes de 15 para no armar
+    // una sola consulta gigante.
+    const pairKey = (id1, id2) => (id1 < id2 ? `${id1}:${id2}` : `${id2}:${id1}`);
+    const uniquePairKeys = [
+      ...new Set(pairs.filter((p) => p.favoredId && p.opponentId).map((p) => pairKey(p.favoredId, p.opponentId)))
+    ];
+    const h2hRowsByPair = new Map();
+    if (uniquePairKeys.length > 0) {
+      const CHUNK = 15;
+      const chunks = [];
+      for (let i = 0; i < uniquePairKeys.length; i += CHUNK) chunks.push(uniquePairKeys.slice(i, i + CHUNK));
+      const chunkResults = await Promise.all(
+        chunks.map(async (keys) => {
+          const orClauses = keys
+            .map((k) => {
+              const [a, b] = k.split(':');
+              return `and(player_a_id.eq.${a},player_b_id.eq.${b}),and(player_a_id.eq.${b},player_b_id.eq.${a})`;
+            })
+            .join(',');
+          const { data: h2hData } = await supabase
+            .from('matches')
+            .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
+            .eq('status', 'finished')
+            .or(orClauses)
+            .order('scheduled_at', { ascending: false })
+            .limit(5000);
+          return h2hData || [];
+        })
+      );
+      for (const m of chunkResults.flat()) {
+        const key = pairKey(m.player_a_id, m.player_b_id);
+        if (!h2hRowsByPair.has(key)) h2hRowsByPair.set(key, []);
+        h2hRowsByPair.get(key).push(m);
+      }
+    }
+
     for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
       const playerMatches = byPlayer.get(favoredId) || [];
       const history = playerMatches.slice(0, 10).map((m) => {
@@ -1126,8 +1169,7 @@ export async function getServerSideProps({ query }) {
           win: m.winner_id === favoredId
         };
       });
-      const h2hMatches = playerMatches
-        .filter((m) => m.player_a_id === opponentId || m.player_b_id === opponentId)
+      const h2hMatches = (h2hRowsByPair.get(pairKey(favoredId, opponentId)) || [])
         .slice(0, 20)
         .map((m) => {
           const isA = m.player_a_id === favoredId;
