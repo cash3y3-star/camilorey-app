@@ -542,13 +542,19 @@ export async function getServerSideProps({ query }) {
   const prevDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() - 24 * 3600 * 1000));
   const nextDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() + 24 * 3600 * 1000));
 
+  // OJO: con .order ascending + .limit, un límite bajo corta los
+  // partidos MÁS RECIENTES cuando el día ya acumuló más partidos que
+  // el límite antes de "ahora" — así desaparecían los que están en
+  // vivo al entrar a un día específico (ej. "hoy" desde el selector
+  // de día, que sí manda ?date= aunque sea hoy mismo). 1000 deja
+  // margen de sobra para un día completo de esta liga.
   const { data: windowMatches } = await supabase
     .from('matches')
     .select('*')
     .gte('scheduled_at', windowStart)
     .lte('scheduled_at', windowEnd)
     .order('scheduled_at', { ascending: true })
-    .limit(150);
+    .limit(1000);
 
   const missingPlayerIds = [...new Set((windowMatches || []).flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(
     (id) => id && !playersById.has(id)
