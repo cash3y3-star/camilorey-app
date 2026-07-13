@@ -86,6 +86,9 @@ const TRANSLATIONS = {
     funcionPremium: 'Función premium',
     funcionPremiumDesc:
       'Mi Bankroll va a estar disponible próximamente para cuentas premium — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.',
+    miBankrollVacioTitle: 'Sin historial todavía',
+    miBankrollVacioDesc:
+      'Todavía no tienes picks seguidos que ya se hayan jugado — sigue algunos desde Picks o Calendario y vuelve cuando terminen.',
 
     perfilPlanGratuito: 'Plan gratuito',
     perfilPlanPremium: 'Plan premium',
@@ -263,6 +266,9 @@ const TRANSLATIONS = {
     funcionPremium: 'Premium feature',
     funcionPremiumDesc:
       "My Bankroll will be available soon for premium accounts — there's nothing to pay yet, we're just giving you a heads up before it opens.",
+    miBankrollVacioTitle: 'No history yet',
+    miBankrollVacioDesc:
+      "You don't have any followed picks that have already been played yet — follow some from Picks or Schedule and come back once they finish.",
 
     perfilPlanGratuito: 'Free plan',
     perfilPlanPremium: 'Premium plan',
@@ -439,6 +445,9 @@ const TRANSLATIONS = {
     funcionPremium: 'Função premium',
     funcionPremiumDesc:
       'Minha Banca estará disponível em breve para contas premium — ainda não há nada para pagar, só estamos avisando antes de abrir.',
+    miBankrollVacioTitle: 'Ainda sem histórico',
+    miBankrollVacioDesc:
+      'Você ainda não tem picks seguidos que já tenham sido jogados — siga alguns em Picks ou Calendário e volte quando terminarem.',
 
     perfilPlanGratuito: 'Plano gratuito',
     perfilPlanPremium: 'Plano premium',
@@ -4949,7 +4958,9 @@ export default function Home({
         </section>
 
         <section className={`view ${view === 'mibankroll' ? 'active' : ''}`}>
-          <span className="eyebrow">{t('miBankrollEyebrow')}</span>
+          <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <ProfileIcon name="shield" size={13} /> {t('miBankrollEyebrow')}
+          </span>
           <h1 className="page-title">{t('navMiBankroll')}</h1>
           <p className="page-sub">{t('miBankrollSub')}</p>
           {!user ? (
@@ -5001,10 +5012,13 @@ export default function Home({
               </div>
 
               {myHistory.length === 0 ? (
-                <p className="page-sub">
-                  Todavía no tienes picks seguidos que ya se hayan jugado — sigue algunos desde Picks o Calendario y
-                  vuelve cuando terminen.
-                </p>
+                <div className="premium-lock-card">
+                  <div className="premium-lock-icon">
+                    <ProfileIcon name="layers" size={22} />
+                  </div>
+                  <h3>{t('miBankrollVacioTitle')}</h3>
+                  <p>{t('miBankrollVacioDesc')}</p>
+                </div>
               ) : (
                 <>
                   <div className="balance-hero">
