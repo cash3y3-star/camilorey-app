@@ -2725,14 +2725,17 @@ function RiskModal({ count, tips, onClose, lang }) {
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal risk-modal">
         <div className="risk-modal-banner">
-          <div className="risk-modal-icon">
-            <ProfileIcon name="shield" size={22} />
-          </div>
-          <div>
-            <div className="risk-modal-eyebrow">{t('riskEyebrow')}</div>
-            <h3>
-              {t('riskSiguiendo')} {count} {count === 1 ? t('riskPick') : t('riskPicks')}
-            </h3>
+          <div className="risk-modal-handle"></div>
+          <div className="risk-modal-banner-row">
+            <div className="risk-modal-icon">
+              <ProfileIcon name="shield" size={22} />
+            </div>
+            <div>
+              <div className="risk-modal-eyebrow">{t('riskEyebrow')}</div>
+              <h3>
+                {t('riskSiguiendo')} {count} {count === 1 ? t('riskPick') : t('riskPicks')}
+              </h3>
+            </div>
           </div>
         </div>
 
@@ -5556,12 +5559,14 @@ const CSS = `
   .subscreen-head h3{font-size:19px; margin:0;}
 
   .risk-modal-banner{
-    display:flex; align-items:center; gap:14px; padding:26px 22px;
+    padding:12px 22px 26px;
     margin:-22px -22px 18px; border-radius:20px 20px 0 0;
     background:radial-gradient(120% 140% at 0% 0%, #E2444A 0%, #7A1418 55%, #2A0A0B 100%);
     color:#fff;
   }
   @media(min-width:640px){ .risk-modal-banner{border-radius:20px 20px 0 0;} }
+  .risk-modal-handle{width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.35); margin:0 auto 18px;}
+  .risk-modal-banner-row{display:flex; align-items:center; gap:14px;}
   .risk-modal-icon{
     width:48px; height:48px; border-radius:12px; flex:none; font-size:21px;
     display:flex; align-items:center; justify-content:center;
