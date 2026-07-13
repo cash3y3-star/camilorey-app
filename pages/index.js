@@ -2140,6 +2140,29 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'sun') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+      </svg>
+    );
+  }
+  if (name === 'monitor') {
+    return (
+      <svg {...common}>
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+      </svg>
+    );
+  }
+  if (name === 'check') {
+    return (
+      <svg {...common}>
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -2449,28 +2472,58 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
           <ProfileIcon name="chevron-right" size={16} />
         </div>
 
-        <div className="profile-row profile-row-theme">
-          <span className="profile-row-icon">
-            <ProfileIcon name="moon" />
-          </span>
-          <div className="profile-row-body">
-            <strong>Tema</strong>
-            <p>Elige cómo se ve CAMILOREY en este dispositivo.</p>
-            <div className="theme-switch">
-              {[
-                ['oscuro', '🌙 Oscuro'],
-                ['claro', '☀️ Claro'],
-                ['sistema', '⚙️ Sistema']
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={`theme-switch-btn ${themePref === key ? 'active' : ''}`}
-                  onClick={() => onChangeTheme(key)}
-                >
-                  {label}
-                </button>
-              ))}
+        <div className="profile-row profile-row-theme" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span className="profile-row-icon">
+              <ProfileIcon name="moon" />
+            </span>
+            <div className="profile-row-body">
+              <strong>Tema</strong>
+              <p>Elige cómo se ve CAMILOREY en este dispositivo.</p>
+            </div>
+          </div>
+
+          <div className="theme-option-list">
+            {[
+              ['oscuro', 'moon', 'Oscuro', 'Siempre usar modo oscuro'],
+              ['claro', 'sun', 'Claro', 'Siempre usar modo claro'],
+              ['sistema', 'monitor', 'Sistema', 'Seguir ajustes del dispositivo']
+            ].map(([key, icon, title, sub]) => (
+              <div
+                key={key}
+                className={`theme-option ${themePref === key ? 'active' : ''}`}
+                onClick={() => onChangeTheme(key)}
+              >
+                <span className="theme-option-icon">
+                  <ProfileIcon name={icon} size={17} />
+                </span>
+                <div className="theme-option-body">
+                  <strong>{title}</strong>
+                  <span>{sub}</span>
+                </div>
+                <span className="theme-option-radio">
+                  {themePref === key ? <ProfileIcon name="check" size={12} /> : null}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="theme-preview-row">
+            <div className="theme-preview-card theme-preview-light">
+              <div className="theme-preview-head">
+                <span className="theme-preview-dot"></span>
+                <span className="theme-preview-line"></span>
+              </div>
+              <div className="theme-preview-block"></div>
+              <span className="theme-preview-label">Claro</span>
+            </div>
+            <div className="theme-preview-card theme-preview-dark">
+              <div className="theme-preview-head">
+                <span className="theme-preview-dot"></span>
+                <span className="theme-preview-line"></span>
+              </div>
+              <div className="theme-preview-block"></div>
+              <span className="theme-preview-label">Oscuro</span>
             </div>
           </div>
         </div>
@@ -4410,12 +4463,43 @@ const CSS = `
   .profile-row-body strong{display:block; font-size:14px; margin-bottom:2px;}
   .profile-row-body p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.4;}
   .profile-row-theme{cursor:default;}
-  .theme-switch{display:flex; gap:6px; margin-top:10px;}
-  .theme-switch-btn{
-    flex:1; font-family:var(--font-body); font-size:11.5px; font-weight:700; color:var(--muted);
-    background:var(--bg-alt); border:1px solid var(--line); border-radius:8px; padding:8px 4px; cursor:pointer;
+  .theme-option-list{display:flex; flex-direction:column; gap:8px; margin-top:12px;}
+  .theme-option{
+    display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px;
+    background:var(--bg-alt); border:1px solid var(--line); cursor:pointer;
   }
-  .theme-switch-btn.active{background:var(--court); border-color:var(--court); color:#fff;}
+  .theme-option.active{border-color:var(--court); background:var(--court-soft);}
+  .theme-option-icon{
+    width:34px; height:34px; border-radius:10px; flex:none; color:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    background:var(--card); border:1px solid var(--line);
+  }
+  .theme-option-body{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
+  .theme-option-body strong{font-size:13.5px; color:var(--ink);}
+  .theme-option-body span{font-size:11.5px; color:var(--muted);}
+  .theme-option-radio{
+    width:20px; height:20px; border-radius:50%; flex:none; border:2px solid var(--line);
+    display:flex; align-items:center; justify-content:center; color:#fff;
+  }
+  .theme-option.active .theme-option-radio{background:var(--court); border-color:var(--court);}
+
+  .theme-preview-row{display:flex; gap:10px; margin-top:14px;}
+  .theme-preview-card{flex:1; border-radius:12px; overflow:hidden; border:1px solid var(--line);}
+  .theme-preview-light{background:#FDFBFA;}
+  .theme-preview-dark{background:#0E0D0C;}
+  .theme-preview-head{display:flex; align-items:center; gap:6px; padding:10px;}
+  .theme-preview-dot{width:14px; height:14px; border-radius:50%; flex:none;}
+  .theme-preview-light .theme-preview-dot{background:#1E1815;}
+  .theme-preview-dark .theme-preview-dot{background:#F5F1EC;}
+  .theme-preview-line{height:6px; flex:1; border-radius:3px;}
+  .theme-preview-light .theme-preview-line{background:#E9E0DB;}
+  .theme-preview-dark .theme-preview-line{background:#2B2724;}
+  .theme-preview-block{height:28px; margin:0 10px 10px;}
+  .theme-preview-light .theme-preview-block{background:#F5EFEC; border-radius:8px;}
+  .theme-preview-dark .theme-preview-block{background:#171513; border-radius:8px;}
+  .theme-preview-label{display:block; text-align:center; font-size:10.5px; padding:6px 0; font-weight:700;}
+  .theme-preview-light .theme-preview-label{color:#1E1815; background:#fff;}
+  .theme-preview-dark .theme-preview-label{color:#F5F1EC; background:#1B1917;}
 
   .profile-edit-inline{display:flex; gap:8px; margin-top:8px;}
   .profile-name-input{
