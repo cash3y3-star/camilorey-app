@@ -3043,7 +3043,9 @@ export default function Home({
           {navLink('calendario', 'Calendario')}
           {navLink('picks', 'Picks')}
           {navLink('seguidos', 'Seguidos')}
-          {navLink('mibankroll', 'Mi Bankroll')}
+          <a href="#mibankroll" data-view="mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
+            Mi Bankroll {!isAdmin ? <ProfileIcon name="lock" size={11} /> : null}
+          </a>
           {isAdmin ? navLink('bankroll', 'Bankroll') : null}
           {isAdmin ? navLink('grupos', 'Grupos') : null}
           {isAdmin ? navLink('modelo', 'Modelo') : null}
@@ -3580,6 +3582,14 @@ export default function Home({
           </p>
           {!user ? (
             <p className="page-sub">Inicia sesión con Google (arriba a la derecha) para armar tu bankroll.</p>
+          ) : !isAdmin ? (
+            <div className="premium-lock-card">
+              <div className="premium-lock-icon">
+                <ProfileIcon name="lock" size={22} />
+              </div>
+              <h3>Función premium</h3>
+              <p>Mi Bankroll va a estar disponible próximamente para cuentas premium — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.</p>
+            </div>
           ) : !myBankLoaded ? (
             <p className="page-sub">Cargando…</p>
           ) : (
@@ -3744,11 +3754,18 @@ export default function Home({
           Seguidos
         </a>
         <a href="#mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-            <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-            <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-          </svg>
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+              <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+              <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+            </svg>
+            {!isAdmin ? (
+              <span className="nav-lock-badge">
+                <ProfileIcon name="lock" size={9} />
+              </span>
+            ) : null}
+          </span>
           Mi Bankroll
         </a>
         {isAdmin ? (
@@ -4467,6 +4484,22 @@ const CSS = `
   }
   nav.bottom-nav a.active{color:var(--court);}
   nav.bottom-nav svg{width:20px; height:20px;}
+  .premium-lock-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:32px 24px; text-align:center; box-shadow:var(--shadow);
+  }
+  .premium-lock-icon{
+    width:56px; height:56px; border-radius:50%; margin:0 auto 14px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--court-soft); color:var(--court); border:1px solid rgba(226,68,74,.4);
+  }
+  .premium-lock-card h3{font-family:var(--font-display); font-size:19px; margin:0 0 8px;}
+  .premium-lock-card p{color:var(--muted); font-size:13.5px; line-height:1.6; margin:0; max-width:340px; margin:0 auto;}
+  .nav-lock-badge{
+    position:absolute; top:-4px; right:-6px; width:14px; height:14px; border-radius:50%;
+    background:var(--court); color:#fff; display:flex; align-items:center; justify-content:center;
+    border:1.5px solid var(--card);
+  }
 
   @media (max-width:640px){
     header.site nav.top-nav{display:none;}
