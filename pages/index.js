@@ -3141,8 +3141,15 @@ export default function Home({
                           .map((h) => (
                             <tr key={h.id}>
                               <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{h.market}</td>
-                              <td className={h.units >= 0 ? 'hit' : 'miss'}>{formatCOP(h.units, true)}</td>
-                              <td className={h.units >= 0 ? 'hit' : 'miss'}>{h.units >= 0 ? 'Acierto' : 'Fallo'}</td>
+                              <td className={h.stake === 0 ? '' : h.units >= 0 ? 'hit' : 'miss'} style={h.stake === 0 ? { color: 'var(--muted)' } : undefined}>
+                                {formatCOP(h.units, true)}
+                              </td>
+                              <td
+                                className={h.stake === 0 ? '' : h.units >= 0 ? 'hit' : 'miss'}
+                                style={h.stake === 0 ? { color: 'var(--muted)' } : undefined}
+                              >
+                                {h.stake === 0 ? 'Sin ventaja — Kelly no apostó' : h.units >= 0 ? 'Acierto' : 'Fallo'}
+                              </td>
                               <td>{formatCOP(h.balance)}</td>
                             </tr>
                           ))}
