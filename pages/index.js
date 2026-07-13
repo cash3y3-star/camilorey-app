@@ -198,7 +198,14 @@ const TRANSLATIONS = {
     setsDosPuntos: 'Sets:',
     sinSetsCerrados: 'Este partido está en curso, todavía sin sets cerrados.',
     buscandoMarcadorVivo: 'Buscando marcador en vivo…',
-    sinDetallePuntoAPunto: 'No tenemos el detalle punto a punto de este partido — solo se guarda para los que alguien vio en vivo mientras se jugaban.'
+    sinDetallePuntoAPunto: 'No tenemos el detalle punto a punto de este partido — solo se guarda para los que alguien vio en vivo mientras se jugaban.',
+
+    analisisForma: 'En sus últimos {n} partidos, {player} ganó {wins} ({pct}%).',
+    analisisSinHistorial: 'Todavía no tenemos suficiente historial reciente de {player}.',
+    analisisRacha: 'Llega con una racha de {streak}.',
+    analisisH2H: 'En los enfrentamientos directos contra {opponent}, tiene un récord de {record}.',
+    analisisCuotaValor: 'La cuota de Rushbet ({odds}) implica una probabilidad de {implied}% — nuestro modelo le da {confidence}%.',
+    analisisSinCuota: 'Todavía no tenemos la cuota real de Rushbet para este partido.'
   },
   en: {
     navInicio: 'Home',
@@ -378,7 +385,14 @@ const TRANSLATIONS = {
     setsDosPuntos: 'Sets:',
     sinSetsCerrados: 'This match is in progress, no sets closed yet.',
     buscandoMarcadorVivo: 'Looking for the live score…',
-    sinDetallePuntoAPunto: "We don't have point-by-point detail for this match — that's only saved for matches someone watched live on our site."
+    sinDetallePuntoAPunto: "We don't have point-by-point detail for this match — that's only saved for matches someone watched live on our site.",
+
+    analisisForma: 'In their last {n} matches, {player} won {wins} ({pct}%).',
+    analisisSinHistorial: "We don't have enough recent history for {player} yet.",
+    analisisRacha: 'They come in on a {streak} streak.',
+    analisisH2H: 'Head-to-head against {opponent}, the record is {record}.',
+    analisisCuotaValor: 'Rushbet odds ({odds}) imply a {implied}% probability — our model gives them {confidence}%.',
+    analisisSinCuota: "We don't have real Rushbet odds for this match yet."
   },
   pt: {
     navInicio: 'Início',
@@ -559,7 +573,14 @@ const TRANSLATIONS = {
     setsDosPuntos: 'Sets:',
     sinSetsCerrados: 'Esta partida está em andamento, ainda sem sets fechados.',
     buscandoMarcadorVivo: 'Buscando placar ao vivo…',
-    sinDetallePuntoAPunto: 'Não temos o detalhe ponto a ponto desta partida — só é salvo para partidas que alguém assistiu ao vivo pelo nosso site.'
+    sinDetallePuntoAPunto: 'Não temos o detalhe ponto a ponto desta partida — só é salvo para partidas que alguém assistiu ao vivo pelo nosso site.',
+
+    analisisForma: 'Nos últimos {n} jogos, {player} venceu {wins} ({pct}%).',
+    analisisSinHistorial: 'Ainda não temos histórico recente suficiente de {player}.',
+    analisisRacha: 'Chega com uma sequência de {streak}.',
+    analisisH2H: 'No confronto direto contra {opponent}, o retrospecto é {record}.',
+    analisisCuotaValor: 'A odd da Rushbet ({odds}) implica uma probabilidade de {implied}% — nosso modelo dá {confidence}%.',
+    analisisSinCuota: 'Ainda não temos a odd real da Rushbet para esta partida.'
   }
 };
 
@@ -2398,6 +2419,42 @@ function LineChart({ series }) {
   );
 }
 
+// Análisis de apoyo real para la pestaña "Análisis" — además de la
+// frase de buildAnalysis (de qué factores sale el % de confianza),
+// arma oraciones extra con datos que YA tenemos en el pick (forma
+// reciente, racha, H2H, y la probabilidad implícita de la cuota real
+// de Rushbet comparada con nuestra confianza) — nada inventado, cada
+// línea sale de un número que ya se le muestra al usuario en otra
+// parte de la misma tarjeta.
+function buildRichAnalysis(pick, t) {
+  const lines = [];
+
+  if (pick.history && pick.history.length > 0) {
+    const wins = pick.history.filter((h) => h.win).length;
+    const pct = Math.round((wins / pick.history.length) * 100);
+    lines.push(t('analisisForma', { n: pick.history.length, player: pick.player, wins, pct }));
+  } else {
+    lines.push(t('analisisSinHistorial', { player: pick.player }));
+  }
+
+  if (pick.streakLabel) {
+    lines.push(t('analisisRacha', { streak: pick.streakLabel }));
+  }
+
+  if (pick.h2hTotal > 0) {
+    lines.push(t('analisisH2H', { opponent: pick.opponent, record: pick.h2h }));
+  }
+
+  if (pick.odds && pick.odds > 1) {
+    const implied = Math.round((1 / pick.odds) * 100);
+    lines.push(t('analisisCuotaValor', { odds: pick.odds.toFixed(2), implied, confidence: pick.confidence }));
+  } else {
+    lines.push(t('analisisSinCuota'));
+  }
+
+  return lines;
+}
+
 // Modal de detalle de un pick — "partido detallado" con el jugador y
 // su rival de frente (marcador real si ya se jugó, VS si todavía no),
 // y 4 pestañas: Resumen (sets si los tenemos + los datos clave de un
@@ -2575,7 +2632,12 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
             )}
           </>
         ) : tab === 'analisis' ? (
-          <div className="analysis">{pick.analysis}</div>
+          <div className="analysis">
+            <p>{pick.analysis}</p>
+            {buildRichAnalysis(pick, t).map((line, i) => (
+              <p key={i}>{line}</p>
+            ))}
+          </div>
         ) : pick.h2hTotal > 0 ? (
           <>
             <div className="hist-title">
@@ -6245,6 +6307,8 @@ const CSS = `
   .legend span{display:inline-flex; align-items:center; gap:5px;}
   .legend .sw{width:8px; height:8px; border-radius:50%;}
   .analysis{font-size:13.5px; line-height:1.55; color:var(--ink); background:var(--bg-alt); border-radius:12px; padding:14px; margin-top:6px; border:1px solid var(--line);}
+  .analysis p{margin:0 0 10px;}
+  .analysis p:last-child{margin-bottom:0;}
 
   .match-hero{display:flex; align-items:flex-start; justify-content:space-between; gap:6px; margin:4px 0 16px;}
   .match-hero-side{display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; min-width:0;}
