@@ -2482,7 +2482,12 @@ function buildRichAnalysis(pick, t) {
 function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
   const t = useTranslate(lang);
   const [tab, setTab] = useState('resumen');
-  const [formView, setFormView] = useState('l10');
+  // "Estadísticas" ahora es un solo tab con 3 botones (local/H2H/
+  // visitante) y un selector de cantidad aparte — L5/L10 para forma
+  // reciente, L5/L10/L20 para H2H (el H2H suelto que había antes se
+  // fusionó acá).
+  const [statSide, setStatSide] = useState('local');
+  const [statRange, setStatRange] = useState(10);
 
   // Local (camiseta roja) siempre a la izquierda, visitante (azul) a
   // la derecha — pick.player/pick.opponent están ordenados por
@@ -2497,13 +2502,15 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
 
   // Forma reciente de CADA jugador (antes solo se guardaba/mostraba
   // la del favorito) — se arma acá la del local y la del visitante
-  // por separado, respetando el mismo selector L5/L10.
+  // por separado, respetando el selector de cantidad.
   const leftHistoryFull = leftIsFavored ? pick.history : pick.opponentHistory;
   const rightHistoryFull = leftIsFavored ? pick.opponentHistory : pick.history;
-  const displayLeftHistory = formView === 'l5' ? leftHistoryFull.slice(0, 5) : leftHistoryFull;
-  const displayRightHistory = formView === 'l5' ? rightHistoryFull.slice(0, 5) : rightHistoryFull;
+  const displayLeftHistory = leftHistoryFull.slice(0, Math.min(statRange, 10));
+  const displayRightHistory = rightHistoryFull.slice(0, Math.min(statRange, 10));
   const hitsLeft = displayLeftHistory.filter((m) => m.win).length;
   const hitsRight = displayRightHistory.filter((m) => m.win).length;
+  const displayH2H = pick.h2hMatches.slice(0, statRange);
+  const hitsH2H = displayH2H.filter((m) => m.win).length;
 
   const isDone = pick.result === 'hit' || pick.result === 'miss';
   const won = pick.result === 'hit';
@@ -2566,9 +2573,6 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
           <div className={`tab ${tab === 'analisis' ? 'active' : ''}`} onClick={() => setTab('analisis')}>
             {t('tabAnalisis')}
           </div>
-          <div className={`tab ${tab === 'h2h' ? 'active' : ''}`} onClick={() => setTab('h2h')}>
-            {t('tabH2H')}
-          </div>
         </div>
 
         {tab === 'resumen' ? (
@@ -2625,57 +2629,85 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
           </>
         ) : tab === 'estadisticas' ? (
           <>
+            <div className="tabs" style={{ marginBottom: '10px' }}>
+              <div className={`tab ${statSide === 'local' ? 'active' : ''}`} onClick={() => setStatSide('local')}>
+                {leftPlayer.name}
+              </div>
+              <div className={`tab ${statSide === 'h2h' ? 'active' : ''}`} onClick={() => setStatSide('h2h')}>
+                H2H
+              </div>
+              <div className={`tab ${statSide === 'visitante' ? 'active' : ''}`} onClick={() => setStatSide('visitante')}>
+                {rightPlayer.name}
+              </div>
+            </div>
+
             <div className="tabs" style={{ marginBottom: '14px' }}>
-              <div className={`tab ${formView === 'l5' ? 'active' : ''}`} onClick={() => setFormView('l5')}>
+              <div className={`tab ${statRange === 5 ? 'active' : ''}`} onClick={() => setStatRange(5)}>
                 L5
               </div>
-              <div className={`tab ${formView === 'l10' ? 'active' : ''}`} onClick={() => setFormView('l10')}>
+              <div className={`tab ${statRange === 10 ? 'active' : ''}`} onClick={() => setStatRange(10)}>
                 L10
               </div>
+              {statSide === 'h2h' ? (
+                <div className={`tab ${statRange === 20 ? 'active' : ''}`} onClick={() => setStatRange(20)}>
+                  L20
+                </div>
+              ) : null}
             </div>
 
-            <div className="hist-title">
-              <span>Local · {leftPlayer.name}</span>
-            </div>
-            {displayLeftHistory.length > 0 ? (
-              <>
-                <div className="donut-row">
-                  <DonutChart wins={hitsLeft} total={displayLeftHistory.length} />
-                  <div>
-                    <div className="hist-title" style={{ margin: 0 }}>
-                      <span>{t('ultimos')} {displayLeftHistory.length} {t('partidosPl')}</span>
+            {statSide === 'local' ? (
+              displayLeftHistory.length > 0 ? (
+                <>
+                  <div className="donut-row">
+                    <DonutChart wins={hitsLeft} total={displayLeftHistory.length} />
+                    <div>
+                      <div className="hist-title" style={{ margin: 0 }}>
+                        <span>{t('ultimos')} {displayLeftHistory.length} {t('partidosPl')}</span>
+                      </div>
+                      <p className="page-sub" style={{ margin: '4px 0 0' }}>
+                        {hitsLeft} {t('victorias')}, {displayLeftHistory.length - hitsLeft} {t('derrotas')}
+                      </p>
                     </div>
-                    <p className="page-sub" style={{ margin: '4px 0 0' }}>
-                      {hitsLeft} {t('victorias')}, {displayLeftHistory.length - hitsLeft} {t('derrotas')}
-                    </p>
                   </div>
+                  <RecentFormList history={displayLeftHistory} />
+                </>
+              ) : (
+                <p className="page-sub">{t('sinHistorial')}</p>
+              )
+            ) : statSide === 'visitante' ? (
+              displayRightHistory.length > 0 ? (
+                <>
+                  <div className="donut-row">
+                    <DonutChart wins={hitsRight} total={displayRightHistory.length} />
+                    <div>
+                      <div className="hist-title" style={{ margin: 0 }}>
+                        <span>{t('ultimos')} {displayRightHistory.length} {t('partidosPl')}</span>
+                      </div>
+                      <p className="page-sub" style={{ margin: '4px 0 0' }}>
+                        {hitsRight} {t('victorias')}, {displayRightHistory.length - hitsRight} {t('derrotas')}
+                      </p>
+                    </div>
+                  </div>
+                  <RecentFormList history={displayRightHistory} />
+                </>
+              ) : (
+                <p className="page-sub">{t('sinHistorial')}</p>
+              )
+            ) : displayH2H.length > 0 ? (
+              <>
+                <div className="hist-title">
+                  <span>{t('h2hContra')} {pick.opponent}</span>
+                  <span className="num">
+                    {hitsH2H}-{displayH2H.length - hitsH2H}
+                  </span>
                 </div>
-                <RecentFormList history={displayLeftHistory} />
+                <div className="h2h-bar-track">
+                  <div className="h2h-bar-fill" style={{ width: `${(hitsH2H / displayH2H.length) * 100}%` }}></div>
+                </div>
+                <RecentFormList history={displayH2H} />
               </>
             ) : (
-              <p className="page-sub">{t('sinHistorial')}</p>
-            )}
-
-            <div className="hist-title" style={{ marginTop: '20px' }}>
-              <span>Visitante · {rightPlayer.name}</span>
-            </div>
-            {displayRightHistory.length > 0 ? (
-              <>
-                <div className="donut-row">
-                  <DonutChart wins={hitsRight} total={displayRightHistory.length} />
-                  <div>
-                    <div className="hist-title" style={{ margin: 0 }}>
-                      <span>{t('ultimos')} {displayRightHistory.length} {t('partidosPl')}</span>
-                    </div>
-                    <p className="page-sub" style={{ margin: '4px 0 0' }}>
-                      {hitsRight} {t('victorias')}, {displayRightHistory.length - hitsRight} {t('derrotas')}
-                    </p>
-                  </div>
-                </div>
-                <RecentFormList history={displayRightHistory} />
-              </>
-            ) : (
-              <p className="page-sub">{t('sinHistorial')}</p>
+              <p className="page-sub">{t('sinEnfrentamientos')}</p>
             )}
           </>
         ) : tab === 'analisis' ? (
@@ -2685,23 +2717,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
               <p key={i}>{line}</p>
             ))}
           </div>
-        ) : pick.h2hTotal > 0 ? (
-          <>
-            <div className="hist-title">
-              <span>{t('h2hContra')} {pick.opponent}</span>
-              <span className="num">{pick.h2h}</span>
-            </div>
-            <div className="h2h-bar-track">
-              <div
-                className="h2h-bar-fill"
-                style={{ width: `${(Number(pick.h2h.split('-')[0]) / pick.h2hTotal) * 100}%` }}
-              ></div>
-            </div>
-            <RecentFormList history={pick.h2hMatches} />
-          </>
-        ) : (
-          <p className="page-sub">{t('sinEnfrentamientos')}</p>
-        )}
+        ) : null}
       </div>
     </div>
   );
