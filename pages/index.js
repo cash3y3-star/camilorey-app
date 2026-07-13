@@ -5,6 +5,25 @@ import { supabaseClient } from '../lib/supabaseClient';
 
 const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const THEME_KEY = 'camilorey_theme';
+
+// pref es lo que la persona eligió ('oscuro'/'claro'/'sistema') — si
+// es 'sistema', el tema real a pintar depende de las preferencias del
+// SO en ese momento (prefers-color-scheme), no de un valor fijo.
+function effectiveTheme(pref) {
+  if (pref === 'claro') return 'light';
+  if (pref === 'oscuro') return 'dark';
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+  return 'dark';
+}
+
+function applyTheme(pref) {
+  if (typeof document === 'undefined') return;
+  const effective = effectiveTheme(pref);
+  document.documentElement.setAttribute('data-theme', effective);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', effective === 'light' ? '#FDFBFA' : '#0E0D0C');
+}
 
 // El navegador pide la llave pública del servidor push en este
 // formato (Uint8Array), pero VAPID la da como base64 url-safe.
@@ -1839,7 +1858,7 @@ function LoginModal({ onClose, onLogin }) {
   );
 }
 
-function ProfileModal({ user, isAdmin, onClose, onLogout }) {
+function ProfileModal({ user, isAdmin, onClose, onLogout, themePref, onChangeTheme }) {
   const [notifStatus, setNotifStatus] = useState('unknown');
 
   useEffect(() => {
@@ -1906,13 +1925,28 @@ function ProfileModal({ user, isAdmin, onClose, onLogout }) {
           </span>
         </div>
 
-        <div className="profile-row">
+        <div className="profile-row profile-row-theme">
           <span className="profile-row-icon">🎨</span>
           <div className="profile-row-body">
             <strong>Tema</strong>
-            <p>CAMILOREY siempre corre en oscuro — es parte de la identidad del sitio.</p>
+            <p>Elige cómo se ve CAMILOREY en este dispositivo.</p>
+            <div className="theme-switch">
+              {[
+                ['oscuro', '🌙 Oscuro'],
+                ['claro', '☀️ Claro'],
+                ['sistema', '⚙️ Sistema']
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`theme-switch-btn ${themePref === key ? 'active' : ''}`}
+                  onClick={() => onChangeTheme(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-          <span className="status done">Oscuro</span>
         </div>
 
         <button
@@ -1998,6 +2032,33 @@ export default function Home({
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_bankplan', String(bankPlan));
   }, [bankPlan]);
+
+  // Tema: oscuro / claro / sistema (según el SO). "sistema" es el
+  // default para quien nunca lo tocó. Se aplica al <html> vía atributo
+  // (ver applyTheme) para que todo el CSS existente, que ya usa
+  // variables como --bg/--ink, cambie de color sin tocar componentes.
+  const [themePref, setThemePref] = useState('sistema');
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem(THEME_KEY) : null;
+    const pref = saved || 'sistema';
+    setThemePref(pref);
+    applyTheme(pref);
+  }, []);
+
+  useEffect(() => {
+    if (themePref !== 'sistema' || typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const onChange = () => applyTheme('sistema');
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [themePref]);
+
+  const changeTheme = (pref) => {
+    setThemePref(pref);
+    if (typeof window !== 'undefined') window.localStorage.setItem(THEME_KEY, pref);
+    applyTheme(pref);
+  };
 
   useEffect(() => {
     const fromHash = () => {
@@ -2242,6 +2303,19 @@ export default function Home({
           rel="stylesheet"
         />
         <style>{CSS}</style>
+        {/* Aplica el tema guardado ANTES del primer render — si no,
+            todo el mundo ve un parpadeo del tema oscuro por defecto
+            durante una fracción de segundo antes de que React monte
+            y el useEffect de arriba corrija a claro. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{
+              var pref=localStorage.getItem('${THEME_KEY}')||'sistema';
+              var light=pref==='claro'||(pref==='sistema'&&window.matchMedia('(prefers-color-scheme: light)').matches);
+              document.documentElement.setAttribute('data-theme', light?'light':'dark');
+            }catch(e){}})();`
+          }}
+        />
       </Head>
 
       <header className="site">
@@ -2778,7 +2852,14 @@ export default function Home({
       )}
 
       {showProfileModal && user && (
-        <ProfileModal user={user} isAdmin={isAdmin} onClose={() => setShowProfileModal(false)} onLogout={logout} />
+        <ProfileModal
+          user={user}
+          isAdmin={isAdmin}
+          onClose={() => setShowProfileModal(false)}
+          onLogout={logout}
+          themePref={themePref}
+          onChangeTheme={changeTheme}
+        />
       )}
 
       {showLoginModal && (
@@ -2791,6 +2872,7 @@ export default function Home({
 const CSS = `
   :root{
     --bg:#0E0D0C;
+    --bg-rgb:14,13,12;
     --bg-alt:#171513;
     --card:#1B1917;
     --ink:#F5F1EC;
@@ -2799,6 +2881,7 @@ const CSS = `
     --court:#E2444A;
     --court-dark:#A32D2D;
     --court-soft:#2E1817;
+    --court-soft-text:#FAC7C7;
     --ball:#FF7A45;
     --ball-dark:#D85A30;
     --hit:#5DCAA5;
@@ -2810,6 +2893,30 @@ const CSS = `
     --font-mono:'IBM Plex Mono', monospace;
     --radius:16px;
     --shadow:0 2px 12px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.3);
+  }
+  /* Tema claro — mismos nombres de variable, el resto del CSS ya las
+     usa en todos lados, así que basta con redefinirlas acá para que
+     todo el sitio cambie de color sin tocar cada componente. Se activa
+     poniendo data-theme="light" en <html> (ver applyTheme en el JS). */
+  :root[data-theme="light"]{
+    --bg:#FDFBFA;
+    --bg-rgb:253,251,250;
+    --bg-alt:#F5EFEC;
+    --card:#FFFFFF;
+    --ink:#1E1815;
+    --muted:#8A7F78;
+    --line:#E9E0DB;
+    --court:#E2444A;
+    --court-dark:#A32D2D;
+    --court-soft:#FBE2E2;
+    --court-soft-text:#A32D2D;
+    --ball:#E85E2C;
+    --ball-dark:#B8481F;
+    --hit:#1E9C74;
+    --miss:#C23A3A;
+    --blue:#2E6CA8;
+    --blue-dark:#1E4A73;
+    --shadow:0 2px 12px rgba(20,15,12,0.08), 0 1px 2px rgba(20,15,12,0.06);
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
@@ -2826,7 +2933,7 @@ const CSS = `
 
   header.site{
     position:sticky; top:0; z-index:40;
-    background:rgba(14,13,12,0.88);
+    background:rgba(var(--bg-rgb),0.88);
     backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);
     padding:14px 20px;
@@ -2861,7 +2968,7 @@ const CSS = `
   nav.top-nav a.active, nav.top-nav a:hover{background:var(--court); color:#fff;}
   .badge18{
     font-family:var(--font-mono); font-size:11px; font-weight:600;
-    color:#FAC7C7; background:var(--court-soft);
+    color:var(--court-soft-text); background:var(--court-soft);
     border-radius:999px; padding:4px 9px; margin-left:8px;
   }
   .login-btn{
@@ -3122,7 +3229,7 @@ const CSS = `
 
   .status{font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; flex:none;}
   .status.live{background:rgba(226,68,74,.18); color:var(--court); border:1px solid rgba(226,68,74,.5);}
-  .status.soon{background:var(--court-soft); color:#FAC7C7;}
+  .status.soon{background:var(--court-soft); color:var(--court-soft-text);}
   .status.done{background:var(--bg-alt); color:var(--muted);}
 
   .mc-live-score{
@@ -3132,7 +3239,7 @@ const CSS = `
   .mc-set{
     background:var(--bg-alt); border-radius:8px; padding:5px 10px; font-size:13px; font-weight:700; color:var(--ink);
   }
-  .mc-set-current{background:var(--court-soft); color:#FAC7C7; border:1px solid rgba(226,68,74,.45);}
+  .mc-set-current{background:var(--court-soft); color:var(--court-soft-text); border:1px solid rgba(226,68,74,.45);}
   .mc-live-loading{font-size:12px; color:var(--muted);}
   .mc-live-score-small{margin-top:8px; padding-top:8px; gap:5px;}
   .mc-live-score-small .mc-set{padding:3px 7px; font-size:11px; background:transparent; border:1px solid var(--line); color:var(--muted);}
@@ -3231,6 +3338,13 @@ const CSS = `
   .profile-row-body{flex:1; min-width:0;}
   .profile-row-body strong{display:block; font-size:14px; margin-bottom:2px;}
   .profile-row-body p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.4;}
+  .profile-row-theme{cursor:default;}
+  .theme-switch{display:flex; gap:6px; margin-top:10px;}
+  .theme-switch-btn{
+    flex:1; font-family:var(--font-body); font-size:11.5px; font-weight:700; color:var(--muted);
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:8px; padding:8px 4px; cursor:pointer;
+  }
+  .theme-switch-btn.active{background:var(--court); border-color:var(--court); color:#fff;}
 
   .login-modal{text-align:center; padding-top:36px;}
   .login-modal-close{position:absolute; top:16px; right:16px;}
@@ -3255,7 +3369,7 @@ const CSS = `
   }
   .modal-market{
     display:inline-block; margin:12px 0; font-weight:700; font-size:14px;
-    background:var(--court-soft); color:#FAC7C7; padding:8px 14px; border-radius:10px;
+    background:var(--court-soft); color:var(--court-soft-text); padding:8px 14px; border-radius:10px;
   }
   .hist-title{font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:18px 0 8px; display:flex; justify-content:space-between;}
   .chart{display:flex; align-items:flex-end; gap:5px; height:90px; border-bottom:1px dashed var(--line); position:relative; margin-bottom:6px;}
@@ -3299,7 +3413,7 @@ const CSS = `
   .match-hero-pill.win{background:rgba(93,202,165,.16); color:var(--hit);}
   .match-hero-pill.loss{background:rgba(240,149,149,.16); color:var(--miss);}
   .match-hero-pill.pending{
-    background:var(--court-soft); color:#FAC7C7; text-transform:none; font-weight:700; max-width:150px;
+    background:var(--court-soft); color:var(--court-soft-text); text-transform:none; font-weight:700; max-width:150px;
     white-space:normal; line-height:1.3;
   }
 
