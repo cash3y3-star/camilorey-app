@@ -3173,6 +3173,9 @@ export default function Home({
         sobre la Liga Pro Checa de tenis de mesa. No garantizamos resultados y no gestionamos apuestas ni fondos de
         terceros. Servicio dirigido exclusivamente a mayores de 18 años. Si sientes que el juego deja de ser un
         entretenimiento, busca ayuda profesional. Juega siempre con responsabilidad.
+        <div style={{ marginTop: '10px' }}>
+          <a href="/privacidad">Política de Privacidad</a>
+        </div>
       </footer>
 
       <nav className="bottom-nav">
@@ -3833,6 +3836,7 @@ const CSS = `
     max-width:980px; margin:0 auto; padding:20px 20px 40px; color:var(--muted); font-size:12px; line-height:1.6;
   }
   footer.site strong{color:var(--ink);}
+  footer.site a{color:var(--court); text-decoration:none;}
 
   nav.bottom-nav{
     display:none; position:fixed; bottom:0; left:0; right:0; z-index:50;
