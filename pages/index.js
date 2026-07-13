@@ -2013,6 +2013,47 @@ function TableDecor({ side }) {
   );
 }
 
+// Íconos de línea fina para las filas de Perfil — mismo estilo
+// (trazo simple, sin relleno) que se ve en la mayoría de apps de
+// picks/apuestas, dentro de una insignia circular oscura (ver
+// .profile-row-icon en el CSS).
+function ProfileIcon({ name, size = 20 }) {
+  const common = { viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  if (name === 'edit') {
+    return (
+      <svg {...common}>
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z" />
+      </svg>
+    );
+  }
+  if (name === 'image') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+      </svg>
+    );
+  }
+  if (name === 'bell') {
+    return (
+      <svg {...common}>
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      </svg>
+    );
+  }
+  if (name === 'moon') {
+    return (
+      <svg {...common}>
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+      </svg>
+    );
+  }
+  return null;
+}
+
 function GoogleGIcon({ size = 20 }) {
   return (
     <svg viewBox="0 0 48 48" width={size} height={size}>
@@ -2201,7 +2242,9 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
         </div>
 
         <div className="profile-row profile-row-theme">
-          <span className="profile-row-icon">✏️</span>
+          <span className="profile-row-icon">
+            <ProfileIcon name="edit" />
+          </span>
           <div className="profile-row-body">
             <strong>Nombre</strong>
             <div className="profile-edit-inline">
@@ -2226,7 +2269,9 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
         </div>
 
         <div className="profile-row profile-row-theme">
-          <span className="profile-row-icon">🖼️</span>
+          <span className="profile-row-icon">
+            <ProfileIcon name="image" />
+          </span>
           <div className="profile-row-body">
             <strong>Foto o emoji</strong>
             <p>Elige un emoji, sube tu foto, o deja la de Google.</p>
@@ -2268,7 +2313,9 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
         </div>
 
         <div className="profile-row" onClick={handleActivateNotifs}>
-          <span className="profile-row-icon">🔔</span>
+          <span className="profile-row-icon">
+            <ProfileIcon name="bell" />
+          </span>
           <div className="profile-row-body">
             <strong>Notificaciones</strong>
             <p>
@@ -2285,7 +2332,9 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
         </div>
 
         <div className="profile-row profile-row-theme">
-          <span className="profile-row-icon">🎨</span>
+          <span className="profile-row-icon">
+            <ProfileIcon name="moon" />
+          </span>
           <div className="profile-row-body">
             <strong>Tema</strong>
             <p>Elige cómo se ve CAMILOREY en este dispositivo.</p>
@@ -4128,7 +4177,11 @@ const CSS = `
   .risk-modal-disclaimer{font-size:11px; color:var(--muted); text-align:center; margin:10px 0 0;}
 
   .profile-row{display:flex; align-items:center; gap:12px; padding:14px 0; border-top:1px solid var(--line); cursor:pointer;}
-  .profile-row-icon{font-size:20px; flex:none; width:30px; text-align:center;}
+  .profile-row-icon{
+    width:40px; height:40px; border-radius:50%; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg-alt); border:1px solid var(--line); color:var(--ink);
+  }
   .profile-row-body{flex:1; min-width:0;}
   .profile-row-body strong{display:block; font-size:14px; margin-bottom:2px;}
   .profile-row-body p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.4;}
