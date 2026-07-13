@@ -7,6 +7,10 @@
 //   - el partido termina
 // Guarda en matches.notified_sets_count / notified_finished hasta
 // dónde ya avisó, para no repetir la misma notificación dos veces.
+// Las 4 notificaciones posibles de un mismo partido (arrancó, cada
+// set, terminó) comparten el mismo "tag" (`match-{id}`) — el service
+// worker las manda con renotify:true, así el navegador REEMPLAZA el
+// aviso anterior de ese partido en vez de apilar uno nuevo cada vez.
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -127,7 +131,7 @@ export default async function handler(req, res) {
         const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
           title: '¡Comenzó el partido!',
           body: label,
-          tag: `match-${match.id}-started`,
+          tag: `match-${match.id}`,
           url: '/#seguidos'
         });
         await supabase.from('matches').update({ notified_started: true }).eq('id', match.id);
@@ -143,7 +147,7 @@ export default async function handler(req, res) {
         const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
           title: 'Set terminado',
           body: `${label} · Set ${closedSets.length}: ${lastSet.a}-${lastSet.b}`,
-          tag: `match-${match.id}-set-${closedSets.length}`,
+          tag: `match-${match.id}`,
           url: '/#calendario'
         });
         await supabase.from('matches').update({ notified_sets_count: closedSets.length }).eq('id', match.id);
@@ -167,7 +171,7 @@ export default async function handler(req, res) {
       const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
         title: 'Partido finalizado',
         body: label,
-        tag: `match-${match.id}-final`,
+        tag: `match-${match.id}`,
         url: '/#calendario'
       });
       await supabase.from('matches').update({ notified_finished: true }).eq('id', match.id);
@@ -182,7 +186,7 @@ export default async function handler(req, res) {
       const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
         title: 'Partido finalizado',
         body: label,
-        tag: `match-${match.id}-final`,
+        tag: `match-${match.id}`,
         url: '/#calendario'
       });
       await supabase.from('matches').update({ notified_finished: true }).eq('id', match.id);

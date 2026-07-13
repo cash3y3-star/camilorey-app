@@ -14,6 +14,11 @@ self.addEventListener('push', (event) => {
   const options = {
     body: payload.body || '',
     tag: payload.tag || undefined,
+    // Con el mismo tag, renotify:true hace que el navegador REEMPLACE
+    // el aviso anterior de ese partido (con sonido/vibración de nuevo)
+    // en vez de apilar uno nuevo al lado — sin esto, seguir un partido
+    // de principio a fin dejaba 4-5 notificaciones sueltas.
+    renotify: Boolean(payload.tag),
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
     data: { url: payload.url || '/' }
