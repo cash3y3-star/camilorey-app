@@ -2106,6 +2106,40 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'card') {
+    return (
+      <svg {...common}>
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <line x1="2" y1="10" x2="22" y2="10" />
+      </svg>
+    );
+  }
+  if (name === 'dollar') {
+    return (
+      <svg {...common}>
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    );
+  }
+  if (name === 'globe') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+    );
+  }
+  if (name === 'gift') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="8" width="18" height="4" rx="1" />
+        <path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
+        <path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -2250,15 +2284,10 @@ function LoginModal({ onClose, onLogin }) {
   );
 }
 
-const AVATAR_EMOJI_OPTIONS = ['🏓', '🔥', '⭐', '🎯', '🏆', '💪', '😎', '🚀', '🐉', '🦁', '🐯', '⚡'];
-
 function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAdmin, onClose, onLogout, themePref, onChangeTheme, onProfileUpdated }) {
   const [notifStatus, setNotifStatus] = useState('unknown');
   const [nameInput, setNameInput] = useState(displayName || '');
   const [savingName, setSavingName] = useState(false);
-  const [savingEmoji, setSavingEmoji] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof Notification !== 'undefined') {
@@ -2296,66 +2325,6 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
       return;
     }
     onProfileUpdated({ display_name: trimmed });
-  };
-
-  const saveEmoji = async (emoji) => {
-    if (!supabaseClient) return;
-    setSavingEmoji(true);
-    const { error } = await supabaseClient.from('profiles').upsert({ id: user.id, avatar_emoji: emoji || null });
-    setSavingEmoji(false);
-    if (error) {
-      alert('No se pudo guardar el emoji: ' + error.message);
-      return;
-    }
-    onProfileUpdated({ avatar_emoji: emoji || null });
-  };
-
-  const handlePhotoChange = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !supabaseClient) return;
-    if (!file.type.startsWith('image/')) {
-      alert('Elige un archivo de imagen.');
-      return;
-    }
-    if (file.size > 3 * 1024 * 1024) {
-      alert('La foto no puede pesar más de 3MB.');
-      return;
-    }
-    setUploadingPhoto(true);
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${user.id}/avatar.${ext}`;
-    const { error: upErr } = await supabaseClient.storage
-      .from('user-avatars')
-      .upload(path, file, { upsert: true, cacheControl: '3600' });
-    if (upErr) {
-      setUploadingPhoto(false);
-      alert('No se pudo subir la foto: ' + upErr.message);
-      return;
-    }
-    const { data: pub } = supabaseClient.storage.from('user-avatars').getPublicUrl(path);
-    // Cache-busting con la hora — si no, el navegador puede seguir
-    // mostrando la foto vieja aunque la URL "real" sea la misma.
-    const url = `${pub.publicUrl}?t=${Date.now()}`;
-    const { error: dbErr } = await supabaseClient
-      .from('profiles')
-      .upsert({ id: user.id, custom_avatar_url: url, avatar_emoji: null });
-    setUploadingPhoto(false);
-    if (dbErr) {
-      alert('No se pudo guardar la foto: ' + dbErr.message);
-      return;
-    }
-    onProfileUpdated({ custom_avatar_url: url, avatar_emoji: null });
-  };
-
-  const removePhoto = async () => {
-    if (!supabaseClient) return;
-    const { error } = await supabaseClient.from('profiles').upsert({ id: user.id, custom_avatar_url: null });
-    if (error) {
-      alert('No se pudo quitar la foto: ' + error.message);
-      return;
-    }
-    onProfileUpdated({ custom_avatar_url: null });
   };
 
   const memberSince = user.created_at
@@ -2436,50 +2405,6 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
           </div>
         </div>
 
-        <div className="profile-row profile-row-theme">
-          <span className="profile-row-icon">
-            <ProfileIcon name="image" />
-          </span>
-          <div className="profile-row-body">
-            <strong>Foto o emoji</strong>
-            <p>Elige un emoji, sube tu foto, o deja la de Google.</p>
-            <div className="avatar-emoji-row">
-              {AVATAR_EMOJI_OPTIONS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  className={`avatar-emoji-btn ${avatarEmoji === e ? 'active' : ''}`}
-                  disabled={savingEmoji}
-                  onClick={() => saveEmoji(e)}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-            <div className="avatar-actions-row">
-              <button type="button" className="btn btn-ghost" disabled={uploadingPhoto} onClick={() => fileInputRef.current?.click()}>
-                {uploadingPhoto ? 'Subiendo…' : '📷 Subir foto'}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handlePhotoChange}
-              />
-              {profile?.custom_avatar_url ? (
-                <button type="button" className="btn btn-ghost" onClick={removePhoto}>
-                  Quitar foto
-                </button>
-              ) : avatarEmoji ? (
-                <button type="button" className="btn btn-ghost" disabled={savingEmoji} onClick={() => saveEmoji(null)}>
-                  Quitar emoji
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
         <div className="profile-row" onClick={handleActivateNotifs}>
           <span className="profile-row-icon">
             <ProfileIcon name="bell" />
@@ -2497,6 +2422,31 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
           <span className={`status ${notifStatus === 'granted' ? 'live' : 'soon'}`}>
             {notifStatus === 'granted' ? 'Activas' : 'Activar'}
           </span>
+        </div>
+
+        <div className="profile-row" onClick={() => alert('Suscripción — todavía no hay planes para administrar, muy pronto vas a poder verlos aquí.')}>
+          <span className="profile-row-icon">
+            <ProfileIcon name="card" />
+          </span>
+          <div className="profile-row-body">
+            <strong>Suscripción</strong>
+            <p>Administra tu plan</p>
+          </div>
+          <ProfileIcon name="chevron-right" size={16} />
+        </div>
+
+        <div
+          className="profile-row"
+          onClick={() => alert('Formato de cuotas — por ahora todo el sitio usa formato decimal (ej. 2.23). Otros formatos vienen pronto.')}
+        >
+          <span className="profile-row-icon">
+            <ProfileIcon name="dollar" />
+          </span>
+          <div className="profile-row-body">
+            <strong>Formato de Cuotas</strong>
+            <p>Decimal</p>
+          </div>
+          <ProfileIcon name="chevron-right" size={16} />
         </div>
 
         <div className="profile-row profile-row-theme">
@@ -2525,6 +2475,17 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
           </div>
         </div>
 
+        <div className="profile-row" onClick={() => alert('Por ahora CAMILOREY solo está disponible en español.')}>
+          <span className="profile-row-icon">
+            <ProfileIcon name="globe" />
+          </span>
+          <div className="profile-row-body">
+            <strong>Idioma</strong>
+            <p>Español</p>
+          </div>
+          <ProfileIcon name="chevron-right" size={16} />
+        </div>
+
         <a className="profile-row" href="/privacidad" target="_blank" rel="noopener noreferrer">
           <span className="profile-row-icon">
             <ProfileIcon name="shield" />
@@ -2546,6 +2507,17 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </a>
+
+        <div className="profile-row" onClick={() => alert('Invita y recibe — todavía no existe, pero está en camino. Muy pronto vas a poder invitar amigos desde aquí.')}>
+          <span className="profile-row-icon">
+            <ProfileIcon name="gift" />
+          </span>
+          <div className="profile-row-body">
+            <strong>Invita y recibe</strong>
+            <p>Comparte tu código, gana recompensas</p>
+          </div>
+          <ProfileIcon name="chevron-right" size={16} />
+        </div>
 
         <button
           className="btn btn-ghost risk-modal-btn"
@@ -4451,16 +4423,6 @@ const CSS = `
     padding:9px 12px; color:var(--ink); font-family:var(--font-body); font-size:13.5px;
   }
   .profile-name-input:focus{outline:none; border-color:var(--court);}
-  .avatar-emoji-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
-  .avatar-emoji-btn{
-    width:34px; height:34px; border-radius:10px; font-size:17px; flex:none;
-    background:var(--bg-alt); border:1px solid var(--line); cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .avatar-emoji-btn.active{border-color:var(--court); background:var(--court-soft);}
-  .avatar-emoji-btn:disabled{opacity:.5; cursor:not-allowed;}
-  .avatar-actions-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
-  .avatar-actions-row .btn{font-size:12.5px; padding:8px 14px;}
 
   .login-modal{text-align:center; padding-top:36px;}
   .login-modal-close{position:absolute; top:16px; right:16px;}
