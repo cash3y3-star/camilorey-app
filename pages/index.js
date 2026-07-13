@@ -2051,6 +2051,38 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'shield') {
+    return (
+      <svg {...common}>
+        <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      </svg>
+    );
+  }
+  if (name === 'chart') {
+    return (
+      <svg {...common}>
+        <line x1="18" y1="20" x2="18" y2="10" />
+        <line x1="12" y1="20" x2="12" y2="4" />
+        <line x1="6" y1="20" x2="6" y2="14" />
+      </svg>
+    );
+  }
+  if (name === 'eye') {
+    return (
+      <svg {...common}>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
+  if (name === 'lock') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="11" width="18" height="11" rx="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -2074,6 +2106,93 @@ function GoogleGIcon({ size = 20 }) {
         d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 30.8 44 24c0-1.3-.1-2.7-.4-3.5z"
       />
     </svg>
+  );
+}
+
+// Aviso de privacidad — se muestra UNA vez por navegador la primera
+// vez que alguien inicia sesión (marcado en localStorage), con el
+// mismo formato de "3 puntos numerados" que se pidió replicar de otra
+// app. El contenido es real: describe exactamente lo que
+// /privacidad ya documenta, no texto genérico de relleno.
+function PrivacyConsentModal({ onClose }) {
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal">
+        <div className="risk-modal-head">
+          <div className="risk-modal-icon">
+            <ProfileIcon name="shield" size={22} />
+          </div>
+          <div>
+            <div className="risk-modal-eyebrow">CAMILOREY · PRIVACIDAD</div>
+            <h3 style={{ fontSize: '19px', margin: 0 }}>Tus datos, tu decisión</h3>
+          </div>
+        </div>
+
+        <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 6px' }}>
+          Guardamos lo mínimo para que el sitio funcione. Nada de esto se vende ni se comparte con nadie fuera de
+          Google, Supabase y Vercel (quienes hacen funcionar el sitio).
+        </p>
+
+        <div className="risk-tip">
+          <div className="consent-tip-col">
+            <div className="consent-tip-icon">
+              <ProfileIcon name="chart" />
+            </div>
+            <span className="consent-tip-num">01</span>
+          </div>
+          <div>
+            <strong>Qué recopilamos</strong>
+            <p>
+              Tu nombre, correo y foto de Google al iniciar sesión, los picks que sigues, y lo que personalices en tu
+              perfil. No pedimos datos de tarjetas ni gestionamos apuestas.
+            </p>
+          </div>
+        </div>
+
+        <div className="risk-tip">
+          <div className="consent-tip-col">
+            <div className="consent-tip-icon">
+              <ProfileIcon name="eye" />
+            </div>
+            <span className="consent-tip-num">02</span>
+          </div>
+          <div>
+            <strong>Cómo lo usamos</strong>
+            <p>
+              Para mostrar tu sesión, tus picks seguidos, avisarte cuando termine un partido que sigues, y el chat en
+              vivo. Nada más.
+            </p>
+          </div>
+        </div>
+
+        <div className="risk-tip">
+          <div className="consent-tip-col">
+            <div className="consent-tip-icon">
+              <ProfileIcon name="lock" />
+            </div>
+            <span className="consent-tip-num">03</span>
+          </div>
+          <div>
+            <strong>Tu control</strong>
+            <p>
+              Cambia tu nombre, foto o notificaciones cuando quieras desde tu Perfil. Escríbenos si quieres que
+              borremos tu cuenta.
+            </p>
+          </div>
+        </div>
+
+        <button className="btn btn-ball risk-modal-btn" onClick={onClose}>
+          Aceptar
+        </button>
+        <p className="risk-modal-disclaimer">
+          Puedes ver el detalle completo en la{' '}
+          <a href="/privacidad" target="_blank" rel="noopener noreferrer">
+            Política de Privacidad
+          </a>
+          .
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -2454,6 +2573,20 @@ export default function Home({
   const [bankrollTab, setBankrollTab] = useState('slip');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // Aviso de privacidad — una vez por navegador, la primera vez que
+  // alguien inicia sesión (no antes, porque sin cuenta no guardamos
+  // nada suyo todavía).
+  const [showPrivacyConsent, setShowPrivacyConsent] = useState(false);
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return;
+    if (!window.localStorage.getItem('camilorey_privacy_seen')) setShowPrivacyConsent(true);
+  }, [user]);
+  const dismissPrivacyConsent = () => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_privacy_seen', '1');
+    setShowPrivacyConsent(false);
+  };
+
   // Banco de PLANEACIÓN (para el Slip Kelly) — separado del balance
   // real de "Rendimiento". Arranca igual al balance real, pero es
   // editable a mano para simular con otro monto. Se guarda en el
@@ -3692,6 +3825,8 @@ export default function Home({
       {showLoginModal && (
         <LoginModal onClose={() => setShowLoginModal(false)} onLogin={loginWithGoogle} />
       )}
+
+      {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} />}
     </>
   );
 }
@@ -4175,6 +4310,14 @@ const CSS = `
   .risk-tip p{margin:0; font-size:13px; color:var(--muted); line-height:1.5;}
   .risk-modal-btn{width:100%; justify-content:center; margin-top:16px; padding:13px;}
   .risk-modal-disclaimer{font-size:11px; color:var(--muted); text-align:center; margin:10px 0 0;}
+  .risk-modal-disclaimer a{color:var(--court);}
+
+  .consent-tip-col{display:flex; flex-direction:column; align-items:center; gap:4px; flex:none; width:40px;}
+  .consent-tip-icon{
+    width:40px; height:40px; border-radius:50%; background:var(--bg-alt); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; color:var(--ink);
+  }
+  .consent-tip-num{font-family:var(--font-mono); font-size:10px; color:var(--muted);}
 
   .profile-row{display:flex; align-items:center; gap:12px; padding:14px 0; border-top:1px solid var(--line); cursor:pointer;}
   .profile-row-icon{
