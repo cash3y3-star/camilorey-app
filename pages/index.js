@@ -3079,6 +3079,14 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'trending-up') {
+    return (
+      <svg {...common}>
+        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+        <polyline points="16 7 22 7 22 13" />
+      </svg>
+    );
+  }
   if (name === 'layers') {
     return (
       <svg {...common}>
@@ -4635,18 +4643,20 @@ export default function Home({
 
         {isAdmin && (
         <section className={`view ${view === 'bankroll' ? 'active' : ''}`}>
-          <span className="eyebrow">🛡️ Planificación con Kelly</span>
+          <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <ProfileIcon name="shield" size={13} /> Planificación con Kelly
+          </span>
           <h1 className="page-title">Bankroll</h1>
 
           <div className="tabs">
             <div className={`tab ${bankrollTab === 'slip' ? 'active' : ''}`} onClick={() => setBankrollTab('slip')}>
-              📋 Slip
+              <ProfileIcon name="file" size={14} /> Slip
             </div>
             <div
               className={`tab ${bankrollTab === 'rendimiento' ? 'active' : ''}`}
               onClick={() => setBankrollTab('rendimiento')}
             >
-              📈 Rendimiento
+              <ProfileIcon name="trending-up" size={14} /> Rendimiento
             </div>
           </div>
 
@@ -4728,12 +4738,20 @@ export default function Home({
                   </div>
 
                   <div className="section-head">
-                    <h2>Selecciones individuales</h2>
+                    <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <ProfileIcon name="layers" size={17} /> Selecciones individuales
+                    </h2>
                     <span className="see-all">{rows.length} picks</span>
                   </div>
 
                   {rows.length === 0 ? (
-                    <p className="page-sub">Sigue algunos picks para ver sugerencias de planificación con Kelly aquí.</p>
+                    <div className="premium-lock-card">
+                      <div className="premium-lock-icon">
+                        <ProfileIcon name="layers" size={22} />
+                      </div>
+                      <h3>Sin picks activos</h3>
+                      <p>Sigue algunos picks para ver sugerencias de planificación con Kelly aquí.</p>
+                    </div>
                   ) : (
                     <table className="bk">
                       <thead>
@@ -5635,6 +5653,7 @@ const CSS = `
   .tab{
     font-size:13px; font-weight:700; padding:8px 16px; border-radius:999px;
     border:1px solid var(--line); background:var(--card); cursor:pointer; color:var(--muted);
+    display:inline-flex; align-items:center; gap:6px;
   }
   .tab.active{background:var(--court); color:#fff; border-color:var(--court);}
 
