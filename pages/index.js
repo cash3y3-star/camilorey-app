@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 import { logError } from '../lib/logError';
@@ -1679,17 +1679,12 @@ function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = ''
   );
 }
 
-function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsFormat = 'decimal' }) {
-  // Solo los picks que vienen de /api/followed-detail traen matchStatus
-  // + sourceId — para los demás (Inicio/Picks normales) esto no hace
-  // nada y el centro sigue mostrando "VS" como siempre.
-  const live = useLiveScore({
-    status: pick.matchStatus,
-    playerA: pick.player,
-    playerB: pick.opponent,
-    tournamentId: pick.tournamentId,
-    sourceId: pick.sourceId
-  });
+// "live" llega como prop, ya resuelto por Home en un solo poller
+// compartido (ver liveScores más abajo) — antes cada PickCard/MatchRow
+// en pantalla pedía su propio marcador cada 8s por separado, así que
+// con varios partidos en vivo a la vez se disparaban pedidos
+// duplicados al mismo endpoint una y otra vez.
+function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsFormat = 'decimal', live }) {
   let liveSetsWonA = null;
   let liveSetsWonB = null;
   if (pick.matchStatus === 'live' && live) {
@@ -1899,54 +1894,9 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
   );
 }
 
-// Mientras el partido está en vivo, consulta el marcador real cada
-// 8s (mismo endpoint que usa el modal de detalle) para mostrarlo
-// directo en la tarjeta de Calendario, sin tener que abrirla.
-function useLiveScore(m) {
-  const [live, setLive] = useState(null);
-
-  useEffect(() => {
-    if (m.status !== 'live') {
-      setLive(null);
-      return undefined;
-    }
-    let cancelled = false;
-
-    async function poll() {
-      // No tiene sentido gastar red/CPU consultando el marcador en
-      // vivo mientras la pestaña está en segundo plano — se retoma
-      // solo cuando alguien vuelve a mirarla.
-      if (document.visibilityState === 'hidden') return;
-      const params = new URLSearchParams();
-      if (m.playerA) params.set('playerA', m.playerA);
-      if (m.playerB) params.set('playerB', m.playerB);
-      if (m.tournamentId) params.set('tournamentId', m.tournamentId);
-      if (m.sourceId) params.set('matchId', m.sourceId);
-      try {
-        const res = await fetch(`/api/live-match?${params.toString()}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled) setLive(data);
-      } catch (e) {
-        // silencioso — se queda con el último dato válido hasta el próximo intento
-      }
-    }
-
-    poll();
-    const interval = setInterval(poll, 8000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [m.status, m.playerA, m.playerB, m.tournamentId, m.sourceId]);
-
-  return live;
-}
-
 // Tarjeta de doble foto.
-function MatchRow({ m, onClick, followed, onToggleFollow }) {
+function MatchRow({ m, onClick, followed, onToggleFollow, live }) {
   const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Pendiente';
-  const live = useLiveScore(m);
 
   // Mientras está en vivo, el centro de la tarjeta muestra sets
   // ganados por cada lado en vez de "VS" — se cuenta a partir de los
@@ -4238,6 +4188,74 @@ export default function Home({
     };
   }, [view]);
 
+  // Marcador en vivo, centralizado — antes cada PickCard/MatchRow en
+  // pantalla pedía su propio marcador cada 8s (useLiveScore, ya
+  // eliminado), así que con varios partidos en vivo a la vez (y como
+  // TODAS las secciones están montadas siempre, aunque solo una se
+  // vea) se disparaban pedidos duplicados al mismo partido una y otra
+  // vez. Ahora se arma UNA sola lista de partidos en vivo (sin
+  // repetir, por sourceId) a partir de matches/picks/followedDetail,
+  // y se pide el marcador de cada uno una sola vez por ciclo de 8s.
+  const liveMatchItems = useMemo(() => {
+    const map = new Map();
+    const consider = (sourceId, playerA, playerB, tournamentId, status) => {
+      if (status === 'live' && sourceId && !map.has(sourceId)) {
+        map.set(sourceId, { sourceId, playerA, playerB, tournamentId });
+      }
+    };
+    for (const m of matches) consider(m.sourceId, m.playerA, m.playerB, m.tournamentId, m.status);
+    for (const p of picks) consider(p.sourceId, p.player, p.opponent, p.tournamentId, p.matchStatus);
+    for (const p of followedDetail) consider(p.sourceId, p.player, p.opponent, p.tournamentId, p.matchStatus);
+    return map;
+  }, [matches, picks, followedDetail]);
+  const liveKeysSignature = [...liveMatchItems.keys()].sort().join(',');
+
+  const [liveScores, setLiveScores] = useState({});
+  useEffect(() => {
+    if (liveMatchItems.size === 0) {
+      setLiveScores({});
+      return undefined;
+    }
+    let cancelled = false;
+
+    async function poll() {
+      if (document.visibilityState === 'hidden') return;
+      const results = await Promise.all(
+        [...liveMatchItems.values()].map(async (info) => {
+          try {
+            const params = new URLSearchParams();
+            if (info.playerA) params.set('playerA', info.playerA);
+            if (info.playerB) params.set('playerB', info.playerB);
+            if (info.tournamentId) params.set('tournamentId', info.tournamentId);
+            params.set('matchId', info.sourceId);
+            const res = await fetch(`/api/live-match?${params.toString()}`);
+            if (!res.ok) return [info.sourceId, null];
+            const data = await res.json();
+            return [info.sourceId, data];
+          } catch (e) {
+            return [info.sourceId, null];
+          }
+        })
+      );
+      if (cancelled) return;
+      setLiveScores((prev) => {
+        const next = { ...prev };
+        for (const [key, data] of results) {
+          if (data) next[key] = data;
+        }
+        return next;
+      });
+    }
+
+    poll();
+    const interval = setInterval(poll, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveKeysSignature]);
+
   useEffect(() => {
     if (!supabaseClient) return undefined;
     supabaseClient.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
@@ -4829,6 +4847,7 @@ export default function Home({
                 onToggleFollow={toggleFollow}
                 featured
                 oddsFormat={oddsFormat}
+                live={liveScores[featured.sourceId]}
               />
             </>
           ) : (
@@ -4849,6 +4868,7 @@ export default function Home({
                   onClick={() => setModalMatch(m)}
                   followed={m.pickId ? followedPickIds.has(m.pickId) : false}
                   onToggleFollow={toggleFollow}
+                  live={liveScores[m.sourceId]}
                 />
               ))}
             </>
@@ -4891,6 +4911,7 @@ export default function Home({
                   followed={followedPickIds.has(p.id)}
                   onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
                   oddsFormat={oddsFormat}
+                  live={liveScores[p.sourceId]}
                 />
               ))
             )}
@@ -4941,6 +4962,7 @@ export default function Home({
                   onClick={() => setModalMatch(m)}
                   followed={m.pickId ? followedPickIds.has(m.pickId) : false}
                   onToggleFollow={toggleFollow}
+                  live={liveScores[m.sourceId]}
                 />
               ))
             )}
