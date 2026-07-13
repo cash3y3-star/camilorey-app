@@ -1200,7 +1200,8 @@ export async function getServerSideProps({ query }) {
       h2hMatches: form.h2hMatches,
       score,
       setScores,
-      result: pick.result
+      result: pick.result,
+      matchStatus: 'done'
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
