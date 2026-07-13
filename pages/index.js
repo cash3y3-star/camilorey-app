@@ -3147,6 +3147,23 @@ export default function Home({
             </div>
           </div>
 
+          {featured ? (
+            <>
+              <div className="section-head">
+                <h2>Pick destacado del día</h2>
+              </div>
+              <PickCard
+                pick={featured}
+                onClick={() => setModalPick(featured)}
+                followed={followedPickIds.has(featured.id)}
+                onToggleFollow={toggleFollow}
+                featured
+              />
+            </>
+          ) : (
+            <p className="page-sub">No hay picks activos en este momento.</p>
+          )}
+
           {liveMatches.length > 0 ? (
             <>
               <div className="section-head">
@@ -3165,23 +3182,6 @@ export default function Home({
               ))}
             </>
           ) : null}
-
-          {featured ? (
-            <>
-              <div className="section-head">
-                <h2>Pick destacado del día</h2>
-              </div>
-              <PickCard
-                pick={featured}
-                onClick={() => setModalPick(featured)}
-                followed={followedPickIds.has(featured.id)}
-                onToggleFollow={toggleFollow}
-                featured
-              />
-            </>
-          ) : (
-            <p className="page-sub">No hay picks activos en este momento.</p>
-          )}
 
           <div className="section-head">
             <a href="#picks" className="see-all">
