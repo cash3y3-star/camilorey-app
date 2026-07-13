@@ -3842,6 +3842,13 @@ const RISK_LEVELS = {
 // vuelve a quedar detrás del candado premium para quien no sea admin.
 const MIBANKROLL_TRIAL_END = new Date('2026-07-20T23:59:59-05:00').getTime();
 
+// Prueba cerrada del sitio completo: hasta esta fecha, solo entran el
+// admin y quien esté en la tabla "beta_access" (Supabase). Pasada esta
+// fecha, entra ÚNICAMENTE el admin — nadie más, ni siquiera la gente
+// que sí estaba en la lista — hasta que se suba una fecha nueva acá a
+// mano para reabrir la prueba o lanzar el sitio de verdad.
+const BETA_GATE_END = new Date('2026-07-14T20:25:00-05:00').getTime();
+
 export default function Home({
   stats: initialStats,
   picks: initialPicks,
@@ -4242,6 +4249,39 @@ export default function Home({
   };
 
   const isAdmin = Boolean(user?.email && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
+
+  // Prueba cerrada: mientras estemos antes de BETA_GATE_END, cualquier
+  // correo de la tabla beta_access entra también, no solo el admin.
+  // Pasada esa fecha, betaAllowed solo puede ser true si isAdmin.
+  const [betaChecked, setBetaChecked] = useState(false);
+  const [betaAllowed, setBetaAllowed] = useState(false);
+  useEffect(() => {
+    if (isAdmin) {
+      setBetaAllowed(true);
+      setBetaChecked(true);
+      return undefined;
+    }
+    if (!user || !supabaseClient || Date.now() >= BETA_GATE_END) {
+      setBetaAllowed(false);
+      setBetaChecked(true);
+      return undefined;
+    }
+    let cancelled = false;
+    supabaseClient
+      .from('beta_access')
+      .select('email')
+      .eq('email', user.email)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setBetaAllowed(Boolean(data));
+        setBetaChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isAdmin]);
+
   const featured = picks.find((p) => p.featured) || picks[0] || null;
 
   // Estadísticas del modelo (¿la confianza que calculamos de verdad
@@ -4400,6 +4440,106 @@ export default function Home({
       {label}
     </a>
   );
+
+  // Prueba cerrada: mientras no se confirme acceso, no se monta NADA
+  // del resto de la app (ni el header, ni las secciones) — solo esta
+  // pantalla mínima, autocontenida (no depende del <style>{CSS}</style>
+  // de más abajo porque nunca se llega a esa parte del árbol).
+  if (!betaChecked) {
+    return (
+      <>
+        <Head>
+          <title>CAMILOREY</title>
+        </Head>
+        <div style={{ minHeight: '100vh', background: '#0E0D0C' }}></div>
+      </>
+    );
+  }
+  if (!betaAllowed) {
+    return (
+      <>
+        <Head>
+          <title>CAMILOREY</title>
+          <meta name="robots" content="noindex" />
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link
+            href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=Manrope:wght@400;600;700&display=swap"
+            rel="stylesheet"
+          />
+        </Head>
+        <div
+          style={{
+            minHeight: '100vh',
+            background: '#0E0D0C',
+            color: '#F5F1EC',
+            fontFamily: "'Manrope', sans-serif",
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            textAlign: 'center'
+          }}
+        >
+          <div style={{ maxWidth: '380px' }}>
+            <div style={{ fontSize: '34px', marginBottom: '14px' }}>🔒</div>
+            <h1
+              style={{
+                fontFamily: "'Big Shoulders Display', sans-serif",
+                fontWeight: 800,
+                fontSize: '26px',
+                margin: '0 0 10px'
+              }}
+            >
+              CAMILOREY
+            </h1>
+            <p style={{ color: '#948C83', fontSize: '14.5px', lineHeight: 1.6, margin: '0 0 22px' }}>
+              {!user
+                ? 'El sitio está en pruebas cerradas por ahora. Inicia sesión con Google para ver si tenés acceso.'
+                : 'Tu cuenta todavía no tiene acceso — el sitio está en pruebas cerradas por ahora.'}
+            </p>
+            {!user ? (
+              <button
+                onClick={loginWithGoogle}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  background: '#1B1917',
+                  border: '1px solid #2B2724',
+                  borderRadius: '12px',
+                  padding: '13px 22px',
+                  color: '#F5F1EC',
+                  fontFamily: "'Manrope', sans-serif",
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                <GoogleGIcon size={18} /> Iniciar sesión con Google
+              </button>
+            ) : (
+              <button
+                onClick={logout}
+                style={{
+                  background: 'none',
+                  border: '1px solid #2B2724',
+                  borderRadius: '12px',
+                  padding: '11px 20px',
+                  color: '#948C83',
+                  fontFamily: "'Manrope', sans-serif",
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cerrar sesión
+              </button>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
