@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 
-const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos'];
+const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos', 'modelo'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 
@@ -1669,6 +1669,103 @@ function PickDetailModal({ pick, onClose }) {
 // muestra tt.league-pro.com dentro de cada torneo: una fila por
 // jugador, una columna por cada rival con el marcador de sets de ese
 // cruce, y el total de sets + puesto a la derecha.
+const MODEL_FACTOR_LABEL = { ratingScore: 'Rating', streakScore: 'Racha', h2hScore: 'H2H' };
+
+// Si el intervalo de confianza 95% (Wilson) NO cruza el 50%, el
+// resultado ya es estadísticamente distinguible de una moneda al aire
+// (para bien o para mal). Si lo cruza, todavía no hay muestra
+// suficiente para saberlo — no es lo mismo que "no funciona".
+function ModelStatsView({ stats }) {
+  const [loWilson, hiWilson] = stats.wilson95;
+  const verdict = loWilson > 0.5 ? 'better' : hiWilson < 0.5 ? 'worse' : 'unknown';
+  const verdictLabel =
+    verdict === 'better'
+      ? '✅ Mejor que el azar (estadísticamente)'
+      : verdict === 'worse'
+      ? '⚠️ Peor que el azar (estadísticamente)'
+      : '⏳ Todavía no se puede distinguir del azar';
+
+  return (
+    <>
+      <div className="stat-strip stat-strip-3">
+        <div className="stat-card">
+          <div className="label">Picks resueltos</div>
+          <div className="value num">{stats.n}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Efectividad</div>
+          <div className="value hit num">{Math.round(stats.hitRate * 100)}%</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">IC 95% (Wilson)</div>
+          <div className="value num">
+            {Math.round(loWilson * 100)}–{Math.round(hiWilson * 100)}%
+          </div>
+        </div>
+      </div>
+
+      <div className={`model-verdict model-verdict-${verdict}`}>{verdictLabel}</div>
+
+      <div className="section-head">
+        <h2>Por rango de confianza</h2>
+      </div>
+      <div className="stat-rows">
+        {stats.buckets.map((b) => (
+          <div className="stat-row" key={b.range}>
+            <div className="stat-row-top">
+              <span className="stat-row-label">Confianza {b.range}%</span>
+              <span className="stat-row-value num">
+                {b.n === 0 ? 'Sin datos' : `${Math.round(b.hitRate * 100)}% (n=${b.n})`}
+              </span>
+            </div>
+            {b.n > 0 ? (
+              <div className="stat-row-bar">
+                <div className="stat-row-bar-fill" style={{ width: `${Math.round(b.hitRate * 100)}%` }}></div>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="section-head">
+        <h2>Peso de cada factor</h2>
+      </div>
+      <p className="page-sub">Promedio del aporte de cada factor cuando el pick acertó vs. cuando falló.</p>
+      <div className="stat-rows">
+        {Object.entries(stats.factorAvg).map(([key, v]) => (
+          <div className="stat-row" key={key}>
+            <div className="stat-row-top">
+              <span className="stat-row-label">{MODEL_FACTOR_LABEL[key] || key}</span>
+              <span className="stat-row-value num">
+                acierto {v.avgOnHit.toFixed(2)} · fallo {v.avgOnMiss.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="section-head">
+        <h2>Últimos {stats.recentSequence.length} resueltos</h2>
+      </div>
+      <div className="form-list">
+        {stats.recentSequence.map((r, i) => (
+          <div className="form-list-row" key={i}>
+            <div className="form-list-meta">
+              <span className="form-list-date">{shortDate(r.date)}</span>
+              <span className="form-list-ft">Índice IA</span>
+            </div>
+            <div className="form-list-opp">
+              confianza
+              <span className="form-list-score num">{r.confidence}%</span>
+            </div>
+            <span className={`form-list-badge ${r.win ? 'win' : 'loss'}`}>{r.win ? 'W' : 'L'}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function GroupTable({ group }) {
   return (
     <div className="standings-card">
@@ -2262,6 +2359,32 @@ export default function Home({
   const isAdmin = Boolean(user?.email && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
   const featured = picks.find((p) => p.featured) || picks[0] || null;
 
+  // Estadísticas del modelo (¿la confianza que calculamos de verdad
+  // predice mejor que una moneda al aire?) — solo se consulta cuando
+  // el admin entra a esa pestaña, no en cada carga de página.
+  const [modelStats, setModelStats] = useState(null);
+  const [modelStatsError, setModelStatsError] = useState(null);
+  useEffect(() => {
+    if (view !== 'modelo' || !isAdmin || !supabaseClient) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/model-stats', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok) setModelStatsError(data.error || 'Error cargando estadísticas del modelo.');
+        else setModelStats(data);
+      } catch (e) {
+        if (!cancelled) setModelStatsError(e.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isAdmin]);
+
   const tabPicks =
     pickTab === 'pendientes'
       ? picks
@@ -2353,6 +2476,7 @@ export default function Home({
           {navLink('seguidos', 'Seguidos')}
           {isAdmin ? navLink('bankroll', 'Bankroll') : null}
           {isAdmin ? navLink('grupos', 'Grupos') : null}
+          {isAdmin ? navLink('modelo', 'Modelo') : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className="badge18">+18 · Juega con cabeza</span>
@@ -2782,6 +2906,23 @@ export default function Home({
         </section>
         )}
 
+        {isAdmin && (
+        <section className={`view ${view === 'modelo' ? 'active' : ''}`}>
+          <span className="eyebrow">Solo tú ves esto</span>
+          <h1 className="page-title">Modelo</h1>
+          <p className="page-sub">¿La confianza que calculamos de verdad predice mejor que una moneda al aire?</p>
+          {modelStatsError ? (
+            <p className="page-sub">Error: {modelStatsError}</p>
+          ) : !modelStats ? (
+            <p className="page-sub">Cargando…</p>
+          ) : modelStats.n === 0 ? (
+            <p className="page-sub">Todavía no hay picks resueltos.</p>
+          ) : (
+            <ModelStatsView stats={modelStats} />
+          )}
+        </section>
+        )}
+
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">Tus picks seguidos</span>
           <h1 className="page-title">Seguidos</h1>
@@ -2866,6 +3007,15 @@ export default function Home({
               <rect x="14" y="14" width="7" height="7" rx="1" />
             </svg>
             Grupos
+          </a>
+        ) : null}
+        {isAdmin ? (
+          <a href="#modelo" className={view === 'modelo' ? 'active' : ''}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 3v18h18" />
+              <path d="M7 14l4-5 4 3 5-7" />
+            </svg>
+            Modelo
           </a>
         ) : null}
       </nav>
@@ -3450,6 +3600,13 @@ const CSS = `
   .stat-row-value{color:var(--ink); font-weight:800; font-size:14px;}
   .stat-row-bar{height:6px; border-radius:999px; background:var(--line); overflow:hidden; margin-top:6px;}
   .stat-row-bar-fill{height:100%; border-radius:999px; background:var(--court);}
+
+  .model-verdict{
+    font-weight:700; font-size:14px; padding:12px 16px; border-radius:12px; margin:4px 0 22px;
+  }
+  .model-verdict-better{background:rgba(93,202,165,.14); color:var(--hit);}
+  .model-verdict-worse{background:rgba(240,149,149,.14); color:var(--miss);}
+  .model-verdict-unknown{background:var(--bg-alt); color:var(--muted); border:1px solid var(--line);}
 
   footer.site{
     max-width:980px; margin:0 auto; padding:20px 20px 40px; color:var(--muted); font-size:12px; line-height:1.6;
