@@ -1671,7 +1671,7 @@ function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = ''
     <div className={`avatar ${className}`} style={{ '--tone': SIDE_TONE[side] }}>
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+        <img src={avatarUrl} alt="" referrerPolicy="no-referrer" loading="lazy" />
       ) : (
         initials
       )}
@@ -1851,7 +1851,7 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
       <div className="followed-photo">
         {pick.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={pick.avatarUrl} alt="" referrerPolicy="no-referrer" />
+          <img src={pick.avatarUrl} alt="" referrerPolicy="no-referrer" loading="lazy" />
         ) : (
           <span className="followed-photo-initials">{pick.initials}</span>
         )}
@@ -1913,6 +1913,10 @@ function useLiveScore(m) {
     let cancelled = false;
 
     async function poll() {
+      // No tiene sentido gastar red/CPU consultando el marcador en
+      // vivo mientras la pestaña está en segundo plano — se retoma
+      // solo cuando alguien vuelve a mirarla.
+      if (document.visibilityState === 'hidden') return;
       const params = new URLSearchParams();
       if (m.playerA) params.set('playerA', m.playerA);
       if (m.playerB) params.set('playerB', m.playerB);
@@ -2192,6 +2196,7 @@ function MatchDetailModal({ m, onClose, user, profile, lang }) {
     let cancelled = false;
 
     async function poll() {
+      if (document.visibilityState === 'hidden') return;
       const params = new URLSearchParams();
       if (m.playerA) params.set('playerA', m.playerA);
       if (m.playerB) params.set('playerB', m.playerB);
@@ -4162,6 +4167,7 @@ export default function Home({
     let cancelled = false;
 
     async function load() {
+      if (document.visibilityState === 'hidden') return;
       try {
         const params = currentDateStr ? `?date=${currentDateStr}` : '';
         const r = await fetch(`/api/matches-status${params}`);
@@ -4190,6 +4196,7 @@ export default function Home({
     let cancelled = false;
 
     async function load() {
+      if (document.visibilityState === 'hidden') return;
       try {
         const r = await fetch('/api/refresh-data');
         const data = await r.json();
@@ -4294,6 +4301,7 @@ export default function Home({
     let cancelled = false;
 
     async function load() {
+      if (document.visibilityState === 'hidden') return;
       try {
         const r = await fetch(`/api/followed-detail?ids=${[...followedPickIds].join(',')}`);
         const data = await r.json();
