@@ -4067,6 +4067,10 @@ const CSS = `
     padding:16px; box-shadow:var(--shadow); cursor:pointer; position:relative;
     transition:border-color .15s, transform .12s;
   }
+  /* .pick-card vive dentro de .pick-grid, que ya trae su propio gap
+     — el margin va solo en .match-card, que se usa suelto (Calendario
+     e Inicio "En vivo ahora") sin ningún contenedor con gap. */
+  .match-card{margin-bottom:10px;}
   .pick-card:hover, .match-card:hover{border-color:var(--court); transform:translateY(-1px);}
   .pick-card-featured{border-color:var(--court); box-shadow:0 8px 22px rgba(226,68,74,.18);}
   .follow-btn{
