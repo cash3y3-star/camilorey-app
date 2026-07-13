@@ -127,7 +127,68 @@ const TRANSLATIONS = {
 
     footerDisclaimer:
       'ofrece análisis y opiniones propias con fines informativos y de entretenimiento sobre la Liga Pro Checa de tenis de mesa. No garantizamos resultados y no gestionamos apuestas ni fondos de terceros. Servicio dirigido exclusivamente a mayores de 18 años. Si sientes que el juego deja de ser un entretenimiento, busca ayuda profesional. Juega siempre con responsabilidad.',
-    politicaPrivacidad: 'Política de Privacidad'
+    politicaPrivacidad: 'Política de Privacidad',
+
+    loginTitle: 'Iniciar sesión',
+    loginSub: 'Utiliza tu cuenta de Google para continuar',
+    loginBtnGoogle: 'Iniciar sesión con Google',
+    loginNote: 'No almacenamos tu contraseña. Autenticación segura con Google.',
+
+    privacyEyebrow: 'CAMILOREY · PRIVACIDAD',
+    privacyTitle: 'Tus datos, tu decisión',
+    privacyIntro:
+      'Guardamos lo mínimo para que el sitio funcione. Nada de esto se vende ni se comparte con nadie fuera de Google, Supabase y Vercel (quienes hacen funcionar el sitio).',
+    privacy1Title: 'Qué recopilamos',
+    privacy1Desc:
+      'Tu nombre, correo y foto de Google al iniciar sesión, los picks que sigues, y lo que personalices en tu perfil. No pedimos datos de tarjetas ni gestionamos apuestas.',
+    privacy2Title: 'Cómo lo usamos',
+    privacy2Desc:
+      'Para mostrar tu sesión, tus picks seguidos, avisarte cuando termine un partido que sigues, y el chat en vivo. Nada más.',
+    privacy3Title: 'Tu control',
+    privacy3Desc: 'Cambia tu nombre, foto o notificaciones cuando quieras desde tu Perfil. Escríbenos si quieres que borremos tu cuenta.',
+    aceptar: 'Aceptar',
+    privacyFootnote: 'Puedes ver el detalle completo en la',
+
+    riskEyebrow: 'Gestión de riesgo',
+    riskSiguiendo: 'Estás siguiendo',
+    riskPick: 'pick',
+    riskPicks: 'picks',
+    entendido: '✓ Entendido',
+    riskDisclaimer: 'Esto no es asesoría financiera. Usa estos datos con responsabilidad.',
+
+    tabResumen: 'Resumen',
+    tabEstadisticas: 'Estadísticas',
+    tabAnalisis: 'Análisis',
+    tabH2H: 'H2H',
+    sets: 'Sets',
+    indiceIA: 'Índice IA',
+    cuotaRushbet: 'Cuota (Rushbet)',
+    racha: 'Racha',
+    noDisponible: 'No disponible',
+    sinVentaja: 'Sin ventaja — Kelly no apostó',
+    acierto: 'Acierto',
+    fallado: 'Fallado',
+    ultimos: 'Últimos',
+    partidosPl: 'partidos',
+    victorias: 'victorias',
+    derrotas: 'derrotas',
+    sinHistorial: 'Sin historial reciente todavía.',
+    h2hContra: 'H2H contra',
+    sinEnfrentamientos: 'Todavía no se han enfrentado.',
+    buscandoMarcador: 'Buscando marcador…',
+    resultadoFinal: 'Resultado final:',
+    partidoNoEmpieza: 'Este partido todavía no empieza.',
+    formaReciente: 'Forma reciente ·',
+    partidoDetallado: 'Partido detallado',
+    partidoTerminadoRecarga: 'Partido terminado — recarga la página para ver el resultado final.',
+    corriendo: 'corriendo',
+    pausado: 'pausado',
+    ahora: 'Ahora',
+    rushbetSinTablero: 'Rushbet no tiene este partido en su tablero en vivo — mostrando el marcador de tt.league-pro.com (menos detallado, sin punto a punto).',
+    setsDosPuntos: 'Sets:',
+    sinSetsCerrados: 'Este partido está en curso, todavía sin sets cerrados.',
+    buscandoMarcadorVivo: 'Buscando marcador en vivo…',
+    sinDetallePuntoAPunto: 'No tenemos el detalle punto a punto de este partido — solo se guarda para los que alguien vio en vivo mientras se jugaban.'
   },
   en: {
     navInicio: 'Home',
@@ -237,7 +298,67 @@ const TRANSLATIONS = {
 
     footerDisclaimer:
       "provides our own analysis and opinions for informational and entertainment purposes about the Czech Liga Pro table tennis league. We don't guarantee results and we don't handle bets or funds on anyone's behalf. Service intended exclusively for adults 18 and over. If gambling stops being entertainment for you, seek professional help. Always play responsibly.",
-    politicaPrivacidad: 'Privacy Policy'
+    politicaPrivacidad: 'Privacy Policy',
+
+    loginTitle: 'Sign in',
+    loginSub: 'Use your Google account to continue',
+    loginBtnGoogle: 'Sign in with Google',
+    loginNote: "We don't store your password. Secure authentication via Google.",
+
+    privacyEyebrow: 'CAMILOREY · PRIVACY',
+    privacyTitle: 'Your data, your choice',
+    privacyIntro:
+      "We keep the minimum needed for the site to work. None of this is sold or shared with anyone outside Google, Supabase, and Vercel (who run the site).",
+    privacy1Title: 'What we collect',
+    privacy1Desc:
+      "Your name, email, and photo from Google when you sign in, the picks you follow, and whatever you personalize in your profile. We don't ask for card details or handle bets.",
+    privacy2Title: 'How we use it',
+    privacy2Desc: "To show your session, your followed picks, notify you when a match you follow ends, and the live chat. Nothing else.",
+    privacy3Title: 'Your control',
+    privacy3Desc: 'Change your name, photo, or notifications anytime from your Profile. Write to us if you want your account deleted.',
+    aceptar: 'Accept',
+    privacyFootnote: 'You can see the full details in the',
+
+    riskEyebrow: 'Risk management',
+    riskSiguiendo: "You're following",
+    riskPick: 'pick',
+    riskPicks: 'picks',
+    entendido: '✓ Got it',
+    riskDisclaimer: 'This is not financial advice. Use this data responsibly.',
+
+    tabResumen: 'Summary',
+    tabEstadisticas: 'Stats',
+    tabAnalisis: 'Analysis',
+    tabH2H: 'H2H',
+    sets: 'Sets',
+    indiceIA: 'AI Score',
+    cuotaRushbet: 'Odds (Rushbet)',
+    racha: 'Streak',
+    noDisponible: 'Not available',
+    sinVentaja: "No edge — Kelly didn't bet",
+    acierto: 'Hit',
+    fallado: 'Miss',
+    ultimos: 'Last',
+    partidosPl: 'matches',
+    victorias: 'wins',
+    derrotas: 'losses',
+    sinHistorial: 'No recent history yet.',
+    h2hContra: 'H2H vs',
+    sinEnfrentamientos: "They haven't played each other yet.",
+    buscandoMarcador: 'Looking for the score…',
+    resultadoFinal: 'Final result:',
+    partidoNoEmpieza: "This match hasn't started yet.",
+    formaReciente: 'Recent form ·',
+    partidoDetallado: 'Match details',
+    partidoTerminadoRecarga: 'Match finished — reload the page to see the final result.',
+    corriendo: 'running',
+    pausado: 'paused',
+    ahora: 'Now',
+    rushbetSinTablero: "Rushbet doesn't have this match on their live board — showing the score from tt.league-pro.com instead (less detail, no point-by-point).",
+    setsDosPuntos: 'Sets:',
+    sinSetsCerrados: 'This match is in progress, no sets closed yet.',
+    buscandoMarcadorVivo: 'Looking for the live score…',
+    sinDetallePuntoAPunto: "We don't have point-by-point detail for this match — that's only saved for matches someone watched live on our site."
   }
 };
 
@@ -1562,7 +1683,8 @@ function LiveChat({ matchSourceId, user, profile }) {
 // si el partido sigue en vivo) consulta cada 8s el marcador real —
 // primero contra Rushbet (set por set + reloj), y si no lo tiene,
 // contra tt.league-pro.com directo.
-function MatchDetailModal({ m, onClose, user, profile }) {
+function MatchDetailModal({ m, onClose, user, profile, lang }) {
+  const t = useTranslate(lang);
   const [live, setLive] = useState(null);
   const [form, setForm] = useState(null);
 
@@ -1629,13 +1751,13 @@ function MatchDetailModal({ m, onClose, user, profile }) {
         </div>
 
         {nowFinished ? (
-          <div className="modal-market">Partido terminado — recarga la página para ver el resultado final.</div>
+          <div className="modal-market">{t('partidoTerminadoRecarga')}</div>
         ) : m.status === 'live' && live?.source === 'kambi' ? (
           <>
             {live.clock ? (
               <div className="live-clock">
                 ⏱ {live.clock.minute}:{String(live.clock.second).padStart(2, '0')}
-                {live.clock.running ? ' · corriendo' : ' · pausado'}
+                {live.clock.running ? ` · ${t('corriendo')}` : ` · ${t('pausado')}`}
               </div>
             ) : null}
             <div className="live-sets-grid">
@@ -1649,7 +1771,7 @@ function MatchDetailModal({ m, onClose, user, profile }) {
               ))}
               {live.current ? (
                 <div className="live-set-col current">
-                  <div className="live-set-label">Ahora</div>
+                  <div className="live-set-label">{t('ahora')}</div>
                   <div className="live-set-score">
                     {live.current.a}-{live.current.b}
                   </div>
@@ -1659,23 +1781,20 @@ function MatchDetailModal({ m, onClose, user, profile }) {
           </>
         ) : m.status === 'live' && live?.source === 'tt' ? (
           <>
-            <p className="page-sub">
-              Rushbet no tiene este partido en su tablero en vivo — mostrando el marcador de tt.league-pro.com (menos
-              detallado, sin punto a punto).
-            </p>
+            <p className="page-sub">{t('rushbetSinTablero')}</p>
             {live.scoreOne != null ? (
               <div className="modal-market">
-                Sets: {live.scoreOne}-{live.scoreTwo}
+                {t('setsDosPuntos')} {live.scoreOne}-{live.scoreTwo}
               </div>
             ) : (
-              <p className="page-sub">Este partido está en curso, todavía sin sets cerrados.</p>
+              <p className="page-sub">{t('sinSetsCerrados')}</p>
             )}
           </>
         ) : m.status === 'live' ? (
-          <p className="page-sub">Buscando marcador en vivo…</p>
+          <p className="page-sub">{t('buscandoMarcadorVivo')}</p>
         ) : m.status === 'done' && m.score ? (
           <>
-            <div className="modal-market">Resultado final: {m.score}</div>
+            <div className="modal-market">{t('resultadoFinal')} {m.score}</div>
             {m.setScores && m.setScores.length > 0 ? (
               <div className="live-sets-grid">
                 {m.setScores.map((s, i) => (
@@ -1688,25 +1807,22 @@ function MatchDetailModal({ m, onClose, user, profile }) {
                 ))}
               </div>
             ) : (
-              <p className="page-sub">
-                No tenemos el detalle punto a punto de este partido — solo se guarda para los que alguien vio en vivo
-                mientras se jugaban.
-              </p>
+              <p className="page-sub">{t('sinDetallePuntoAPunto')}</p>
             )}
           </>
         ) : (
-          <p className="page-sub">Este partido todavía no empieza.</p>
+          <p className="page-sub">{t('partidoNoEmpieza')}</p>
         )}
 
         {form ? (
           <>
             <div className="hist-title">
-              <span>Forma reciente · {m.playerA}</span>
+              <span>{t('formaReciente')} {m.playerA}</span>
             </div>
             <RecentFormList history={form.historyA.slice(0, 5)} />
 
             <div className="hist-title">
-              <span>Forma reciente · {m.playerB}</span>
+              <span>{t('formaReciente')} {m.playerB}</span>
             </div>
             <RecentFormList history={form.historyB.slice(0, 5)} />
 
@@ -1828,7 +1944,8 @@ function LineChart({ series }) {
 // Análisis (el texto de por qué es favorito) y H2H (cruce directo
 // partido por partido). Todo lo que se muestra sale de datos reales
 // que ya calculamos — no se inventa ningún número.
-function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
+function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
+  const t = useTranslate(lang);
   const [tab, setTab] = useState('resumen');
   const [formView, setFormView] = useState('l10');
 
@@ -1844,7 +1961,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
         <div className="modal-head">
-          <span className="eyebrow">Partido detallado</span>
+          <span className="eyebrow">{t('partidoDetallado')}</span>
           <button className="modal-close" onClick={onClose}>
             ✕
           </button>
@@ -1868,7 +1985,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
               {pick.tournament} · {pick.time}
             </div>
             {isDone ? (
-              <span className={`match-hero-pill ${won ? 'win' : 'loss'}`}>{won ? 'Acertado' : 'Fallado'}</span>
+              <span className={`match-hero-pill ${won ? 'win' : 'loss'}`}>{won ? t('acierto') : t('fallado')}</span>
             ) : (
               <span className="match-hero-pill pending">{pick.market}</span>
             )}
@@ -1890,16 +2007,16 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
 
         <div className="tabs">
           <div className={`tab ${tab === 'resumen' ? 'active' : ''}`} onClick={() => setTab('resumen')}>
-            Resumen
+            {t('tabResumen')}
           </div>
           <div className={`tab ${tab === 'estadisticas' ? 'active' : ''}`} onClick={() => setTab('estadisticas')}>
-            Estadísticas
+            {t('tabEstadisticas')}
           </div>
           <div className={`tab ${tab === 'analisis' ? 'active' : ''}`} onClick={() => setTab('analisis')}>
-            Análisis
+            {t('tabAnalisis')}
           </div>
           <div className={`tab ${tab === 'h2h' ? 'active' : ''}`} onClick={() => setTab('h2h')}>
-            H2H
+            {t('tabH2H')}
           </div>
         </div>
 
@@ -1908,7 +2025,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
             {pick.setScores && pick.setScores.length > 0 ? (
               <>
                 <div className="hist-title">
-                  <span>Sets</span>
+                  <span>{t('sets')}</span>
                 </div>
                 <div className="live-sets-grid">
                   {pick.setScores.map((s, i) => (
@@ -1926,7 +2043,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
             <div className="stat-rows">
               <div className="stat-row">
                 <div className="stat-row-top">
-                  <span className="stat-row-label">📊 Índice IA</span>
+                  <span className="stat-row-label">📊 {t('indiceIA')}</span>
                   <span className="stat-row-value num">{pick.confidence}%</span>
                 </div>
                 <div className="stat-row-bar">
@@ -1935,13 +2052,13 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
               </div>
               <div className="stat-row">
                 <div className="stat-row-top">
-                  <span className="stat-row-label">🎯 Cuota (Rushbet)</span>
-                  <span className="stat-row-value num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'No disponible'}</span>
+                  <span className="stat-row-label">🎯 {t('cuotaRushbet')}</span>
+                  <span className="stat-row-value num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : t('noDisponible')}</span>
                 </div>
               </div>
               <div className="stat-row">
                 <div className="stat-row-top">
-                  <span className="stat-row-label">🔥 Racha</span>
+                  <span className="stat-row-label">🔥 {t('racha')}</span>
                   <span className="stat-row-value num">{pick.streakLabel || '—'}</span>
                 </div>
               </div>
@@ -1972,17 +2089,17 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
                   <DonutChart wins={hitsInView} total={displayHistory.length} />
                   <div>
                     <div className="hist-title" style={{ margin: 0 }}>
-                      <span>Últimos {displayHistory.length} partidos</span>
+                      <span>{t('ultimos')} {displayHistory.length} {t('partidosPl')}</span>
                     </div>
                     <p className="page-sub" style={{ margin: '4px 0 0' }}>
-                      {hitsInView} victorias, {displayHistory.length - hitsInView} derrotas
+                      {hitsInView} {t('victorias')}, {displayHistory.length - hitsInView} {t('derrotas')}
                     </p>
                   </div>
                 </div>
                 <RecentFormList history={displayHistory} />
               </>
             ) : (
-              <p className="page-sub">Sin historial reciente todavía.</p>
+              <p className="page-sub">{t('sinHistorial')}</p>
             )}
           </>
         ) : tab === 'analisis' ? (
@@ -1990,7 +2107,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
         ) : pick.h2hTotal > 0 ? (
           <>
             <div className="hist-title">
-              <span>H2H contra {pick.opponent}</span>
+              <span>{t('h2hContra')} {pick.opponent}</span>
               <span className="num">{pick.h2h}</span>
             </div>
             <div className="h2h-bar-track">
@@ -2002,7 +2119,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
             <RecentFormList history={pick.h2hMatches} />
           </>
         ) : (
-          <p className="page-sub">Todavía no se han enfrentado.</p>
+          <p className="page-sub">{t('sinEnfrentamientos')}</p>
         )}
       </div>
     </div>
@@ -2226,16 +2343,17 @@ function pickRandomTips(n = 3) {
 // Se dispara cada vez que la cantidad de picks seguidos SUBE y pasa de
 // 3 (no solo la primera vez) — ver el useEffect que llama a esto en
 // Home. Los 3 consejos salen al azar del banco de arriba.
-function RiskModal({ count, tips, onClose }) {
+function RiskModal({ count, tips, onClose, lang }) {
+  const t = useTranslate(lang);
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal risk-modal">
         <div className="risk-modal-head">
           <div className="risk-modal-icon">🛡️</div>
           <div>
-            <div className="risk-modal-eyebrow">Gestión de riesgo</div>
+            <div className="risk-modal-eyebrow">{t('riskEyebrow')}</div>
             <h3>
-              Estás siguiendo {count} pick{count === 1 ? '' : 's'}
+              {t('riskSiguiendo')} {count} {count === 1 ? t('riskPick') : t('riskPicks')}
             </h3>
           </div>
         </div>
@@ -2251,9 +2369,9 @@ function RiskModal({ count, tips, onClose }) {
         ))}
 
         <button className="btn btn-ball risk-modal-btn" onClick={onClose}>
-          ✓ Entendido
+          {t('entendido')}
         </button>
-        <p className="risk-modal-disclaimer">Esto no es asesoría financiera. Usa estos datos con responsabilidad.</p>
+        <p className="risk-modal-disclaimer">{t('riskDisclaimer')}</p>
       </div>
     </div>
   );
@@ -2482,7 +2600,8 @@ function GoogleGIcon({ size = 20 }) {
 // mismo formato de "3 puntos numerados" que se pidió replicar de otra
 // app. El contenido es real: describe exactamente lo que
 // /privacidad ya documenta, no texto genérico de relleno.
-function PrivacyConsentModal({ onClose }) {
+function PrivacyConsentModal({ onClose, lang }) {
+  const t = useTranslate(lang);
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
@@ -2491,15 +2610,12 @@ function PrivacyConsentModal({ onClose }) {
             <ProfileIcon name="shield" size={22} />
           </div>
           <div>
-            <div className="risk-modal-eyebrow">CAMILOREY · PRIVACIDAD</div>
-            <h3 style={{ fontSize: '19px', margin: 0 }}>Tus datos, tu decisión</h3>
+            <div className="risk-modal-eyebrow">{t('privacyEyebrow')}</div>
+            <h3 style={{ fontSize: '19px', margin: 0 }}>{t('privacyTitle')}</h3>
           </div>
         </div>
 
-        <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 6px' }}>
-          Guardamos lo mínimo para que el sitio funcione. Nada de esto se vende ni se comparte con nadie fuera de
-          Google, Supabase y Vercel (quienes hacen funcionar el sitio).
-        </p>
+        <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 6px' }}>{t('privacyIntro')}</p>
 
         <div className="risk-tip">
           <div className="consent-tip-col">
@@ -2509,11 +2625,8 @@ function PrivacyConsentModal({ onClose }) {
             <span className="consent-tip-num">01</span>
           </div>
           <div>
-            <strong>Qué recopilamos</strong>
-            <p>
-              Tu nombre, correo y foto de Google al iniciar sesión, los picks que sigues, y lo que personalices en tu
-              perfil. No pedimos datos de tarjetas ni gestionamos apuestas.
-            </p>
+            <strong>{t('privacy1Title')}</strong>
+            <p>{t('privacy1Desc')}</p>
           </div>
         </div>
 
@@ -2525,11 +2638,8 @@ function PrivacyConsentModal({ onClose }) {
             <span className="consent-tip-num">02</span>
           </div>
           <div>
-            <strong>Cómo lo usamos</strong>
-            <p>
-              Para mostrar tu sesión, tus picks seguidos, avisarte cuando termine un partido que sigues, y el chat en
-              vivo. Nada más.
-            </p>
+            <strong>{t('privacy2Title')}</strong>
+            <p>{t('privacy2Desc')}</p>
           </div>
         </div>
 
@@ -2541,21 +2651,18 @@ function PrivacyConsentModal({ onClose }) {
             <span className="consent-tip-num">03</span>
           </div>
           <div>
-            <strong>Tu control</strong>
-            <p>
-              Cambia tu nombre, foto o notificaciones cuando quieras desde tu Perfil. Escríbenos si quieres que
-              borremos tu cuenta.
-            </p>
+            <strong>{t('privacy3Title')}</strong>
+            <p>{t('privacy3Desc')}</p>
           </div>
         </div>
 
         <button className="btn btn-ball risk-modal-btn" onClick={onClose}>
-          Aceptar
+          {t('aceptar')}
         </button>
         <p className="risk-modal-disclaimer">
-          Puedes ver el detalle completo en la{' '}
+          {t('privacyFootnote')}{' '}
           <a href="/privacidad" target="_blank" rel="noopener noreferrer">
-            Política de Privacidad
+            {t('politicaPrivacidad')}
           </a>
           .
         </p>
@@ -2570,7 +2677,8 @@ function PrivacyConsentModal({ onClose }) {
 // solo reemplaza el clic directo a Google por una pantalla intermedia
 // con el branding de CAMILOREY, para que quede claro qué se está
 // autorizando antes de saltar a la ventana de Google.
-function LoginModal({ onClose, onLogin }) {
+function LoginModal({ onClose, onLogin, lang }) {
+  const t = useTranslate(lang);
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal login-modal">
@@ -2578,17 +2686,15 @@ function LoginModal({ onClose, onLogin }) {
           ✕
         </button>
         <div className="login-modal-icon">🔒</div>
-        <h3 className="login-modal-title">Iniciar sesión</h3>
-        <p className="login-modal-sub">
-          Utiliza tu cuenta de <strong>Google</strong> para continuar
-        </p>
+        <h3 className="login-modal-title">{t('loginTitle')}</h3>
+        <p className="login-modal-sub">{t('loginSub')}</p>
         <button className="google-btn" onClick={onLogin}>
           <GoogleGIcon size={20} />
-          Iniciar sesión con Google
+          {t('loginBtnGoogle')}
         </button>
         <div className="login-modal-note">
           <span>🛡️</span>
-          No almacenamos tu contraseña. Autenticación segura con Google.
+          {t('loginNote')}
         </div>
       </div>
     </div>
@@ -4391,7 +4497,7 @@ export default function Home({
       </nav>
 
       {modalPick && (
-        <PickDetailModal pick={modalPick} onClose={() => setModalPick(null)} oddsFormat={oddsFormat} />
+        <PickDetailModal pick={modalPick} onClose={() => setModalPick(null)} oddsFormat={oddsFormat} lang={lang} />
       )}
 
       {modalMatch && (
@@ -4400,11 +4506,12 @@ export default function Home({
           onClose={() => setModalMatch(null)}
           user={user}
           profile={{ displayName: myDisplayName, avatarEmoji: myAvatarEmoji, avatarUrl: myAvatarUrl }}
+          lang={lang}
         />
       )}
 
       {showRiskModal && (
-        <RiskModal count={followedPickIds.size} tips={riskTips} onClose={() => setShowRiskModal(false)} />
+        <RiskModal count={followedPickIds.size} tips={riskTips} onClose={() => setShowRiskModal(false)} lang={lang} />
       )}
 
       {showProfileModal && user && (
@@ -4428,10 +4535,10 @@ export default function Home({
       )}
 
       {showLoginModal && (
-        <LoginModal onClose={() => setShowLoginModal(false)} onLogin={loginWithGoogle} />
+        <LoginModal onClose={() => setShowLoginModal(false)} onLogin={loginWithGoogle} lang={lang} />
       )}
 
-      {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} />}
+      {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} lang={lang} />}
     </>
   );
 }
