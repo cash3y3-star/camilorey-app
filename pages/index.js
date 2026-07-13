@@ -157,7 +157,7 @@ const TRANSLATIONS = {
     riskSiguiendo: 'Estás siguiendo',
     riskPick: 'pick',
     riskPicks: 'picks',
-    entendido: '✓ Entendido',
+    entendido: 'Entendido',
     riskDisclaimer: 'Esto no es asesoría financiera. Usa estos datos con responsabilidad.',
 
     tabResumen: 'Resumen',
@@ -331,7 +331,7 @@ const TRANSLATIONS = {
     riskSiguiendo: "You're following",
     riskPick: 'pick',
     riskPicks: 'picks',
-    entendido: '✓ Got it',
+    entendido: 'Got it',
     riskDisclaimer: 'This is not financial advice. Use this data responsibly.',
 
     tabResumen: 'Summary',
@@ -506,7 +506,7 @@ const TRANSLATIONS = {
     riskSiguiendo: 'Você está seguindo',
     riskPick: 'pick',
     riskPicks: 'picks',
-    entendido: '✓ Entendi',
+    entendido: 'Entendi',
     riskDisclaimer: 'Isto não é consultoria financeira. Use estes dados com responsabilidade.',
 
     tabResumen: 'Resumo',
@@ -2751,6 +2751,7 @@ function RiskModal({ count, tips, onClose, lang }) {
         </div>
 
         <button className="btn btn-ball risk-modal-btn" onClick={onClose}>
+          <ProfileIcon name="check" size={16} />
           {t('entendido')}
         </button>
         <p className="risk-modal-disclaimer">{t('riskDisclaimer')}</p>
