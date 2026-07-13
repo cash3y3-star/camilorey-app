@@ -106,9 +106,6 @@ const TRANSLATIONS = {
     filaPrivacidadDesc: 'Qué datos guardamos y cómo los usamos',
     filaAyuda: 'Ayuda y Soporte',
     filaAyudaDesc: 'Escríbenos si algo no funciona o tienes una duda',
-    filaInvita: 'Invita y recibe',
-    filaInvitaDesc: 'Comparte tu código, gana recompensas',
-
     ayudaFaqTitle: 'Ayuda y FAQ',
     ayudaFaqDesc: 'Encuentra respuestas o contacta a nuestro equipo',
     soporteEmail: 'Soporte por Email',
@@ -284,9 +281,6 @@ const TRANSLATIONS = {
     filaPrivacidadDesc: 'What data we store and how we use it',
     filaAyuda: 'Help & Support',
     filaAyudaDesc: "Write to us if something's not working or you have a question",
-    filaInvita: 'Invite & earn',
-    filaInvitaDesc: 'Share your code, earn rewards',
-
     ayudaFaqTitle: 'Help & FAQ',
     ayudaFaqDesc: 'Find answers or contact our team',
     soporteEmail: 'Email Support',
@@ -461,9 +455,6 @@ const TRANSLATIONS = {
     filaPrivacidadDesc: 'Quais dados guardamos e como os usamos',
     filaAyuda: 'Ajuda e Suporte',
     filaAyudaDesc: 'Escreva para nós se algo não funcionar ou tiver dúvidas',
-    filaInvita: 'Convide e ganhe',
-    filaInvitaDesc: 'Compartilhe seu código, ganhe recompensas',
-
     ayudaFaqTitle: 'Ajuda e FAQ',
     ayudaFaqDesc: 'Encontre respostas ou fale com nossa equipe',
     soporteEmail: 'Suporte por Email',
@@ -2914,15 +2905,6 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
-  if (name === 'gift') {
-    return (
-      <svg {...common}>
-        <rect x="3" y="8" width="18" height="4" rx="1" />
-        <path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
-        <path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5" />
-      </svg>
-    );
-  }
   if (name === 'sun') {
     return (
       <svg {...common}>
@@ -3620,26 +3602,6 @@ function ProfileModal({
           <div className="profile-row-body">
             <strong>{t('filaAyuda')}</strong>
             <p>{t('filaAyudaDesc')}</p>
-          </div>
-          <ProfileIcon name="chevron-right" size={16} />
-        </div>
-
-        <div
-          className="profile-row"
-          onClick={() =>
-            alert(
-              lang === 'en'
-                ? "Invite & earn — doesn't exist yet, but it's on the way. You'll be able to invite friends from here very soon."
-                : 'Invita y recibe — todavía no existe, pero está en camino. Muy pronto vas a poder invitar amigos desde aquí.'
-            )
-          }
-        >
-          <span className="profile-row-icon">
-            <ProfileIcon name="gift" />
-          </span>
-          <div className="profile-row-body">
-            <strong>{t('filaInvita')}</strong>
-            <p>{t('filaInvitaDesc')}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </div>
