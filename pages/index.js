@@ -5496,6 +5496,9 @@ const CSS = `
      referencia — distinta de PickCard (que muestra a los dos
      jugadores lado a lado con "VS"), solo se usa en esta vista. */
   .followed-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+  @media (min-width:641px){
+    .followed-grid{grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));}
+  }
   .followed-card{
     background:var(--card); border:1px solid var(--line); border-radius:14px;
     overflow:hidden; cursor:pointer; box-shadow:var(--shadow);
