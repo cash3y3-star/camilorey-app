@@ -2724,7 +2724,7 @@ function RiskModal({ count, tips, onClose, lang }) {
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal risk-modal">
-        <div className="risk-modal-head">
+        <div className="risk-modal-banner">
           <div className="risk-modal-icon">🛡️</div>
           <div>
             <div className="risk-modal-eyebrow">{t('riskEyebrow')}</div>
@@ -2734,15 +2734,17 @@ function RiskModal({ count, tips, onClose, lang }) {
           </div>
         </div>
 
-        {tips.map((tip) => (
-          <div className="risk-tip" key={tip.title}>
-            <span className="risk-tip-icon">{tip.icon}</span>
-            <div>
-              <strong>{tip.title}</strong>
-              <p>{tip.body}</p>
+        <div className="risk-tip-list">
+          {tips.map((tip) => (
+            <div className="risk-tip" key={tip.title}>
+              <span className="risk-tip-icon">{tip.icon}</span>
+              <div>
+                <strong>{tip.title}</strong>
+                <p>{tip.body}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
 
         <button className="btn btn-ball risk-modal-btn" onClick={onClose}>
           {t('entendido')}
@@ -3936,12 +3938,15 @@ export default function Home({
     };
   }, [user]);
 
-  // No es "una vez por sesión" — se dispara cada vez que la cantidad
-  // de seguidos SUBE y queda en más de 3 (seguir 1 más estando ya en 4,
-  // 5, etc. también lo dispara de nuevo), con consejos al azar.
+  // Se dispara solo al CRUZAR el umbral de 3 hacia arriba (de 3 o
+  // menos a 4+) — antes se repetía cada vez que se seguía un pick más
+  // estando ya arriba de 3, lo que se sentía como que "salían nuevos"
+  // todo el tiempo. Si bajas a 3 o menos (dejas de seguir algo) y
+  // vuelves a subir, sí se vuelve a mostrar — es una alerta nueva,
+  // no la misma repetida.
   useEffect(() => {
     const count = followedPickIds.size;
-    if (count > 3 && count > prevFollowedCountRef.current) {
+    if (count > 3 && prevFollowedCountRef.current <= 3) {
       setRiskTips(pickRandomTips());
       setShowRiskModal(true);
     }
@@ -5485,15 +5490,28 @@ const CSS = `
   }
   .subscreen-head h3{font-size:19px; margin:0;}
 
-  .risk-modal-head{display:flex; align-items:center; gap:14px; margin-bottom:18px;}
-  .risk-modal-icon{
-    width:44px; height:44px; border-radius:12px; flex:none; font-size:20px;
-    display:flex; align-items:center; justify-content:center;
-    background:var(--court-soft); border:1px solid rgba(226,68,74,.4);
+  .risk-modal-banner{
+    display:flex; align-items:center; gap:14px; padding:26px 22px;
+    margin:-22px -22px 18px; border-radius:20px 20px 0 0;
+    background:radial-gradient(120% 140% at 0% 0%, #E2444A 0%, #7A1418 55%, #2A0A0B 100%);
+    color:#fff;
   }
-  .risk-modal-eyebrow{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--court); margin-bottom:2px;}
+  @media(min-width:640px){ .risk-modal-banner{border-radius:20px 20px 0 0;} }
+  .risk-modal-icon{
+    width:48px; height:48px; border-radius:12px; flex:none; font-size:21px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35);
+  }
+  .risk-modal-eyebrow{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:rgba(255,255,255,.75); margin-bottom:3px;}
+  .risk-modal-banner h3{color:#fff; margin:0;}
+  .risk-tip-list{display:flex; flex-direction:column;}
   .risk-tip{display:flex; gap:12px; padding:14px 0; border-top:1px solid var(--line);}
-  .risk-tip-icon{font-size:20px; flex:none; width:30px; text-align:center;}
+  .risk-tip:first-child{border-top:none; padding-top:2px;}
+  .risk-tip-icon{
+    font-size:18px; flex:none; width:38px; height:38px; border-radius:11px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--court-soft); border:1px solid rgba(226,68,74,.35);
+  }
   .risk-tip strong{display:block; font-size:14px; margin-bottom:3px;}
   .risk-tip p{margin:0; font-size:13px; color:var(--muted); line-height:1.5;}
   .risk-modal-btn{width:100%; justify-content:center; margin-top:16px; padding:13px;}
