@@ -2362,7 +2362,7 @@ export default function Home({
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
   const [tournamentGroups, setTournamentGroups] = useState(initialTournamentGroups);
   const [matches, setMatches] = useState(initialMatches);
-  const [matchFilter, setMatchFilter] = useState(initialMatches.some((m) => m.status === 'live') ? 'vivo' : 'todos');
+  const [matchFilter, setMatchFilter] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
   const [user, setUser] = useState(null);
@@ -2507,9 +2507,10 @@ export default function Home({
   // Calendario no se actualizaba solo — había que recargar la página
   // para que un partido pasara de "Próximo" a "En vivo". Mientras esa
   // vista esté abierta, se vuelve a consultar el estado del día cada
-  // 20s (estilo Sofascore/Flashscore), sin recargar nada más.
+  // 20s (estilo Sofascore/Flashscore), sin recargar nada más. También
+  // corre en Inicio ahora, porque "En vivo ahora" se mudó ahí.
   useEffect(() => {
-    if (view !== 'calendario') return undefined;
+    if (view !== 'calendario' && view !== 'inicio') return undefined;
     let cancelled = false;
 
     async function load() {
@@ -2777,15 +2778,17 @@ export default function Home({
     return { dateStr, weekday: weekday.replace('.', ''), dayNum };
   });
 
-  const liveCount = matches.filter((m) => m.status === 'live').length;
+  // Los partidos en vivo se muestran en Inicio, no en Calendario —
+  // calendarioMatches los excluye del todo (ni siquiera aparecen bajo
+  // "Todos"), para no duplicar la misma tarjeta en dos lados.
+  const liveMatches = matches.filter((m) => m.status === 'live');
+  const calendarioMatches = matches.filter((m) => m.status !== 'live');
   const filteredMatches =
-    matchFilter === 'vivo'
-      ? matches.filter((m) => m.status === 'live')
-      : matchFilter === 'finalizados'
-      ? matches.filter((m) => m.status === 'done')
+    matchFilter === 'finalizados'
+      ? calendarioMatches.filter((m) => m.status === 'done')
       : matchFilter === 'proximos'
-      ? matches.filter((m) => m.status === 'soon')
-      : matches;
+      ? calendarioMatches.filter((m) => m.status === 'soon')
+      : calendarioMatches;
 
   const greetingName = myDisplayName?.split(' ')[0] || null;
   const todayLabel = new Intl.DateTimeFormat('es-CO', {
@@ -2962,6 +2965,25 @@ export default function Home({
             </div>
           </div>
 
+          {liveMatches.length > 0 ? (
+            <>
+              <div className="section-head">
+                <h2>
+                  <span className="live-dot"></span> En vivo ahora ({liveMatches.length})
+                </h2>
+              </div>
+              {liveMatches.map((m, i) => (
+                <MatchRow
+                  m={m}
+                  key={i}
+                  onClick={() => setModalMatch(m)}
+                  followed={m.pickId ? followedPickIds.has(m.pickId) : false}
+                  onToggleFollow={toggleFollow}
+                />
+              ))}
+            </>
+          ) : null}
+
           {featured ? (
             <>
               <div className="section-head">
@@ -3022,7 +3044,7 @@ export default function Home({
         <section className={`view ${view === 'calendario' ? 'active' : ''}`}>
           <span className="eyebrow">Liga Pro Checa</span>
           <h1 className="page-title">Calendario</h1>
-          <p className="page-sub">Toca un partido en vivo para ver el marcador set por set en tiempo real.</p>
+          <p className="page-sub">Partidos próximos y finalizados. Los que están en vivo ahora mismo están en Inicio.</p>
           <div className="day-strip">
             {dayStrip.map((d) => (
               <a
@@ -3036,12 +3058,6 @@ export default function Home({
             ))}
           </div>
           <div className="match-filter-row">
-            <div
-              className={`match-filter-btn live ${matchFilter === 'vivo' ? 'active' : ''}`}
-              onClick={() => setMatchFilter('vivo')}
-            >
-              <span className="live-dot"></span> EN VIVO{liveCount > 0 ? ` (${liveCount})` : ''}
-            </div>
             <div className={`match-filter-btn ${matchFilter === 'proximos' ? 'active' : ''}`} onClick={() => setMatchFilter('proximos')}>
               PRÓXIMOS
             </div>
@@ -3956,11 +3972,10 @@ const CSS = `
     color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:6px;
   }
   .match-filter-btn.active{background:var(--court); border-color:var(--court); color:#fff;}
-  .match-filter-btn.live .live-dot{
-    width:7px; height:7px; border-radius:50%; background:var(--court);
+  .live-dot{
+    display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--court);
     animation:pulse-dot 1.8s ease-in-out infinite;
   }
-  .match-filter-btn.live.active .live-dot{background:#fff; box-shadow:none;}
 
   .balance-hero{
     background:linear-gradient(135deg, var(--court), var(--court-dark));
