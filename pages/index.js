@@ -140,10 +140,9 @@ const TRANSLATIONS = {
     terminosCondiciones: 'Términos y Condiciones',
 
     loginTitle: 'Iniciar sesión',
-    loginSub: 'Continúa con tu cuenta de Google o Facebook',
+    loginSub: 'Utiliza tu cuenta de Google para continuar',
     loginBtnGoogle: 'Iniciar sesión con Google',
-    loginBtnFacebook: 'Iniciar sesión con Facebook',
-    loginNote: 'No almacenamos tu contraseña. Autenticación segura con Google o Facebook.',
+    loginNote: 'No almacenamos tu contraseña. Autenticación segura con Google.',
 
     privacyEyebrow: 'CAMILOREY · PRIVACIDAD',
     privacyTitle: 'Tus datos, tu decisión',
@@ -329,10 +328,9 @@ const TRANSLATIONS = {
     terminosCondiciones: 'Terms and Conditions',
 
     loginTitle: 'Sign in',
-    loginSub: 'Continue with your Google or Facebook account',
+    loginSub: 'Use your Google account to continue',
     loginBtnGoogle: 'Sign in with Google',
-    loginBtnFacebook: 'Sign in with Facebook',
-    loginNote: "We don't store your password. Secure authentication via Google or Facebook.",
+    loginNote: "We don't store your password. Secure authentication via Google.",
 
     privacyEyebrow: 'CAMILOREY · PRIVACY',
     privacyTitle: 'Your data, your choice',
@@ -517,10 +515,9 @@ const TRANSLATIONS = {
     terminosCondiciones: 'Termos e Condições',
 
     loginTitle: 'Entrar',
-    loginSub: 'Continue com sua conta do Google ou Facebook',
+    loginSub: 'Use sua conta do Google para continuar',
     loginBtnGoogle: 'Entrar com o Google',
-    loginBtnFacebook: 'Entrar com o Facebook',
-    loginNote: 'Não armazenamos sua senha. Autenticação segura com Google ou Facebook.',
+    loginNote: 'Não armazenamos sua senha. Autenticação segura com o Google.',
 
     privacyEyebrow: 'CAMILOREY · PRIVACIDADE',
     privacyTitle: 'Seus dados, sua decisão',
@@ -3241,18 +3238,6 @@ function GoogleGIcon({ size = 20 }) {
   );
 }
 
-function FacebookFIcon({ size = 20 }) {
-  return (
-    <svg viewBox="0 0 48 48" width={size} height={size}>
-      <path
-        fill="#1877F2"
-        d="M24 4C12.95 4 4 12.95 4 24c0 9.98 7.31 18.26 16.88 19.77V29.66h-5.08V24h5.08v-4.31c0-5.02 2.99-7.79 7.56-7.79 2.19 0 4.48.39 4.48.39v4.92h-2.52c-2.49 0-3.27 1.54-3.27 3.13V24h5.56l-.89 5.66h-4.67v14.11C36.69 42.26 44 33.98 44 24c0-11.05-8.95-20-20-20z"
-      />
-      <path fill="#FFF" d="M32.67 29.66 33.56 24h-5.56v-3.66c0-1.59.78-3.13 3.27-3.13h2.52v-4.92s-2.29-.39-4.48-.39c-4.57 0-7.56 2.77-7.56 7.79V24h-5.08v5.66h5.08v14.11a20.14 20.14 0 0 0 6.25 0V29.66Z" />
-    </svg>
-  );
-}
-
 // Aviso de privacidad — se muestra UNA vez por navegador la primera
 // vez que alguien inicia sesión (marcado en localStorage), con el
 // mismo formato de "3 puntos numerados" que se pidió replicar de otra
@@ -3335,7 +3320,7 @@ function PrivacyConsentModal({ onClose, lang }) {
 // solo reemplaza el clic directo a Google por una pantalla intermedia
 // con el branding de CAMILOREY, para que quede claro qué se está
 // autorizando antes de saltar a la ventana de Google.
-function LoginModal({ onClose, onLogin, onLoginFacebook, lang }) {
+function LoginModal({ onClose, onLogin, lang }) {
   const t = useTranslate(lang);
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
@@ -3349,10 +3334,6 @@ function LoginModal({ onClose, onLogin, onLoginFacebook, lang }) {
         <button className="google-btn" onClick={onLogin}>
           <GoogleGIcon size={20} />
           {t('loginBtnGoogle')}
-        </button>
-        <button className="google-btn" style={{ marginTop: '10px' }} onClick={onLoginFacebook}>
-          <FacebookFIcon size={20} />
-          {t('loginBtnFacebook')}
         </button>
         <div className="login-modal-note">
           <span>🛡️</span>
@@ -4263,10 +4244,6 @@ export default function Home({
     if (!supabaseClient) return;
     supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
   };
-  const loginWithFacebook = () => {
-    if (!supabaseClient) return;
-    supabaseClient.auth.signInWithOAuth({ provider: 'facebook', options: { redirectTo: window.location.origin } });
-  };
   const logout = () => supabaseClient?.auth.signOut();
 
   useEffect(() => {
@@ -4621,52 +4598,29 @@ export default function Home({
             </h1>
             <p style={{ color: '#948C83', fontSize: '14.5px', lineHeight: 1.6, margin: '0 0 22px' }}>
               {!user
-                ? 'El sitio está en pruebas cerradas por ahora. Inicia sesión para ver si tenés acceso.'
+                ? 'El sitio está en pruebas cerradas por ahora. Inicia sesión con Google para ver si tenés acceso.'
                 : 'Tu cuenta todavía no tiene acceso — el sitio está en pruebas cerradas por ahora.'}
             </p>
             {!user ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch' }}>
-                <button
-                  onClick={loginWithGoogle}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    background: '#1B1917',
-                    border: '1px solid #2B2724',
-                    borderRadius: '12px',
-                    padding: '13px 22px',
-                    color: '#F5F1EC',
-                    fontFamily: "'Manrope', sans-serif",
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <GoogleGIcon size={18} /> Iniciar sesión con Google
-                </button>
-                <button
-                  onClick={loginWithFacebook}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    background: '#1B1917',
-                    border: '1px solid #2B2724',
-                    borderRadius: '12px',
-                    padding: '13px 22px',
-                    color: '#F5F1EC',
-                    fontFamily: "'Manrope', sans-serif",
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <FacebookFIcon size={18} /> Iniciar sesión con Facebook
-                </button>
-              </div>
+              <button
+                onClick={loginWithGoogle}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  background: '#1B1917',
+                  border: '1px solid #2B2724',
+                  borderRadius: '12px',
+                  padding: '13px 22px',
+                  color: '#F5F1EC',
+                  fontFamily: "'Manrope', sans-serif",
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                <GoogleGIcon size={18} /> Iniciar sesión con Google
+              </button>
             ) : (
               <button
                 onClick={logout}
@@ -5632,12 +5586,7 @@ export default function Home({
       )}
 
       {showLoginModal && (
-        <LoginModal
-          onClose={() => setShowLoginModal(false)}
-          onLogin={loginWithGoogle}
-          onLoginFacebook={loginWithFacebook}
-          lang={lang}
-        />
+        <LoginModal onClose={() => setShowLoginModal(false)} onLogin={loginWithGoogle} lang={lang} />
       )}
 
       {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} lang={lang} />}
