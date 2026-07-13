@@ -150,16 +150,25 @@ del intervalo. En cada corrida:
    tengan.
 
 ## Fórmula de confianza (`lib/confidence.js`)
-Ajustada el 2026-07-12 con datos reales (108 picks resueltos, vía
-`/api/debug/confidence-stats?token=...`): `rating` 75%, `racha` 15%,
-`h2h` 10%. Antes era 50/30/20 — se bajó `h2h` porque salía en 0.000
-exacto en el 100% de los casos (esta liga casi nunca repite el mismo
-cruce de jugadores) y se bajó `racha` porque no mostró señal a favor
-del acierto real. `rating` fue el único factor con señal real. Acierto
-general medido en ese momento: 57.4% (IC 95%: 48%-66%, todavía no
-distinguible de una moneda al aire con esta muestra) — vale la pena
-volver a correr el análisis cuando haya más historial con los pesos
-nuevos.
+Reajustada el 2026-07-13 con datos reales (292 picks resueltos, vía la
+pestaña admin **Modelo** / `/api/model-stats`): `rating` 85%, `racha`
+5%, `h2h` 10%. Segunda medición desde el ajuste anterior (2026-07-12,
+n=108, pesos 75/15/10) — `racha` seguía sin mostrar señal a favor del
+acierto con el triple de datos (dos mediciones independientes
+coincidiendo ya no es ruido de muestra chica), así que se le bajó el
+peso casi a cero. `h2h` esta vez SÍ mostró algo de señal (antes nunca
+aplicaba porque casi no había cruces repetidos — el backfill de
+historial de jugadores de esta sesión le dio suficientes datos para
+activarse), se mantuvo su peso. `rating` sigue siendo el único factor
+con señal clara y consistente en ambas mediciones.
+
+Acierto general medido en la segunda medición: 54.4% (IC 95%:
+48.7%-60.1%, todavía no distinguible de una moneda al aire) — de
+hecho bajó desde el 57.4% de la primera medición con menos datos,
+señal de que ese número inicial probablemente era ruido. Este reajuste
+de pesos no promete que el modelo ahora sí le gane al azar, solo saca
+peso muerto de un factor que dos mediciones seguidas confirman que no
+aporta. Sigue midiéndose con la pestaña Modelo.
 
 ## Cosas importantes que debes saber (honestidad primero)
 1. El tamaño de apuesta en Bankroll sigue siendo convención nuestra
