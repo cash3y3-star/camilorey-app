@@ -3718,8 +3718,8 @@ export default function Home({
   resolvedPicks: initialResolvedPicks,
   tournamentGroups: initialTournamentGroups,
   matches: initialMatches,
-  bankrollLog,
-  bankrollSeries,
+  bankrollLog: initialBankrollLog,
+  bankrollSeries: initialBankrollSeries,
   currentDateStr,
   userCount
 }) {
@@ -3730,6 +3730,8 @@ export default function Home({
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
   const [tournamentGroups, setTournamentGroups] = useState(initialTournamentGroups);
   const [matches, setMatches] = useState(initialMatches);
+  const [bankrollLog, setBankrollLog] = useState(initialBankrollLog);
+  const [bankrollSeries, setBankrollSeries] = useState(initialBankrollSeries);
   const [matchFilter, setMatchFilter] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
@@ -3943,12 +3945,13 @@ export default function Home({
   }, [view, currentDateStr]);
 
   // Mismo problema en Inicio (pick destacado + tablas de torneos en
-  // vivo) y Picks (pendientes/ganados/perdidos): sin esto, un pick que
-  // arranca, se resuelve, o un torneo que empieza/termina, se quedaba
-  // congelado hasta refrescar. Se repite cada 20s mientras cualquiera
-  // de esas dos vistas esté abierta.
+  // vivo), Picks (pendientes/ganados/perdidos) y Bankroll (log +
+  // gráfico de evolución, solo admin): sin esto, un pick que arranca,
+  // se resuelve, o una apuesta que se paga, se quedaba congelado hasta
+  // refrescar. Se repite cada 20s mientras cualquiera de esas vistas
+  // esté abierta.
   useEffect(() => {
-    if (view !== 'inicio' && view !== 'picks') return undefined;
+    if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll') return undefined;
     let cancelled = false;
 
     async function load() {
@@ -3960,8 +3963,10 @@ export default function Home({
         if (data.picks) setPicks(data.picks);
         if (data.resolvedPicks) setResolvedPicks(data.resolvedPicks);
         if (data.tournamentGroups) setTournamentGroups(data.tournamentGroups);
+        if (data.bankrollLog) setBankrollLog(data.bankrollLog);
+        if (data.bankrollSeries) setBankrollSeries(data.bankrollSeries);
       } catch (e) {
-        console.error('Error actualizando Inicio/Picks:', e);
+        console.error('Error actualizando Inicio/Picks/Bankroll:', e);
       }
     }
 
