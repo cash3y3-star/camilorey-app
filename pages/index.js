@@ -89,6 +89,7 @@ const TRANSLATIONS = {
     miBankrollVacioTitle: 'Sin historial todavía',
     miBankrollVacioDesc:
       'Todavía no tienes picks seguidos que ya se hayan jugado — sigue algunos desde Picks o Calendario y vuelve cuando terminen.',
+    miBankrollTrialMsg: '🎁 Gratis por tiempo limitado — Mi Bankroll será una función premium a partir del {date}.',
 
     perfilPlanGratuito: 'Plan gratuito',
     perfilPlanPremium: 'Plan premium',
@@ -269,6 +270,7 @@ const TRANSLATIONS = {
     miBankrollVacioTitle: 'No history yet',
     miBankrollVacioDesc:
       "You don't have any followed picks that have already been played yet — follow some from Picks or Schedule and come back once they finish.",
+    miBankrollTrialMsg: '🎁 Free for a limited time — My Bankroll becomes a premium feature starting {date}.',
 
     perfilPlanGratuito: 'Free plan',
     perfilPlanPremium: 'Premium plan',
@@ -448,6 +450,7 @@ const TRANSLATIONS = {
     miBankrollVacioTitle: 'Ainda sem histórico',
     miBankrollVacioDesc:
       'Você ainda não tem picks seguidos que já tenham sido jogados — siga alguns em Picks ou Calendário e volte quando terminarem.',
+    miBankrollTrialMsg: '🎁 Grátis por tempo limitado — Minha Banca vai virar uma função premium a partir de {date}.',
 
     perfilPlanGratuito: 'Plano gratuito',
     perfilPlanPremium: 'Plano premium',
@@ -3845,6 +3848,11 @@ const RISK_LEVELS = {
   agresivo: { label: 'Agresivo', sub: 'Kelly completo', multiplier: 1 }
 };
 
+// Mi Bankroll queda abierto para TODOS (no solo admin) por 7 días
+// desde que se activó esta prueba gratuita — pasada esta fecha,
+// vuelve a quedar detrás del candado premium para quien no sea admin.
+const MIBANKROLL_TRIAL_END = new Date('2026-07-20T23:59:59-05:00').getTime();
+
 export default function Home({
   stats: initialStats,
   picks: initialPicks,
@@ -4306,7 +4314,11 @@ export default function Home({
     return { ...p, stake, units, balance: myRunningBalance };
   });
   const myHits = myHistory.filter((h) => h.units > 0).length;
+  const myMisses = myHistory.length - myHits;
   const myEfectividad = myHistory.length ? Math.round((myHits / myHistory.length) * 100) : 0;
+  const myAvgOdds = myHistory.length
+    ? Math.round((myHistory.reduce((s, h) => s + h.odds, 0) / myHistory.length) * 100) / 100
+    : 0;
   const myTotalStake = myHistory.reduce((s, h) => s + h.stake, 0);
   const myTotalProfit = myHistory.reduce((s, h) => s + h.units, 0);
   const myRoi = myTotalStake > 0 ? Math.round((myTotalProfit / myTotalStake) * 1000) / 10 : 0;
@@ -4316,6 +4328,29 @@ export default function Home({
     (sum, p) => sum + kellyFraction(p.confidence, p.odds, myMultiplier) * myBankPlan,
     0
   );
+
+  // "Precisión esta semana" — % de aciertos por día, últimos 7 días
+  // calendario (hoy incluido), para la mini-barra estilo la
+  // referencia. Gris si ese día no hubo picks resueltos.
+  const WEEKDAY_LABELS_ES = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+  const myWeekPrecision = Array.from({ length: 7 }, (_, idx) => {
+    const dayOffset = 6 - idx;
+    const d = new Date(Date.now() - dayOffset * 24 * 3600 * 1000);
+    const dayKey = d.toISOString().slice(0, 10);
+    const dayHistory = myHistory.filter((h) => h.scheduledAt && new Date(h.scheduledAt).toISOString().slice(0, 10) === dayKey);
+    const dayHits = dayHistory.filter((h) => h.units > 0).length;
+    return {
+      label: WEEKDAY_LABELS_ES[d.getDay()],
+      pct: dayHistory.length ? Math.round((dayHits / dayHistory.length) * 100) : 0,
+      hasData: dayHistory.length > 0
+    };
+  });
+
+  const myBankrollTrialActive = Date.now() < MIBANKROLL_TRIAL_END;
+  const myBankrollTrialEndLabel = new Intl.DateTimeFormat(
+    lang === 'en' ? 'en-US' : lang === 'pt' ? 'pt-BR' : 'es-CO',
+    { day: 'numeric', month: 'long', timeZone: 'America/Bogota' }
+  ).format(new Date(MIBANKROLL_TRIAL_END));
 
   // Tira de 7 días (hoy + los próximos 6) para navegar Calendario —
   // son links reales a "/?date=YYYY-MM-DD#calendario" (no hash-routing
@@ -4414,7 +4449,7 @@ export default function Home({
           {navLink('picks', t('navPicks'))}
           {navLink('seguidos', t('navSeguidos'))}
           <a href="#mibankroll" data-view="mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
-            {t('navMiBankroll')} {!isAdmin ? <ProfileIcon name="lock" size={11} /> : null}
+            {t('navMiBankroll')} {!isAdmin && !myBankrollTrialActive ? <ProfileIcon name="lock" size={11} /> : null}
           </a>
           {isAdmin ? navLink('bankroll', t('navBankroll')) : null}
           {isAdmin ? navLink('grupos', t('navGrupos')) : null}
@@ -4965,7 +5000,7 @@ export default function Home({
           <p className="page-sub">{t('miBankrollSub')}</p>
           {!user ? (
             <p className="page-sub">{t('iniciaSesionBankroll')}</p>
-          ) : !isAdmin ? (
+          ) : !isAdmin && !myBankrollTrialActive ? (
             <div className="premium-lock-card">
               <div className="premium-lock-icon">
                 <ProfileIcon name="lock" size={22} />
@@ -4977,6 +5012,9 @@ export default function Home({
             <p className="page-sub">{t('cargando')}</p>
           ) : (
             <>
+              {!isAdmin && myBankrollTrialActive ? (
+                <div className="trial-banner">{t('miBankrollTrialMsg', { date: myBankrollTrialEndLabel })}</div>
+              ) : null}
               <div className="bankroll-card">
                 <div className="slip-label">TU BANCO INICIAL</div>
                 <div className="slip-bank-row">
@@ -5021,28 +5059,58 @@ export default function Home({
                 </div>
               ) : (
                 <>
-                  <div className="balance-hero">
-                    <div className="balance-hero-label">Balance simulado</div>
-                    <div className={`balance-hero-value num ${myFinalBalance >= myBankPlan ? 'hit' : 'miss'}`}>
-                      {formatCOP(myFinalBalance)}
+                  <div className="bankroll-card rendimiento-card">
+                    <div className="rendimiento-top">
+                      <div>
+                        <div className="rendimiento-label">TU RENDIMIENTO</div>
+                        <div className={`rendimiento-value num ${myTotalProfit >= 0 ? 'hit' : 'miss'}`}>
+                          {myTotalProfit >= 0 ? '+' : ''}
+                          {formatCOP(myTotalProfit)}
+                        </div>
+                        <div className="rendimiento-sub">
+                          <span className={`num ${myRoi >= 0 ? 'hit' : 'miss'}`}>
+                            {myRoi >= 0 ? '+' : ''}
+                            {myRoi}% ROI
+                          </span>
+                          <span> · {myHistory.length} picks</span>
+                        </div>
+                      </div>
+                      <div className="rendimiento-tasa">
+                        <span className="rendimiento-tasa-label">TASA DE ACIERTO</span>
+                        <span className="rendimiento-tasa-val num">{myEfectividad}%</span>
+                      </div>
                     </div>
                   </div>
 
                   <div className="stat-strip stat-strip-3">
                     <div className="stat-card">
-                      <div className="label">ROI</div>
-                      <div className={`value num ${myRoi >= 0 ? 'hit' : 'miss'}`}>
-                        {myRoi >= 0 ? '+' : ''}
-                        {myRoi}%
-                      </div>
+                      <div className="label">Ganados</div>
+                      <div className="value hit num">{myHits}</div>
                     </div>
                     <div className="stat-card">
-                      <div className="label">Efectividad</div>
-                      <div className="value hit num">{myEfectividad}%</div>
+                      <div className="label">Perdidos</div>
+                      <div className="value miss num">{myMisses}</div>
                     </div>
                     <div className="stat-card">
-                      <div className="label">Picks jugados</div>
-                      <div className="value num">{myHistory.length}</div>
+                      <div className="label">Cuota Prom.</div>
+                      <div className="value num">{myAvgOdds || '—'}</div>
+                    </div>
+                  </div>
+
+                  <div className="bankroll-card week-precision-card">
+                    <div className="rendimiento-label">Precisión esta semana</div>
+                    <div className="week-precision-row">
+                      {myWeekPrecision.map((d, i) => (
+                        <div className="week-precision-col" key={i}>
+                          <div className="week-precision-track">
+                            <div
+                              className={`week-precision-fill ${d.hasData ? (d.pct >= 50 ? 'hit' : 'miss') : ''}`}
+                              style={{ height: `${d.hasData ? Math.max(d.pct, 8) : 0}%` }}
+                            ></div>
+                          </div>
+                          <span className="week-precision-day">{d.label}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
@@ -5061,6 +5129,13 @@ export default function Home({
                       </p>
                     </div>
                   ) : null}
+
+                  <div className="section-head">
+                    <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <ProfileIcon name="trending-up" size={17} /> Planes resueltos
+                    </h2>
+                    <span className="see-all">{myHistory.length}</span>
+                  </div>
 
                   <div className="bankroll-card">
                     <table className="bk">
@@ -5144,7 +5219,7 @@ export default function Home({
               <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
               <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
             </svg>
-            {!isAdmin ? (
+            {!isAdmin && !myBankrollTrialActive ? (
               <span className="nav-lock-badge">
                 <ProfileIcon name="lock" size={9} />
               </span>
@@ -5635,6 +5710,32 @@ const CSS = `
   .balance-hero-value{font-family:var(--font-display); font-weight:800; font-size:32px;}
   .balance-hero-value.hit, .balance-hero-value.miss{color:#fff;}
 
+  /* Mi Bankroll → "Rendimiento": tarjeta con el resultado neto +
+     tasa de acierto al lado, y la mini-barra de precisión semanal —
+     pedido tal cual por referencia de otra app. */
+  .rendimiento-top{display:flex; align-items:flex-start; justify-content:space-between; gap:14px;}
+  .rendimiento-label{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:6px;}
+  .rendimiento-value{font-family:var(--font-display); font-weight:800; font-size:28px;}
+  .rendimiento-value.hit{color:var(--hit);}
+  .rendimiento-value.miss{color:var(--miss);}
+  .rendimiento-sub{font-size:12.5px; color:var(--muted); margin-top:4px;}
+  .rendimiento-sub .hit{color:var(--hit);}
+  .rendimiento-sub .miss{color:var(--miss);}
+  .rendimiento-tasa{
+    flex:none; text-align:center; padding:10px 14px; border-radius:14px;
+    background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.3);
+  }
+  .rendimiento-tasa-label{display:block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.3px; color:#22C55E; margin-bottom:3px; white-space:nowrap;}
+  .rendimiento-tasa-val{display:block; font-size:19px; font-weight:800; color:#22C55E;}
+
+  .week-precision-row{display:flex; justify-content:space-between; gap:6px; margin-top:14px; height:70px;}
+  .week-precision-col{display:flex; flex-direction:column; align-items:center; justify-content:flex-end; flex:1; gap:6px; height:100%;}
+  .week-precision-track{width:100%; max-width:22px; flex:1; display:flex; align-items:flex-end; background:var(--bg-alt); border-radius:6px; overflow:hidden;}
+  .week-precision-fill{width:100%; border-radius:6px; background:var(--line);}
+  .week-precision-fill.hit{background:#22C55E;}
+  .week-precision-fill.miss{background:#EF4444;}
+  .week-precision-day{font-size:10px; color:var(--muted); text-transform:uppercase;}
+
   .slip-label{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:8px;}
   .slip-bank-row{display:flex; align-items:baseline; gap:6px; margin-bottom:12px;}
   .slip-bank-currency{font-family:var(--font-display); font-weight:800; font-size:28px; color:var(--ink);}
@@ -5812,6 +5913,11 @@ const CSS = `
     font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:.6px;
     text-transform:uppercase; color:var(--muted); margin:20px 0 2px;
   }
+  .trial-banner{
+    background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.35); color:var(--ink);
+    border-radius:14px; padding:12px 16px; font-size:13px; line-height:1.5; margin:14px 0;
+  }
+
   .upgrade-card{
     width:100%; display:flex; align-items:center; gap:12px; text-align:left; margin-top:14px;
     background:var(--bg-alt); border:1px solid var(--line); border-radius:14px; padding:14px; cursor:pointer;
