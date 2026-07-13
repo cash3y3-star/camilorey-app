@@ -833,6 +833,30 @@ const TIER_LABEL = { alta: 'Alta confianza', media: 'Media confianza', baja: 'Co
 
 const SIDE_TONE = { left: 'var(--court)', right: 'var(--blue)' };
 
+// Avatar de un USUARIO del sitio (no de un jugador de tenis de mesa)
+// — prioridad emoji > foto propia/de Google > iniciales, la misma en
+// todos los lugares donde se muestra (chip del header, Perfil,
+// mensajes del chat).
+function UserAvatar({ emoji, url, initials, className = '' }) {
+  return (
+    <div
+      className={className}
+      style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
+    >
+      {emoji ? (
+        <span aria-hidden="true" style={{ fontSize: '85%', lineHeight: 1 }}>
+          {emoji}
+        </span>
+      ) : url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+}
+
 function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = '' }) {
   return (
     <div className={`avatar ${className}`} style={{ '--tone': SIDE_TONE[side] }}>
@@ -1142,7 +1166,7 @@ function MatchRow({ m, onClick, followed, onToggleFollow }) {
 // Chat en vivo del partido — un cuarto por match_source_id. Cualquiera
 // puede leer; escribir requiere sesión iniciada. Usa Supabase Realtime
 // para que los mensajes nuevos aparezcan solos, sin refrescar.
-function LiveChat({ matchSourceId, user }) {
+function LiveChat({ matchSourceId, user, profile }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -1154,7 +1178,7 @@ function LiveChat({ matchSourceId, user }) {
 
     supabaseClient
       .from('chat_messages')
-      .select('id, user_name, user_avatar, message, created_at, sender_level')
+      .select('id, user_name, user_avatar, user_avatar_emoji, message, created_at, sender_level')
       .eq('match_source_id', matchSourceId)
       .order('created_at', { ascending: true })
       .limit(100)
@@ -1189,8 +1213,9 @@ function LiveChat({ matchSourceId, user }) {
     const { error } = await supabaseClient.from('chat_messages').insert({
       match_source_id: matchSourceId,
       user_id: user.id,
-      user_name: user.user_metadata?.full_name || user.email,
-      user_avatar: user.user_metadata?.avatar_url || null,
+      user_name: profile?.displayName || user.user_metadata?.full_name || user.email,
+      user_avatar: profile?.avatarEmoji ? null : profile?.avatarUrl || user.user_metadata?.avatar_url || null,
+      user_avatar_emoji: profile?.avatarEmoji || null,
       message: trimmed.slice(0, 300)
     });
     setSending(false);
@@ -1210,12 +1235,13 @@ function LiveChat({ matchSourceId, user }) {
         ) : (
           messages.map((msg) => (
             <div className="live-chat-msg" key={msg.id}>
-              {msg.user_avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={msg.user_avatar} alt="" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="live-chat-avatar-fallback">{(msg.user_name || '?')[0].toUpperCase()}</span>
-              )}
+              <div className="live-chat-avatar">
+                <UserAvatar
+                  emoji={msg.user_avatar_emoji}
+                  url={msg.user_avatar}
+                  initials={<span className="live-chat-avatar-fallback">{(msg.user_name || '?')[0].toUpperCase()}</span>}
+                />
+              </div>
               <div>
                 <div className="live-chat-name">
                   {msg.user_name || 'Anónimo'}
@@ -1256,7 +1282,7 @@ function LiveChat({ matchSourceId, user }) {
 // si el partido sigue en vivo) consulta cada 8s el marcador real —
 // primero contra Rushbet (set por set + reloj), y si no lo tiene,
 // contra tt.league-pro.com directo.
-function MatchDetailModal({ m, onClose, user }) {
+function MatchDetailModal({ m, onClose, user, profile }) {
   const [live, setLive] = useState(null);
   const [form, setForm] = useState(null);
 
@@ -1423,7 +1449,9 @@ function MatchDetailModal({ m, onClose, user }) {
           </>
         ) : null}
 
-        {m.status === 'live' && !nowFinished ? <LiveChat matchSourceId={m.sourceId} user={user} /> : null}
+        {m.status === 'live' && !nowFinished ? (
+          <LiveChat matchSourceId={m.sourceId} user={user} profile={profile} />
+        ) : null}
       </div>
     </div>
   );
@@ -2039,8 +2067,15 @@ function LoginModal({ onClose, onLogin }) {
   );
 }
 
-function ProfileModal({ user, isAdmin, onClose, onLogout, themePref, onChangeTheme }) {
+const AVATAR_EMOJI_OPTIONS = ['🏓', '🔥', '⭐', '🎯', '🏆', '💪', '😎', '🚀', '🐉', '🦁', '🐯', '⚡'];
+
+function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAdmin, onClose, onLogout, themePref, onChangeTheme, onProfileUpdated }) {
   const [notifStatus, setNotifStatus] = useState('unknown');
+  const [nameInput, setNameInput] = useState(displayName || '');
+  const [savingName, setSavingName] = useState(false);
+  const [savingEmoji, setSavingEmoji] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof Notification !== 'undefined') {
@@ -2067,21 +2102,93 @@ function ProfileModal({ user, isAdmin, onClose, onLogout, themePref, onChangeThe
     }
   };
 
+  const saveName = async () => {
+    const trimmed = nameInput.trim().slice(0, 40);
+    if (!trimmed || trimmed === displayName || !supabaseClient) return;
+    setSavingName(true);
+    const { error } = await supabaseClient.from('profiles').upsert({ id: user.id, display_name: trimmed });
+    setSavingName(false);
+    if (error) {
+      alert('No se pudo guardar el nombre: ' + error.message);
+      return;
+    }
+    onProfileUpdated({ display_name: trimmed });
+  };
+
+  const saveEmoji = async (emoji) => {
+    if (!supabaseClient) return;
+    setSavingEmoji(true);
+    const { error } = await supabaseClient.from('profiles').upsert({ id: user.id, avatar_emoji: emoji || null });
+    setSavingEmoji(false);
+    if (error) {
+      alert('No se pudo guardar el emoji: ' + error.message);
+      return;
+    }
+    onProfileUpdated({ avatar_emoji: emoji || null });
+  };
+
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !supabaseClient) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Elige un archivo de imagen.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      alert('La foto no puede pesar más de 3MB.');
+      return;
+    }
+    setUploadingPhoto(true);
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${user.id}/avatar.${ext}`;
+    const { error: upErr } = await supabaseClient.storage
+      .from('user-avatars')
+      .upload(path, file, { upsert: true, cacheControl: '3600' });
+    if (upErr) {
+      setUploadingPhoto(false);
+      alert('No se pudo subir la foto: ' + upErr.message);
+      return;
+    }
+    const { data: pub } = supabaseClient.storage.from('user-avatars').getPublicUrl(path);
+    // Cache-busting con la hora — si no, el navegador puede seguir
+    // mostrando la foto vieja aunque la URL "real" sea la misma.
+    const url = `${pub.publicUrl}?t=${Date.now()}`;
+    const { error: dbErr } = await supabaseClient
+      .from('profiles')
+      .upsert({ id: user.id, custom_avatar_url: url, avatar_emoji: null });
+    setUploadingPhoto(false);
+    if (dbErr) {
+      alert('No se pudo guardar la foto: ' + dbErr.message);
+      return;
+    }
+    onProfileUpdated({ custom_avatar_url: url, avatar_emoji: null });
+  };
+
+  const removePhoto = async () => {
+    if (!supabaseClient) return;
+    const { error } = await supabaseClient.from('profiles').upsert({ id: user.id, custom_avatar_url: null });
+    if (error) {
+      alert('No se pudo quitar la foto: ' + error.message);
+      return;
+    }
+    onProfileUpdated({ custom_avatar_url: null });
+  };
+
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
         <div className="modal-head">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {user.user_metadata?.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="featured-avatar" src={user.user_metadata.avatar_url} alt="" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="featured-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--court)', fontWeight: 800 }}>
-                {(user.email || '?')[0].toUpperCase()}
-              </div>
-            )}
+            <div className="featured-avatar">
+              <UserAvatar
+                emoji={avatarEmoji}
+                url={avatarUrl}
+                initials={(displayName || user.email || '?')[0].toUpperCase()}
+              />
+            </div>
             <div>
-              <h3 style={{ fontSize: '18px' }}>{user.user_metadata?.full_name || user.email}</h3>
+              <h3 style={{ fontSize: '18px' }}>{displayName || user.email}</h3>
               <div className="sub">
                 {user.email}
                 {isAdmin ? ' · Admin' : ''}
@@ -2091,6 +2198,73 @@ function ProfileModal({ user, isAdmin, onClose, onLogout, themePref, onChangeThe
           <button className="modal-close" onClick={onClose}>
             ✕
           </button>
+        </div>
+
+        <div className="profile-row profile-row-theme">
+          <span className="profile-row-icon">✏️</span>
+          <div className="profile-row-body">
+            <strong>Nombre</strong>
+            <div className="profile-edit-inline">
+              <input
+                type="text"
+                className="profile-name-input"
+                value={nameInput}
+                maxLength={40}
+                placeholder="Tu nombre"
+                onChange={(e) => setNameInput(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn btn-ball"
+                disabled={savingName || !nameInput.trim() || nameInput.trim() === displayName}
+                onClick={saveName}
+              >
+                {savingName ? '...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="profile-row profile-row-theme">
+          <span className="profile-row-icon">🖼️</span>
+          <div className="profile-row-body">
+            <strong>Foto o emoji</strong>
+            <p>Elige un emoji, sube tu foto, o deja la de Google.</p>
+            <div className="avatar-emoji-row">
+              {AVATAR_EMOJI_OPTIONS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  className={`avatar-emoji-btn ${avatarEmoji === e ? 'active' : ''}`}
+                  disabled={savingEmoji}
+                  onClick={() => saveEmoji(e)}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+            <div className="avatar-actions-row">
+              <button type="button" className="btn btn-ghost" disabled={uploadingPhoto} onClick={() => fileInputRef.current?.click()}>
+                {uploadingPhoto ? 'Subiendo…' : '📷 Subir foto'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handlePhotoChange}
+              />
+              {profile?.custom_avatar_url ? (
+                <button type="button" className="btn btn-ghost" onClick={removePhoto}>
+                  Quitar foto
+                </button>
+              ) : avatarEmoji ? (
+                <button type="button" className="btn btn-ghost" disabled={savingEmoji} onClick={() => saveEmoji(null)}>
+                  Quitar emoji
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         <div className="profile-row" onClick={handleActivateNotifs}>
@@ -2192,6 +2366,37 @@ export default function Home({
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
   const [user, setUser] = useState(null);
+
+  // Perfil editable (nombre/emoji/foto propia) — Google solo da el
+  // nombre/foto de cuando iniciaste sesión, esto es lo que la persona
+  // eligió cambiar después, si lo hizo. Se guarda aparte en la tabla
+  // "profiles" (no se puede tocar auth.users directo).
+  const [myProfile, setMyProfile] = useState(null);
+  useEffect(() => {
+    if (!user || !supabaseClient) {
+      setMyProfile(null);
+      return undefined;
+    }
+    let cancelled = false;
+    supabaseClient
+      .from('profiles')
+      .select('display_name, avatar_emoji, custom_avatar_url')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) console.error('Error cargando perfil:', error);
+        if (!cancelled) setMyProfile(data || {});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const myDisplayName =
+    myProfile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || null;
+  const myAvatarEmoji = myProfile?.avatar_emoji || null;
+  const myAvatarUrl = myProfile?.custom_avatar_url || user?.user_metadata?.avatar_url || null;
+
   const [followedPickIds, setFollowedPickIds] = useState(new Set());
   const [followedDetail, setFollowedDetail] = useState([]);
   const [showRiskModal, setShowRiskModal] = useState(false);
@@ -2582,7 +2787,7 @@ export default function Home({
       ? matches.filter((m) => m.status === 'soon')
       : matches;
 
-  const greetingName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || null;
+  const greetingName = myDisplayName?.split(' ')[0] || null;
   const todayLabel = new Intl.DateTimeFormat('es-CO', {
     weekday: 'long',
     day: '2-digit',
@@ -2685,12 +2890,11 @@ export default function Home({
           ) : null}
           {!supabaseClient ? null : user ? (
             <div className="user-chip" onClick={() => setShowProfileModal(true)} title="Perfil">
-              {user.user_metadata?.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.user_metadata.avatar_url} alt="" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="user-chip-fallback">{(user.email || '?')[0].toUpperCase()}</span>
-              )}
+              <UserAvatar
+                emoji={myAvatarEmoji}
+                url={myAvatarUrl}
+                initials={<span className="user-chip-fallback">{(myDisplayName || user.email || '?')[0].toUpperCase()}</span>}
+              />
             </div>
           ) : (
             <button className="login-btn" onClick={() => setShowLoginModal(true)}>
@@ -3391,7 +3595,14 @@ export default function Home({
 
       {modalPick && <PickDetailModal pick={modalPick} onClose={() => setModalPick(null)} />}
 
-      {modalMatch && <MatchDetailModal m={modalMatch} onClose={() => setModalMatch(null)} user={user} />}
+      {modalMatch && (
+        <MatchDetailModal
+          m={modalMatch}
+          onClose={() => setModalMatch(null)}
+          user={user}
+          profile={{ displayName: myDisplayName, avatarEmoji: myAvatarEmoji, avatarUrl: myAvatarUrl }}
+        />
+      )}
 
       {showRiskModal && (
         <RiskModal count={followedPickIds.size} tips={riskTips} onClose={() => setShowRiskModal(false)} />
@@ -3400,11 +3611,16 @@ export default function Home({
       {showProfileModal && user && (
         <ProfileModal
           user={user}
+          profile={myProfile}
+          displayName={myDisplayName}
+          avatarEmoji={myAvatarEmoji}
+          avatarUrl={myAvatarUrl}
           isAdmin={isAdmin}
           onClose={() => setShowProfileModal(false)}
           onLogout={logout}
           themePref={themePref}
           onChangeTheme={changeTheme}
+          onProfileUpdated={(patch) => setMyProfile((prev) => ({ ...prev, ...patch }))}
         />
       )}
 
@@ -3628,7 +3844,7 @@ const CSS = `
   }
   .bell-btn:hover{border-color:var(--court);}
   .featured-avatar{
-    width:64px; height:64px; border-radius:14px; flex:none; object-fit:cover;
+    width:64px; height:64px; border-radius:14px; flex:none; object-fit:cover; overflow:hidden;
     border:2px solid rgba(255,255,255,.18); box-shadow:0 4px 14px rgba(0,0,0,.4);
   }
   .btn{
@@ -3825,9 +4041,9 @@ const CSS = `
     max-height:220px; overflow-y:auto; margin-bottom:10px;
   }
   .live-chat-msg{display:flex; align-items:flex-start; gap:8px;}
-  .live-chat-msg img{width:26px; height:26px; border-radius:50%; object-fit:cover; flex:none;}
+  .live-chat-avatar{width:26px; height:26px; border-radius:50%; flex:none; overflow:hidden;}
   .live-chat-avatar-fallback{
-    width:26px; height:26px; border-radius:50%; flex:none;
+    width:100%; height:100%; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
     background:var(--court); color:#fff; font-size:11px; font-weight:800;
   }
@@ -3908,6 +4124,23 @@ const CSS = `
     background:var(--bg-alt); border:1px solid var(--line); border-radius:8px; padding:8px 4px; cursor:pointer;
   }
   .theme-switch-btn.active{background:var(--court); border-color:var(--court); color:#fff;}
+
+  .profile-edit-inline{display:flex; gap:8px; margin-top:8px;}
+  .profile-name-input{
+    flex:1; min-width:0; background:var(--bg-alt); border:1px solid var(--line); border-radius:10px;
+    padding:9px 12px; color:var(--ink); font-family:var(--font-body); font-size:13.5px;
+  }
+  .profile-name-input:focus{outline:none; border-color:var(--court);}
+  .avatar-emoji-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+  .avatar-emoji-btn{
+    width:34px; height:34px; border-radius:10px; font-size:17px; flex:none;
+    background:var(--bg-alt); border:1px solid var(--line); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .avatar-emoji-btn.active{border-color:var(--court); background:var(--court-soft);}
+  .avatar-emoji-btn:disabled{opacity:.5; cursor:not-allowed;}
+  .avatar-actions-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .avatar-actions-row .btn{font-size:12.5px; padding:8px 14px;}
 
   .login-modal{text-align:center; padding-top:36px;}
   .login-modal-close{position:absolute; top:16px; right:16px;}
