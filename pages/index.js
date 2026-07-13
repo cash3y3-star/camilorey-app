@@ -5497,8 +5497,8 @@ const CSS = `
     display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800;
     border:2px solid rgba(255,255,255,.25);
   }
-  .followed-result-badge.hit{background:var(--hit);}
-  .followed-result-badge.miss{background:var(--miss);}
+  .followed-result-badge.hit{background:#22C55E; box-shadow:0 0 0 1px rgba(34,197,94,.35), 0 2px 8px rgba(34,197,94,.5);}
+  .followed-result-badge.miss{background:#EF4444; box-shadow:0 0 0 1px rgba(239,68,68,.35), 0 2px 8px rgba(239,68,68,.5);}
   .followed-result-badge.live{background:rgba(14,13,12,.7);}
   .followed-body{padding:9px 10px;}
   .followed-tournament{display:block; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
