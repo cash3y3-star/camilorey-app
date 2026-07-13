@@ -3639,7 +3639,7 @@ const CSS = `
   }
   .btn:hover{transform:translateY(-1px);}
   .btn-ball{background:var(--court); color:#fff;}
-  .btn-ghost{background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.25);}
+  .btn-ghost{background:var(--bg-alt); color:var(--ink); border:1px solid var(--line);}
 
   .section-head{display:flex; align-items:baseline; justify-content:space-between; margin:6px 0 14px;}
   .section-head h2{font-family:var(--font-display); font-size:22px; font-weight:700; margin:0;}
