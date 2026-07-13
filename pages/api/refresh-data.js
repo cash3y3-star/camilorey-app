@@ -257,19 +257,22 @@ export default async function handler(req, res) {
       }
     }
 
-    for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
-      const playerMatches = byPlayer.get(favoredId) || [];
-      const history = playerMatches.slice(0, 10).map((m) => {
-        const isA = m.player_a_id === favoredId;
+    const historyFor = (playerId) =>
+      (byPlayer.get(playerId) || []).slice(0, 10).map((m) => {
+        const isA = m.player_a_id === playerId;
         const oppId = isA ? m.player_b_id : m.player_a_id;
         return {
           date: m.scheduled_at,
           opponent: playersById.get(oppId)?.name || '?',
           setsFor: isA ? m.sets_a : m.sets_b,
           setsAgainst: isA ? m.sets_b : m.sets_a,
-          win: m.winner_id === favoredId
+          win: m.winner_id === playerId
         };
       });
+
+    for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
+      const history = historyFor(favoredId);
+      const opponentHistory = historyFor(opponentId);
       const h2hMatches = (h2hRowsByPair.get(pairKey(favoredId, opponentId)) || [])
         .slice(0, 20)
         .map((m) => {
@@ -286,6 +289,8 @@ export default async function handler(req, res) {
       result.set(pickId, {
         history,
         streakLabel: streakLabelFromHistory(history),
+        opponentHistory,
+        opponentStreakLabel: streakLabelFromHistory(opponentHistory),
         h2h: `${winsFavored}-${h2hMatches.length - winsFavored}`,
         h2hTotal: h2hMatches.length,
         h2hMatches
@@ -308,7 +313,15 @@ export default async function handler(req, res) {
       opponentName: opponent.name
     }))
   ]);
-  const EMPTY_FORM = { history: [], streakLabel: null, h2h: '0-0', h2hTotal: 0, h2hMatches: [] };
+  const EMPTY_FORM = {
+    history: [],
+    streakLabel: null,
+    opponentHistory: [],
+    opponentStreakLabel: null,
+    h2h: '0-0',
+    h2hTotal: 0,
+    h2hMatches: []
+  };
 
   const picks = pendingPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament, matchStatus }) => {
     const form = formByPickId.get(pick.id) || EMPTY_FORM;
@@ -336,6 +349,8 @@ export default async function handler(req, res) {
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
+      opponentHistory: form.opponentHistory,
+      opponentStreakLabel: form.opponentStreakLabel,
       h2h: form.h2h,
       h2hTotal: form.h2hTotal,
       h2hMatches: form.h2hMatches,
@@ -383,6 +398,8 @@ export default async function handler(req, res) {
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
+      opponentHistory: form.opponentHistory,
+      opponentStreakLabel: form.opponentStreakLabel,
       h2h: form.h2h,
       h2hTotal: form.h2hTotal,
       h2hMatches: form.h2hMatches,

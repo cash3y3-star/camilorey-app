@@ -1156,19 +1156,25 @@ export async function getServerSideProps({ query }) {
       }
     }
 
-    for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
-      const playerMatches = byPlayer.get(favoredId) || [];
-      const history = playerMatches.slice(0, 10).map((m) => {
-        const isA = m.player_a_id === favoredId;
+    // Forma reciente de UN jugador cualquiera (favorito o rival) — se
+    // arma igual para los dos, a partir del mismo lote compartido de
+    // arriba (ese sí sirve bien para esto, a diferencia del H2H).
+    const historyFor = (playerId) =>
+      (byPlayer.get(playerId) || []).slice(0, 10).map((m) => {
+        const isA = m.player_a_id === playerId;
         const oppId = isA ? m.player_b_id : m.player_a_id;
         return {
           date: m.scheduled_at,
           opponent: playersById.get(oppId)?.name || '?',
           setsFor: isA ? m.sets_a : m.sets_b,
           setsAgainst: isA ? m.sets_b : m.sets_a,
-          win: m.winner_id === favoredId
+          win: m.winner_id === playerId
         };
       });
+
+    for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
+      const history = historyFor(favoredId);
+      const opponentHistory = historyFor(opponentId);
       const h2hMatches = (h2hRowsByPair.get(pairKey(favoredId, opponentId)) || [])
         .slice(0, 20)
         .map((m) => {
@@ -1185,6 +1191,8 @@ export async function getServerSideProps({ query }) {
       result.set(pickId, {
         history,
         streakLabel: streakLabelFromHistory(history),
+        opponentHistory,
+        opponentStreakLabel: streakLabelFromHistory(opponentHistory),
         h2h: `${winsFavored}-${h2hMatches.length - winsFavored}`,
         h2hTotal: h2hMatches.length,
         h2hMatches
@@ -1207,7 +1215,15 @@ export async function getServerSideProps({ query }) {
       opponentName: opponent.name
     }))
   ]);
-  const EMPTY_FORM = { history: [], streakLabel: null, h2h: '0-0', h2hTotal: 0, h2hMatches: [] };
+  const EMPTY_FORM = {
+    history: [],
+    streakLabel: null,
+    opponentHistory: [],
+    opponentStreakLabel: null,
+    h2h: '0-0',
+    h2hTotal: 0,
+    h2hMatches: []
+  };
 
   const picks = pendingPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament }) => {
     const form = formByPickId.get(pick.id) || EMPTY_FORM;
@@ -1235,6 +1251,8 @@ export async function getServerSideProps({ query }) {
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
+      opponentHistory: form.opponentHistory,
+      opponentStreakLabel: form.opponentStreakLabel,
       h2h: form.h2h,
       h2hTotal: form.h2hTotal,
       h2hMatches: form.h2hMatches,
@@ -1279,6 +1297,8 @@ export async function getServerSideProps({ query }) {
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
+      opponentHistory: form.opponentHistory,
+      opponentStreakLabel: form.opponentStreakLabel,
       h2h: form.h2h,
       h2hTotal: form.h2hTotal,
       h2hMatches: form.h2hMatches,
@@ -2464,14 +2484,6 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
   const [tab, setTab] = useState('resumen');
   const [formView, setFormView] = useState('l10');
 
-  // history viene del más reciente al más viejo (index 0 = último
-  // partido) — L5 son los primeros 5 elementos, no los últimos.
-  const displayHistory = formView === 'l5' ? pick.history.slice(0, 5) : pick.history;
-  const hitsInView = displayHistory.filter((m) => m.win).length;
-
-  const isDone = pick.result === 'hit' || pick.result === 'miss';
-  const won = pick.result === 'hit';
-
   // Local (camiseta roja) siempre a la izquierda, visitante (azul) a
   // la derecha — pick.player/pick.opponent están ordenados por
   // favorito/rival, no por local/visitante, así que se reordena acá.
@@ -2483,26 +2495,18 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
     ? { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials }
     : { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials };
 
-  // pick.h2h/h2hMatches vienen armados desde el punto de vista del
-  // favorito, no del local — este toggle deja ver el mismo cruce
-  // "desde" cualquiera de los dos lados (local o visitante), dando
-  // vuelta el marcador y el acierto/fallo de cada partido cuando
-  // corresponde.
-  const [h2hSide, setH2hSide] = useState('local');
-  const wantsFavoredView = (h2hSide === 'local') === leftIsFavored;
-  const h2hView = wantsFavoredView
-    ? { record: pick.h2h, matches: pick.h2hMatches, oppName: pick.opponent }
-    : {
-        record: pick.h2h.split('-').reverse().join('-'),
-        oppName: pick.player,
-        matches: pick.h2hMatches.map((m) => ({
-          date: m.date,
-          opponent: pick.player,
-          setsFor: m.setsAgainst,
-          setsAgainst: m.setsFor,
-          win: !m.win
-        }))
-      };
+  // Forma reciente de CADA jugador (antes solo se guardaba/mostraba
+  // la del favorito) — se arma acá la del local y la del visitante
+  // por separado, respetando el mismo selector L5/L10.
+  const leftHistoryFull = leftIsFavored ? pick.history : pick.opponentHistory;
+  const rightHistoryFull = leftIsFavored ? pick.opponentHistory : pick.history;
+  const displayLeftHistory = formView === 'l5' ? leftHistoryFull.slice(0, 5) : leftHistoryFull;
+  const displayRightHistory = formView === 'l5' ? rightHistoryFull.slice(0, 5) : rightHistoryFull;
+  const hitsLeft = displayLeftHistory.filter((m) => m.win).length;
+  const hitsRight = displayRightHistory.filter((m) => m.win).length;
+
+  const isDone = pick.result === 'hit' || pick.result === 'miss';
+  const won = pick.result === 'hit';
 
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
@@ -2630,20 +2634,45 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
               </div>
             </div>
 
-            {displayHistory.length > 0 ? (
+            <div className="hist-title">
+              <span>Local · {leftPlayer.name}</span>
+            </div>
+            {displayLeftHistory.length > 0 ? (
               <>
                 <div className="donut-row">
-                  <DonutChart wins={hitsInView} total={displayHistory.length} />
+                  <DonutChart wins={hitsLeft} total={displayLeftHistory.length} />
                   <div>
                     <div className="hist-title" style={{ margin: 0 }}>
-                      <span>{t('ultimos')} {displayHistory.length} {t('partidosPl')}</span>
+                      <span>{t('ultimos')} {displayLeftHistory.length} {t('partidosPl')}</span>
                     </div>
                     <p className="page-sub" style={{ margin: '4px 0 0' }}>
-                      {hitsInView} {t('victorias')}, {displayHistory.length - hitsInView} {t('derrotas')}
+                      {hitsLeft} {t('victorias')}, {displayLeftHistory.length - hitsLeft} {t('derrotas')}
                     </p>
                   </div>
                 </div>
-                <RecentFormList history={displayHistory} />
+                <RecentFormList history={displayLeftHistory} />
+              </>
+            ) : (
+              <p className="page-sub">{t('sinHistorial')}</p>
+            )}
+
+            <div className="hist-title" style={{ marginTop: '20px' }}>
+              <span>Visitante · {rightPlayer.name}</span>
+            </div>
+            {displayRightHistory.length > 0 ? (
+              <>
+                <div className="donut-row">
+                  <DonutChart wins={hitsRight} total={displayRightHistory.length} />
+                  <div>
+                    <div className="hist-title" style={{ margin: 0 }}>
+                      <span>{t('ultimos')} {displayRightHistory.length} {t('partidosPl')}</span>
+                    </div>
+                    <p className="page-sub" style={{ margin: '4px 0 0' }}>
+                      {hitsRight} {t('victorias')}, {displayRightHistory.length - hitsRight} {t('derrotas')}
+                    </p>
+                  </div>
+                </div>
+                <RecentFormList history={displayRightHistory} />
               </>
             ) : (
               <p className="page-sub">{t('sinHistorial')}</p>
@@ -2658,26 +2687,17 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
           </div>
         ) : pick.h2hTotal > 0 ? (
           <>
-            <div className="tabs" style={{ marginBottom: '14px' }}>
-              <div className={`tab ${h2hSide === 'local' ? 'active' : ''}`} onClick={() => setH2hSide('local')}>
-                Local · {leftPlayer.name}
-              </div>
-              <div className={`tab ${h2hSide === 'visitante' ? 'active' : ''}`} onClick={() => setH2hSide('visitante')}>
-                Visitante · {rightPlayer.name}
-              </div>
-            </div>
-
             <div className="hist-title">
-              <span>{t('h2hContra')} {h2hView.oppName}</span>
-              <span className="num">{h2hView.record}</span>
+              <span>{t('h2hContra')} {pick.opponent}</span>
+              <span className="num">{pick.h2h}</span>
             </div>
             <div className="h2h-bar-track">
               <div
                 className="h2h-bar-fill"
-                style={{ width: `${(Number(h2hView.record.split('-')[0]) / pick.h2hTotal) * 100}%` }}
+                style={{ width: `${(Number(pick.h2h.split('-')[0]) / pick.h2hTotal) * 100}%` }}
               ></div>
             </div>
-            <RecentFormList history={h2hView.matches} />
+            <RecentFormList history={pick.h2hMatches} />
           </>
         ) : (
           <p className="page-sub">{t('sinEnfrentamientos')}</p>

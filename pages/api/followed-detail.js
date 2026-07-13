@@ -184,8 +184,9 @@ export default async function handler(req, res) {
             : match.set_scores.map((s) => ({ a: s.b, b: s.a }))
           : null;
 
-      const [history, h2h] = await Promise.all([
+      const [history, opponentHistory, h2h] = await Promise.all([
         recentForm(favored.id),
+        recentForm(opponent.id),
         h2hRecord(favored.id, opponent.id, opponent.name)
       ]);
 
@@ -211,6 +212,8 @@ export default async function handler(req, res) {
         analysis: buildAnalysis(pick.factors),
         history,
         streakLabel: streakLabelFromHistory(history),
+        opponentHistory,
+        opponentStreakLabel: streakLabelFromHistory(opponentHistory),
         h2h: `${h2h.winsA}-${h2h.winsB}`,
         h2hTotal: h2h.winsA + h2h.winsB,
         h2hMatches: h2h.matches,
