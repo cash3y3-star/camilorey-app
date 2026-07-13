@@ -142,6 +142,49 @@ function streakLabelFromHistory(history) {
 export async function getServerSideProps({ query }) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+  // Calendario, Bankroll y el conteo de usuarios no dependen de nada
+  // de la cadena de picks/resolvedPicks/tournamentGroups de abajo —
+  // antes se pedían en secuencia DESPUÉS de toda esa cadena, sumando
+  // varios round-trips más al tiempo de carga. Se disparan ya (sin
+  // esperarlos todavía) para que corran en paralelo con todo lo demás,
+  // y se resuelven más abajo, justo donde se necesitan.
+  const bogotaDateStr = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d);
+  const selectedDate = typeof query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : null;
+  let windowStart, windowEnd;
+  if (selectedDate) {
+    windowStart = new Date(`${selectedDate}T00:00:00-05:00`).toISOString();
+    windowEnd = new Date(`${selectedDate}T23:59:59-05:00`).toISOString();
+  } else {
+    windowStart = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+    windowEnd = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  }
+  const currentDateStr = selectedDate || bogotaDateStr(new Date());
+  const prevDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() - 24 * 3600 * 1000));
+  const nextDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() + 24 * 3600 * 1000));
+
+  const windowMatchesPromise = supabase
+    .from('matches')
+    .select('*')
+    .gte('scheduled_at', windowStart)
+    .lte('scheduled_at', windowEnd)
+    .order('scheduled_at', { ascending: true })
+    .limit(1000);
+
+  const bankrollPromise = (async () => {
+    const { data: bankrollRows } = await supabase
+      .from('bankroll_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(30);
+    const bkPickIds = [...new Set((bankrollRows || []).map((r) => r.pick_id).filter(Boolean))];
+    const { data: bkPicks } = bkPickIds.length
+      ? await supabase.from('picks').select('id, market, odds').in('id', bkPickIds)
+      : { data: [] };
+    return { bankrollRows, bkPicks };
+  })();
+
+  const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
+
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
     supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
     supabase.from('picks').select('*').eq('result', 'pending').order('confidence', { ascending: false })
@@ -535,39 +578,9 @@ export async function getServerSideProps({ query }) {
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
-  // Resultados: por default una ventana de "ahora mismo" (unas horas
-  // atrás hasta mañana). Si viene ?date=YYYY-MM-DD, se muestra ese
-  // día completo (hora Colombia) en su lugar, para poder navegar
-  // resultados de otros días.
-  const bogotaDateStr = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d);
-  const selectedDate = typeof query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : null;
-
-  let windowStart, windowEnd;
-  if (selectedDate) {
-    windowStart = new Date(`${selectedDate}T00:00:00-05:00`).toISOString();
-    windowEnd = new Date(`${selectedDate}T23:59:59-05:00`).toISOString();
-  } else {
-    windowStart = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
-    windowEnd = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
-  }
-
-  const currentDateStr = selectedDate || bogotaDateStr(new Date());
-  const prevDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() - 24 * 3600 * 1000));
-  const nextDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() + 24 * 3600 * 1000));
-
-  // OJO: con .order ascending + .limit, un límite bajo corta los
-  // partidos MÁS RECIENTES cuando el día ya acumuló más partidos que
-  // el límite antes de "ahora" — así desaparecían los que están en
-  // vivo al entrar a un día específico (ej. "hoy" desde el selector
-  // de día, que sí manda ?date= aunque sea hoy mismo). 1000 deja
-  // margen de sobra para un día completo de esta liga.
-  const { data: windowMatches } = await supabase
-    .from('matches')
-    .select('*')
-    .gte('scheduled_at', windowStart)
-    .lte('scheduled_at', windowEnd)
-    .order('scheduled_at', { ascending: true })
-    .limit(1000);
+  // Calendario: windowMatches ya se disparó al principio de la
+  // función (ver windowMatchesPromise) — aquí solo se espera.
+  const { data: windowMatches } = await windowMatchesPromise;
 
   const missingPlayerIds = [...new Set((windowMatches || []).flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(
     (id) => id && !playersById.has(id)
@@ -633,17 +646,9 @@ export async function getServerSideProps({ query }) {
     };
   });
 
-  // Bankroll.
-  const { data: bankrollRows } = await supabase
-    .from('bankroll_log')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(30);
-
-  const bkPickIds = [...new Set((bankrollRows || []).map((r) => r.pick_id).filter(Boolean))];
-  const { data: bkPicks } = bkPickIds.length
-    ? await supabase.from('picks').select('id, market, odds').in('id', bkPickIds)
-    : { data: [] };
+  // Bankroll: bankrollRows/bkPicks ya se dispararon al principio de
+  // la función (ver bankrollPromise) — aquí solo se espera.
+  const { bankrollRows, bkPicks } = await bankrollPromise;
   const bkPicksById = new Map((bkPicks || []).map((p) => [p.id, p]));
 
   const bankrollLog = (bankrollRows || []).map((r) => {
@@ -698,7 +703,7 @@ export async function getServerSideProps({ query }) {
     ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
     : null;
 
-  const { count: userCount } = await supabase.from('profiles').select('id', { count: 'exact', head: true });
+  const { count: userCount } = await userCountPromise;
 
   return {
     props: {
