@@ -201,6 +201,7 @@ export default async function handler(req, res) {
         opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
         opponentHasCutout: Boolean(opponent.avatar_cutout_url),
         time: timeLabel(match.scheduled_at),
+        scheduledAt: match.scheduled_at ? new Date(match.scheduled_at).getTime() : null,
         tournament: tournament?.name || 'Torneo',
         market: pick.market,
         confidence,

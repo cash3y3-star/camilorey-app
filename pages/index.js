@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 
-const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos', 'modelo'];
+const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos', 'modelo', 'mibankroll'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 
@@ -2153,6 +2153,50 @@ export default function Home({
     if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_bankplan', String(bankPlan));
   }, [bankPlan]);
 
+  // "Mi Bankroll" — simulador personal para cualquier usuario (no
+  // solo admin). No hay una bitácora nueva: el balance/evolución se
+  // recalcula cada vez a partir de followedDetail (los picks que la
+  // persona sigue, ya resueltos o no) con la misma fórmula de Kelly
+  // del Bankroll del admin. Lo único que se guarda de verdad es el
+  // banco inicial y el nivel de riesgo, por cuenta (no por navegador,
+  // a diferencia del bankPlan del admin de arriba).
+  const [myBankPlan, setMyBankPlan] = useState(2000000);
+  const [myRiskLevel, setMyRiskLevel] = useState('equilibrado');
+  const [myBankLoaded, setMyBankLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!user || !supabaseClient) {
+      setMyBankLoaded(false);
+      return;
+    }
+    let cancelled = false;
+    supabaseClient
+      .from('user_bankroll_settings')
+      .select('starting_bank, risk_level')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) console.error('Error cargando Mi Bankroll:', error);
+        if (data) {
+          setMyBankPlan(Number(data.starting_bank));
+          setMyRiskLevel(data.risk_level);
+        }
+        setMyBankLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const saveMyBankSettings = async (patch) => {
+    if (!user || !supabaseClient) return;
+    const { error } = await supabaseClient
+      .from('user_bankroll_settings')
+      .upsert({ user_id: user.id, starting_bank: myBankPlan, risk_level: myRiskLevel, ...patch, updated_at: new Date() });
+    if (error) console.error('Error guardando Mi Bankroll:', error);
+  };
+
   // Tema: oscuro / claro / sistema (según el SO). "sistema" es el
   // default para quien nunca lo tocó. Se aplica al <html> vía atributo
   // (ver applyTheme) para que todo el CSS existente, que ya usa
@@ -2394,6 +2438,37 @@ export default function Home({
       ? resolvedPicks.filter((p) => p.result === 'miss')
       : [...picks, ...resolvedPicks];
 
+  // "Mi Bankroll": mismo cálculo de Kelly que el Bankroll del admin,
+  // pero corriendo solo sobre los picks que ESTA persona sigue (no
+  // los del sitio entero). followedDetail ya trae confianza/cuota/
+  // resultado de cada uno — no hace falta pedir nada más.
+  const myMultiplier = RISK_LEVELS[myRiskLevel].multiplier;
+  const myResolvedFollowed = followedDetail
+    .filter((p) => (p.result === 'hit' || p.result === 'miss') && p.odds)
+    .slice()
+    .sort((a, b) => (a.scheduledAt || 0) - (b.scheduledAt || 0));
+  const myPendingFollowed = followedDetail.filter((p) => p.result === 'pending' && p.odds);
+
+  let myRunningBalance = myBankPlan;
+  const myHistory = myResolvedFollowed.map((p) => {
+    const fraction = kellyFraction(p.confidence, p.odds, myMultiplier);
+    const stake = fraction * myBankPlan;
+    const units = p.result === 'hit' ? stake * (p.odds - 1) : -stake;
+    myRunningBalance += units;
+    return { ...p, stake, units, balance: myRunningBalance };
+  });
+  const myHits = myHistory.filter((h) => h.units > 0).length;
+  const myEfectividad = myHistory.length ? Math.round((myHits / myHistory.length) * 100) : 0;
+  const myTotalStake = myHistory.reduce((s, h) => s + h.stake, 0);
+  const myTotalProfit = myHistory.reduce((s, h) => s + h.units, 0);
+  const myRoi = myTotalStake > 0 ? Math.round((myTotalProfit / myTotalStake) * 1000) / 10 : 0;
+  const myFinalBalance = myHistory.length ? myHistory[myHistory.length - 1].balance : myBankPlan;
+  const mySeries = [myBankPlan, ...myHistory.map((h) => h.balance)];
+  const myPendingStake = myPendingFollowed.reduce(
+    (sum, p) => sum + kellyFraction(p.confidence, p.odds, myMultiplier) * myBankPlan,
+    0
+  );
+
   // Tira de 7 días (hoy + los próximos 6) para navegar Calendario —
   // son links reales a "/?date=YYYY-MM-DD#calendario" (no hash-routing
   // puro), así que getServerSideProps trae ese día completo al hacer
@@ -2474,6 +2549,7 @@ export default function Home({
           {navLink('calendario', 'Calendario')}
           {navLink('picks', 'Picks')}
           {navLink('seguidos', 'Seguidos')}
+          {navLink('mibankroll', 'Mi Bankroll')}
           {isAdmin ? navLink('bankroll', 'Bankroll') : null}
           {isAdmin ? navLink('grupos', 'Grupos') : null}
           {isAdmin ? navLink('modelo', 'Modelo') : null}
@@ -2952,6 +3028,132 @@ export default function Home({
             })()
           )}
         </section>
+
+        <section className={`view ${view === 'mibankroll' ? 'active' : ''}`}>
+          <span className="eyebrow">Simulador personal</span>
+          <h1 className="page-title">Mi Bankroll</h1>
+          <p className="page-sub">
+            Cómo te habría ido apostando con Kelly solo en los picks que sigues — no es dinero real, es para que
+            practiques el tamaño de apuesta antes de arriesgar el tuyo.
+          </p>
+          {!user ? (
+            <p className="page-sub">Inicia sesión con Google (arriba a la derecha) para armar tu bankroll.</p>
+          ) : !myBankLoaded ? (
+            <p className="page-sub">Cargando…</p>
+          ) : (
+            <>
+              <div className="bankroll-card">
+                <div className="slip-label">TU BANCO INICIAL</div>
+                <div className="slip-bank-row">
+                  <span className="slip-bank-currency">$</span>
+                  <input
+                    type="number"
+                    className="slip-bank-input"
+                    value={myBankPlan}
+                    onChange={(e) => setMyBankPlan(Number(e.target.value) || 0)}
+                    onBlur={() => saveMyBankSettings({ starting_bank: myBankPlan })}
+                  />
+                  <span className="slip-bank-tag">COP</span>
+                </div>
+
+                <div className="slip-label" style={{ marginTop: 18 }}>
+                  NIVEL DE RIESGO
+                </div>
+                <div className="risk-level-row">
+                  {Object.entries(RISK_LEVELS).map(([key, rl]) => (
+                    <div
+                      key={key}
+                      className={`risk-level-btn ${myRiskLevel === key ? 'active' : ''}`}
+                      onClick={() => {
+                        setMyRiskLevel(key);
+                        saveMyBankSettings({ risk_level: key });
+                      }}
+                    >
+                      <div className="risk-level-label">{rl.label}</div>
+                      <div className="risk-level-sub">{rl.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {myHistory.length === 0 ? (
+                <p className="page-sub">
+                  Todavía no tienes picks seguidos que ya se hayan jugado — sigue algunos desde Picks o Calendario y
+                  vuelve cuando terminen.
+                </p>
+              ) : (
+                <>
+                  <div className="balance-hero">
+                    <div className="balance-hero-label">Balance simulado</div>
+                    <div className={`balance-hero-value num ${myFinalBalance >= myBankPlan ? 'hit' : 'miss'}`}>
+                      {formatCOP(myFinalBalance)}
+                    </div>
+                  </div>
+
+                  <div className="stat-strip stat-strip-3">
+                    <div className="stat-card">
+                      <div className="label">ROI</div>
+                      <div className={`value num ${myRoi >= 0 ? 'hit' : 'miss'}`}>
+                        {myRoi >= 0 ? '+' : ''}
+                        {myRoi}%
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="label">Efectividad</div>
+                      <div className="value hit num">{myEfectividad}%</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="label">Picks jugados</div>
+                      <div className="value num">{myHistory.length}</div>
+                    </div>
+                  </div>
+
+                  <div className="bankroll-card">
+                    <strong>Evolución</strong>
+                    <LineChart series={mySeries} />
+                  </div>
+
+                  {myPendingFollowed.length > 0 ? (
+                    <div className="bankroll-card">
+                      <strong>Picks seguidos por jugarse</strong>
+                      <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6', margin: '6px 0 0' }}>
+                        {myPendingFollowed.length} pick{myPendingFollowed.length === 1 ? '' : 's'} pendiente
+                        {myPendingFollowed.length === 1 ? '' : 's'} — si aciertas todos, arriesgarías en total{' '}
+                        <strong className="num">{formatCOP(myPendingStake)}</strong> de tu banco.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="bankroll-card">
+                    <table className="bk">
+                      <thead>
+                        <tr>
+                          <th>Pick</th>
+                          <th>Monto</th>
+                          <th>Resultado</th>
+                          <th>Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myHistory
+                          .slice()
+                          .reverse()
+                          .map((h) => (
+                            <tr key={h.id}>
+                              <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{h.market}</td>
+                              <td className={h.units >= 0 ? 'hit' : 'miss'}>{formatCOP(h.units, true)}</td>
+                              <td className={h.units >= 0 ? 'hit' : 'miss'}>{h.units >= 0 ? 'Acierto' : 'Fallo'}</td>
+                              <td>{formatCOP(h.balance)}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </section>
       </main>
 
       <footer className="site">
@@ -2988,6 +3190,13 @@ export default function Home({
             <path d="M12 17.3l-6.2 3.6 1.6-7-5.3-4.6 7-.6L12 2l2.9 6.7 7 .6-5.3 4.6 1.6 7z" />
           </svg>
           Seguidos
+        </a>
+        <a href="#mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="6" width="18" height="13" rx="2" />
+            <path d="M3 10h18M8 15h1" />
+          </svg>
+          Mi Bankroll
         </a>
         {isAdmin ? (
           <a href="#bankroll" className={view === 'bankroll' ? 'active' : ''}>
