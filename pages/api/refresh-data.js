@@ -38,12 +38,6 @@ function dayLabel(iso) {
   return 'otro';
 }
 
-function formatCOP(n, withSign = false) {
-  const abs = Math.round(Math.abs(n)).toLocaleString('es-CO');
-  const sign = withSign ? (n >= 0 ? '+' : '-') : '';
-  return `${sign}$${abs}`;
-}
-
 function confidenceTier(confidence) {
   if (confidence >= 85) return 'alta';
   if (confidence >= 70) return 'media';
@@ -497,29 +491,17 @@ export default async function handler(req, res) {
     ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
     : null;
 
-  // Mismo cálculo que getServerSideProps para la pestaña Bankroll (solo
-  // admin) — antes esta vista se quedaba congelada hasta recargar la
-  // página porque este endpoint no devolvía nada de bankroll_log.
-  const bankrollLog = (bankrollRows || []).map((r) => {
-    const pick = bkPicksById.get(r.pick_id);
-    return {
-      fecha: new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-digit', timeZone: 'America/Bogota' }).format(
-        new Date(r.created_at)
-      ),
-      pick: pick?.market || 'Pick',
-      u: formatCOP(Number(r.units), true),
-      ok: Number(r.units) >= 0,
-      balance: formatCOP(Number(r.balance))
-    };
-  });
-  const bankrollSeries = [...(bankrollRows || [])].reverse().map((r) => Number(r.balance));
-
+  // El log detallado (bankrollLog/bankrollSeries, apuesta por apuesta)
+  // ya NO se manda desde este endpoint público — antes cualquiera
+  // podía pedirlo sin login y ver el bankroll completo del admin. Ese
+  // detalle ahora sale solo de /api/bankroll-log, con el login
+  // verificado de verdad en el servidor (igual que /api/error-log y
+  // /api/model-stats). Las estadísticas agregadas de abajo sí siguen
+  // siendo públicas a propósito.
   return res.status(200).json({
     stats: { efectividad, racha, cuotaProm, roi, unidades },
     picks,
     resolvedPicks,
-    tournamentGroups,
-    bankrollLog,
-    bankrollSeries
+    tournamentGroups
   });
 }

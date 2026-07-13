@@ -1411,26 +1411,19 @@ export async function getServerSideProps({ query }) {
 
   // Bankroll: bankrollRows/bkPicks ya se dispararon al principio de
   // la función (ver bankrollPromise) — aquí solo se espera.
+  //
+  // OJO: el log detallado (bankrollLog/bankrollSeries, apuesta por
+  // apuesta) YA NO se calcula ni se manda acá — antes viajaba a
+  // CUALQUIER visitante en el HTML inicial de la página, sin login,
+  // aunque la interfaz lo ocultara a quien no fuera admin (el
+  // "candado" era solo visual). Ahora ese detalle se sirve aparte en
+  // /api/bankroll-log, con el mismo login verificado de verdad en el
+  // servidor que ya usan /api/error-log y /api/model-stats. Las
+  // estadísticas AGREGADAS de abajo (efectividad/racha/ROI/balance)
+  // sí siguen siendo públicas a propósito — es la transparencia del
+  // modelo que se muestra en Inicio para todos.
   const { bankrollRows, bkPicks } = await bankrollPromise;
   const bkPicksById = new Map((bkPicks || []).map((p) => [p.id, p]));
-
-  const bankrollLog = (bankrollRows || []).map((r) => {
-    const pick = bkPicksById.get(r.pick_id);
-    return {
-      fecha: new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: '2-digit', timeZone: 'America/Bogota' }).format(
-        new Date(r.created_at)
-      ),
-      pick: pick?.market || 'Pick',
-      u: formatCOP(Number(r.units), true),
-      ok: Number(r.units) >= 0,
-      balance: formatCOP(Number(r.balance))
-    };
-  });
-
-  // Serie cronológica (más viejo primero) del balance, para el
-  // gráfico de evolución — bankrollRows viene ordenado más nuevo
-  // primero, así que se invierte solo para el gráfico.
-  const bankrollSeries = [...(bankrollRows || [])].reverse().map((r) => Number(r.balance));
 
   const hits = (bankrollRows || []).filter((r) => Number(r.units) > 0).length;
   const misses = (bankrollRows || []).filter((r) => Number(r.units) < 0).length;
@@ -1475,8 +1468,6 @@ export async function getServerSideProps({ query }) {
       resolvedPicks,
       tournamentGroups,
       matches,
-      bankrollLog,
-      bankrollSeries,
       currentDateStr,
       prevDateStr,
       nextDateStr,
@@ -1504,8 +1495,6 @@ export async function getServerSideProps({ query }) {
         resolvedPicks: [],
         tournamentGroups: [],
         matches: [],
-        bankrollLog: [],
-        bankrollSeries: [],
         currentDateStr: fallbackDate,
         prevDateStr: fallbackDate,
         nextDateStr: fallbackDate,
@@ -3859,8 +3848,6 @@ export default function Home({
   resolvedPicks: initialResolvedPicks,
   tournamentGroups: initialTournamentGroups,
   matches: initialMatches,
-  bankrollLog: initialBankrollLog,
-  bankrollSeries: initialBankrollSeries,
   currentDateStr,
   userCount
 }) {
@@ -3871,8 +3858,12 @@ export default function Home({
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
   const [tournamentGroups, setTournamentGroups] = useState(initialTournamentGroups);
   const [matches, setMatches] = useState(initialMatches);
-  const [bankrollLog, setBankrollLog] = useState(initialBankrollLog);
-  const [bankrollSeries, setBankrollSeries] = useState(initialBankrollSeries);
+  // bankrollLog/bankrollSeries (apuesta por apuesta) ya no llegan por
+  // props ni por el poller público — se piden aparte a
+  // /api/bankroll-log con el login verificado, ver el useEffect más
+  // abajo (mismo patrón que modelStats/errorLog).
+  const [bankrollLog, setBankrollLog] = useState([]);
+  const [bankrollSeries, setBankrollSeries] = useState([]);
   const [matchFilter, setMatchFilter] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
@@ -4104,13 +4095,32 @@ export default function Home({
         if (data.picks) setPicks(data.picks);
         if (data.resolvedPicks) setResolvedPicks(data.resolvedPicks);
         if (data.tournamentGroups) setTournamentGroups(data.tournamentGroups);
-        if (data.bankrollLog) setBankrollLog(data.bankrollLog);
-        if (data.bankrollSeries) setBankrollSeries(data.bankrollSeries);
       } catch (e) {
         console.error('Error actualizando Inicio/Picks/Bankroll:', e);
       }
+
+      // El detalle de bankroll (apuesta por apuesta) sale de un
+      // endpoint aparte con login verificado — solo se pide mientras
+      // la pestaña Bankroll (admin) está abierta.
+      if (view === 'bankroll' && isAdmin && supabaseClient) {
+        try {
+          const { data: sessionData } = await supabaseClient.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          const r2 = await fetch('/api/bankroll-log', { headers: { Authorization: `Bearer ${accessToken}` } });
+          const data2 = await r2.json();
+          if (cancelled) return;
+          if (data2.bankrollLog) setBankrollLog(data2.bankrollLog);
+          if (data2.bankrollSeries) setBankrollSeries(data2.bankrollSeries);
+        } catch (e) {
+          console.error('Error actualizando el log de Bankroll:', e);
+        }
+      }
     }
 
+    // El bankroll detallado ya no llega con la carga inicial de la
+    // página (ver arriba por qué) — sin este llamado inmediato, la
+    // tabla se vería vacía hasta el primer tick del poller (20s).
+    load();
     const interval = setInterval(load, 20000);
     return () => {
       cancelled = true;
