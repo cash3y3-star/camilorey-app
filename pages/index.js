@@ -2163,6 +2163,14 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'arrow-left') {
+    return (
+      <svg {...common}>
+        <path d="m12 19-7-7 7-7" />
+        <path d="M19 12H5" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -2311,6 +2319,11 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
   const [notifStatus, setNotifStatus] = useState('unknown');
   const [nameInput, setNameInput] = useState(displayName || '');
   const [savingName, setSavingName] = useState(false);
+  // "Tema" abre una sub-pantalla aparte (con flecha de regreso) en vez
+  // de expandirse ahí mismo en la lista — mismo patrón que la
+  // referencia, donde tocar la fila navega a otra vista.
+  const [themeScreenOpen, setThemeScreenOpen] = useState(false);
+  const THEME_LABEL = { oscuro: 'Oscuro', claro: 'Claro', sistema: 'Sistema' };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof Notification !== 'undefined') {
@@ -2353,6 +2366,75 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
   const memberSince = user.created_at
     ? new Intl.DateTimeFormat('es', { month: 'short', year: 'numeric' }).format(new Date(user.created_at))
     : null;
+
+  if (themeScreenOpen) {
+    return (
+      <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+        <div className="modal">
+          <div className="subscreen-head">
+            <button className="subscreen-back" onClick={() => setThemeScreenOpen(false)}>
+              <ProfileIcon name="arrow-left" size={18} />
+            </button>
+            <h3>Tema</h3>
+          </div>
+
+          <div className="profile-row profile-row-theme" style={{ border: 'none', padding: '4px 0 0' }}>
+            <span className="profile-row-icon">
+              <ProfileIcon name="moon" />
+            </span>
+            <div className="profile-row-body">
+              <strong>Tema</strong>
+              <p>Elige cómo se ve CAMILOREY en este dispositivo.</p>
+            </div>
+          </div>
+
+          <div className="theme-option-list">
+            {[
+              ['oscuro', 'moon', 'Oscuro', 'Siempre usar modo oscuro'],
+              ['claro', 'sun', 'Claro', 'Siempre usar modo claro'],
+              ['sistema', 'monitor', 'Sistema', 'Seguir ajustes del dispositivo']
+            ].map(([key, icon, title, sub]) => (
+              <div
+                key={key}
+                className={`theme-option ${themePref === key ? 'active' : ''}`}
+                onClick={() => onChangeTheme(key)}
+              >
+                <span className="theme-option-icon">
+                  <ProfileIcon name={icon} size={17} />
+                </span>
+                <div className="theme-option-body">
+                  <strong>{title}</strong>
+                  <span>{sub}</span>
+                </div>
+                <span className="theme-option-radio">
+                  {themePref === key ? <ProfileIcon name="check" size={12} /> : null}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="theme-preview-row">
+            <div className="theme-preview-card theme-preview-light">
+              <div className="theme-preview-head">
+                <span className="theme-preview-dot"></span>
+                <span className="theme-preview-line"></span>
+              </div>
+              <div className="theme-preview-block"></div>
+              <span className="theme-preview-label">Claro</span>
+            </div>
+            <div className="theme-preview-card theme-preview-dark">
+              <div className="theme-preview-head">
+                <span className="theme-preview-dot"></span>
+                <span className="theme-preview-line"></span>
+              </div>
+              <div className="theme-preview-block"></div>
+              <span className="theme-preview-label">Oscuro</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
@@ -2472,60 +2554,15 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
           <ProfileIcon name="chevron-right" size={16} />
         </div>
 
-        <div className="profile-row profile-row-theme" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span className="profile-row-icon">
-              <ProfileIcon name="moon" />
-            </span>
-            <div className="profile-row-body">
-              <strong>Tema</strong>
-              <p>Elige cómo se ve CAMILOREY en este dispositivo.</p>
-            </div>
+        <div className="profile-row" onClick={() => setThemeScreenOpen(true)}>
+          <span className="profile-row-icon">
+            <ProfileIcon name="moon" />
+          </span>
+          <div className="profile-row-body">
+            <strong>Tema</strong>
+            <p>{THEME_LABEL[themePref] || 'Sistema'}</p>
           </div>
-
-          <div className="theme-option-list">
-            {[
-              ['oscuro', 'moon', 'Oscuro', 'Siempre usar modo oscuro'],
-              ['claro', 'sun', 'Claro', 'Siempre usar modo claro'],
-              ['sistema', 'monitor', 'Sistema', 'Seguir ajustes del dispositivo']
-            ].map(([key, icon, title, sub]) => (
-              <div
-                key={key}
-                className={`theme-option ${themePref === key ? 'active' : ''}`}
-                onClick={() => onChangeTheme(key)}
-              >
-                <span className="theme-option-icon">
-                  <ProfileIcon name={icon} size={17} />
-                </span>
-                <div className="theme-option-body">
-                  <strong>{title}</strong>
-                  <span>{sub}</span>
-                </div>
-                <span className="theme-option-radio">
-                  {themePref === key ? <ProfileIcon name="check" size={12} /> : null}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="theme-preview-row">
-            <div className="theme-preview-card theme-preview-light">
-              <div className="theme-preview-head">
-                <span className="theme-preview-dot"></span>
-                <span className="theme-preview-line"></span>
-              </div>
-              <div className="theme-preview-block"></div>
-              <span className="theme-preview-label">Claro</span>
-            </div>
-            <div className="theme-preview-card theme-preview-dark">
-              <div className="theme-preview-head">
-                <span className="theme-preview-dot"></span>
-                <span className="theme-preview-line"></span>
-              </div>
-              <div className="theme-preview-block"></div>
-              <span className="theme-preview-label">Oscuro</span>
-            </div>
-          </div>
+          <ProfileIcon name="chevron-right" size={16} />
         </div>
 
         <div className="profile-row" onClick={() => alert('Por ahora CAMILOREY solo está disponible en español.')}>
@@ -4409,6 +4446,12 @@ const CSS = `
   }
   .modal h3{font-family:var(--font-display); font-size:24px; margin:2px 0 2px; color:var(--ink);}
   .modal .sub{color:var(--muted); font-size:13px;}
+  .subscreen-head{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+  .subscreen-back{
+    background:var(--bg-alt); border:1px solid var(--line); width:32px; height:32px; border-radius:50%;
+    cursor:pointer; color:var(--ink); flex:none; display:flex; align-items:center; justify-content:center;
+  }
+  .subscreen-head h3{font-size:19px; margin:0;}
 
   .risk-modal-head{display:flex; align-items:center; gap:14px; margin-bottom:18px;}
   .risk-modal-icon{
