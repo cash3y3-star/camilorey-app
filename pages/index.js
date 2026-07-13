@@ -4265,6 +4265,31 @@ export default function Home({
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Contador de "activos ahora" — cualquiera que tenga el sitio
+  // abierto (con o sin sesión) se une a este canal de Supabase
+  // Realtime Presence (mismo sistema que ya usa el chat en vivo, no
+  // hace falta tabla nueva), y cada pestaña se cuenta como una
+  // presencia. Solo el admin ve el número en la interfaz (más abajo).
+  const [activeCount, setActiveCount] = useState(0);
+  useEffect(() => {
+    if (!supabaseClient) return undefined;
+    const sessionKey =
+      typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const channel = supabaseClient.channel('camilorey-online', { config: { presence: { key: sessionKey } } });
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        setActiveCount(Object.keys(channel.presenceState()).length);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString() });
+        }
+      });
+    return () => {
+      supabaseClient.removeChannel(channel);
+    };
+  }, []);
+
   const loginWithGoogle = () => {
     if (!supabaseClient) return;
     supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
@@ -4778,6 +4803,13 @@ export default function Home({
       {userCount > 0 && isAdmin && (
         <div className="user-count-strip">
           {userCount} {userCount === 1 ? 'persona registrada' : 'personas registradas'} (solo tú ves esto)
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="active-count-badge" title="Personas con el sitio abierto ahora mismo — solo vos ves esto">
+          <span className="live-dot"></span>
+          {activeCount} {activeCount === 1 ? 'activo' : 'activos'}
         </div>
       )}
 
@@ -5743,6 +5775,14 @@ const CSS = `
     text-align:center; font-family:var(--font-mono); font-size:11px; color:var(--muted);
     padding:6px; border-bottom:1px solid var(--line);
   }
+  .active-count-badge{
+    position:fixed; bottom:78px; right:16px; z-index:50;
+    display:flex; align-items:center; gap:7px;
+    background:var(--card); border:1px solid var(--line); border-radius:999px;
+    padding:9px 15px; font-family:var(--font-mono); font-size:12.5px; font-weight:700; color:var(--ink);
+    box-shadow:var(--shadow);
+  }
+  @media(min-width:641px){ .active-count-badge{bottom:16px;} }
 
   .tg-banner{
     display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
