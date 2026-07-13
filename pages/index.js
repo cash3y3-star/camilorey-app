@@ -2665,47 +2665,47 @@ function GroupTable({ group }) {
 // pasa de 3 seguidos.
 const RISK_TIPS = [
   {
-    icon: '📉',
+    icon: 'trending-down',
     title: 'Protege tu bankroll',
     body: 'Reparte tu banco entre las selecciones que sigues. Evita concentrar más de lo que te sientas cómodo gestionando en un solo día.'
   },
   {
-    icon: '📚',
+    icon: 'layers',
     title: 'Mantén una jornada enfocada',
     body: 'Seguir menos selecciones facilita revisar el rendimiento y controlar mejor la exposición diaria.'
   },
   {
-    icon: '🛡️',
+    icon: 'shield',
     title: 'Define un límite diario de asignación',
     body: 'Usa el planificador Kelly en la pestaña Bankroll como referencia para no arriesgar más de la cuenta.'
   },
   {
-    icon: '🎯',
+    icon: 'target',
     title: 'Prioriza calidad sobre cantidad',
     body: 'Entre más picks sigas a la vez, más difícil es darle seguimiento real a cada uno cuando estén en vivo.'
   },
   {
-    icon: '📊',
+    icon: 'chart',
     title: 'Ninguna racha dura para siempre',
     body: 'Ajusta el tamaño de lo que arriesgas según tu propio límite, no solo según qué tan segura se vea la confianza del modelo.'
   },
   {
-    icon: '🔍',
+    icon: 'search',
     title: 'Revisa el historial real primero',
     body: 'Antes de subir el monto que arriesgas por pick, mira el acierto real acumulado en la pestaña Bankroll.'
   },
   {
-    icon: '🎲',
+    icon: 'dice',
     title: 'Diversifica entre torneos',
     body: 'Seguir picks de un solo torneo hace que un resultado inesperado pese más sobre tu banco completo.'
   },
   {
-    icon: '⛔',
+    icon: 'stop',
     title: 'Nunca sigas "para recuperar"',
     body: 'Cada pick es independiente — seguir uno más solo porque el anterior falló no cambia sus probabilidades reales.'
   },
   {
-    icon: '⏸️',
+    icon: 'pause',
     title: 'El impulso es una señal',
     body: 'Si notas que estás siguiendo picks muy rápido, sin revisarlos, es buen momento para bajar el ritmo un rato.'
   }
@@ -2725,7 +2725,9 @@ function RiskModal({ count, tips, onClose, lang }) {
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal risk-modal">
         <div className="risk-modal-banner">
-          <div className="risk-modal-icon">🛡️</div>
+          <div className="risk-modal-icon">
+            <ProfileIcon name="shield" size={22} />
+          </div>
           <div>
             <div className="risk-modal-eyebrow">{t('riskEyebrow')}</div>
             <h3>
@@ -2737,7 +2739,9 @@ function RiskModal({ count, tips, onClose, lang }) {
         <div className="risk-tip-list">
           {tips.map((tip) => (
             <div className="risk-tip" key={tip.title}>
-              <span className="risk-tip-icon">{tip.icon}</span>
+              <span className="risk-tip-icon">
+                <ProfileIcon name={tip.icon} size={17} />
+              </span>
               <div>
                 <strong>{tip.title}</strong>
                 <p>{tip.body}</p>
@@ -2965,6 +2969,66 @@ function ProfileIcon({ name, size = 20 }) {
     return (
       <svg {...common}>
         <path d="m6 9 6 6 6-6" />
+      </svg>
+    );
+  }
+  if (name === 'trending-down') {
+    return (
+      <svg {...common}>
+        <polyline points="22 17 13.5 8.5 8.5 13.5 2 7" />
+        <polyline points="16 17 22 17 22 11" />
+      </svg>
+    );
+  }
+  if (name === 'layers') {
+    return (
+      <svg {...common}>
+        <path d="m12 2 10 5-10 5L2 7Z" />
+        <path d="m2 17 10 5 10-5" />
+        <path d="m2 12 10 5 10-5" />
+      </svg>
+    );
+  }
+  if (name === 'target') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (name === 'search') {
+    return (
+      <svg {...common}>
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </svg>
+    );
+  }
+  if (name === 'dice') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="18" height="18" rx="3" />
+        <circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" />
+        <circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (name === 'stop') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="4.9" y1="4.9" x2="19.1" y2="19.1" />
+      </svg>
+    );
+  }
+  if (name === 'pause') {
+    return (
+      <svg {...common}>
+        <rect x="6" y="4" width="4" height="16" rx="1" />
+        <rect x="14" y="4" width="4" height="16" rx="1" />
       </svg>
     );
   }
