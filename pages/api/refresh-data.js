@@ -461,7 +461,7 @@ export default async function handler(req, res) {
 
   const bkPickIds = [...new Set((bankrollRows || []).map((r) => r.pick_id).filter(Boolean))];
   const { data: bkPicks } = bkPickIds.length
-    ? await supabase.from('picks').select('id, odds').in('id', bkPickIds)
+    ? await supabase.from('picks').select('id, odds, market').in('id', bkPickIds)
     : { data: [] };
   const bkPicksById = new Map((bkPicks || []).map((p) => [p.id, p]));
 
