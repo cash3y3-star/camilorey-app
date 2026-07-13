@@ -4374,10 +4374,11 @@ export default function Home({
   const myRoi = myTotalStake > 0 ? Math.round((myTotalProfit / myTotalStake) * 1000) / 10 : 0;
   const myFinalBalance = myHistory.length ? myHistory[myHistory.length - 1].balance : myBankPlan;
   const mySeries = [myBankPlan, ...myHistory.map((h) => h.balance)];
-  const myPendingStake = myPendingFollowed.reduce(
-    (sum, p) => sum + kellyFraction(p.confidence, p.odds, myMultiplier) * myBankPlan,
-    0
-  );
+  const myPendingRows = myPendingFollowed.map((p) => {
+    const fraction = kellyFraction(p.confidence, p.odds, myMultiplier);
+    return { ...p, fraction, suggested: fraction * myBankPlan };
+  });
+  const myPendingStake = myPendingRows.reduce((sum, r) => sum + r.suggested, 0);
 
   // "Precisión esta semana" — % de aciertos por día, últimos 7 días
   // calendario (hoy incluido), para la mini-barra estilo la
@@ -5199,7 +5200,7 @@ export default function Home({
                 </div>
               </div>
 
-              {myHistory.length === 0 ? (
+              {myPendingRows.length === 0 && myHistory.length === 0 ? (
                 <div className="premium-lock-card">
                   <div className="premium-lock-icon">
                     <ProfileIcon name="layers" size={22} />
@@ -5209,116 +5210,139 @@ export default function Home({
                 </div>
               ) : (
                 <>
-                  <div className="bankroll-card rendimiento-card">
-                    <div className="rendimiento-top">
-                      <div>
-                        <div className="rendimiento-label">TU RENDIMIENTO</div>
-                        <div className={`rendimiento-value num ${myTotalProfit >= 0 ? 'hit' : 'miss'}`}>
-                          {myTotalProfit >= 0 ? '+' : ''}
-                          {formatCOP(myTotalProfit)}
-                        </div>
-                        <div className="rendimiento-sub">
-                          <span className={`num ${myRoi >= 0 ? 'hit' : 'miss'}`}>
-                            {myRoi >= 0 ? '+' : ''}
-                            {myRoi}% ROI
-                          </span>
-                          <span> · {myHistory.length} picks</span>
-                        </div>
-                      </div>
-                      <div className="rendimiento-tasa">
-                        <span className="rendimiento-tasa-label">TASA DE ACIERTO</span>
-                        <span className="rendimiento-tasa-val num">{myEfectividad}%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="stat-strip stat-strip-3">
-                    <div className="stat-card">
-                      <div className="label">Ganados</div>
-                      <div className="value hit num">{myHits}</div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="label">Perdidos</div>
-                      <div className="value miss num">{myMisses}</div>
-                    </div>
-                    <div className="stat-card">
-                      <div className="label">Cuota Prom.</div>
-                      <div className="value num">{myAvgOdds || '—'}</div>
-                    </div>
-                  </div>
-
-                  <div className="bankroll-card week-precision-card">
-                    <div className="rendimiento-label">Precisión esta semana</div>
-                    <div className="week-precision-row">
-                      {myWeekPrecision.map((d, i) => (
-                        <div className="week-precision-col" key={i}>
-                          <div className="week-precision-track">
-                            <div
-                              className={`week-precision-fill ${d.hasData ? (d.pct >= 50 ? 'hit' : 'miss') : ''}`}
-                              style={{ height: `${d.hasData ? Math.max(d.pct, 8) : 0}%` }}
-                            ></div>
-                          </div>
-                          <span className="week-precision-day">{d.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bankroll-card">
-                    <strong>Evolución</strong>
-                    <LineChart series={mySeries} />
-                  </div>
-
-                  {myPendingFollowed.length > 0 ? (
+                  {myPendingRows.length > 0 ? (
                     <div className="bankroll-card">
                       <strong>Picks seguidos por jugarse</strong>
-                      <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6', margin: '6px 0 0' }}>
-                        {myPendingFollowed.length} pick{myPendingFollowed.length === 1 ? '' : 's'} pendiente
-                        {myPendingFollowed.length === 1 ? '' : 's'} — si aciertas todos, arriesgarías en total{' '}
+                      <table className="bk" style={{ marginTop: '10px' }}>
+                        <thead>
+                          <tr>
+                            <th>Pick</th>
+                            <th>Confianza</th>
+                            <th>Cuota</th>
+                            <th>Sugerido</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {myPendingRows.map((r) => (
+                            <tr key={r.id}>
+                              <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{r.market}</td>
+                              <td className="num">{r.confidence}%</td>
+                              <td className="num">{formatOdds(r.odds, oddsFormat)}</td>
+                              <td className="num">{r.fraction > 0 ? formatCOP(r.suggested) : t('sinVentaja')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p style={{ color: 'var(--muted)', fontSize: '13.5px', lineHeight: '1.6', margin: '10px 0 0' }}>
+                        Si aciertas todos, arriesgarías en total{' '}
                         <strong className="num">{formatCOP(myPendingStake)}</strong> de tu banco.
                       </p>
                     </div>
                   ) : null}
 
-                  <div className="section-head">
-                    <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                      <ProfileIcon name="trending-up" size={17} /> Planes resueltos
-                    </h2>
-                    <span className="see-all">{myHistory.length}</span>
-                  </div>
+                  {myHistory.length > 0 ? (
+                    <>
+                      <div className="bankroll-card rendimiento-card">
+                        <div className="rendimiento-top">
+                          <div>
+                            <div className="rendimiento-label">TU RENDIMIENTO</div>
+                            <div className={`rendimiento-value num ${myTotalProfit >= 0 ? 'hit' : 'miss'}`}>
+                              {myTotalProfit >= 0 ? '+' : ''}
+                              {formatCOP(myTotalProfit)}
+                            </div>
+                            <div className="rendimiento-sub">
+                              <span className={`num ${myRoi >= 0 ? 'hit' : 'miss'}`}>
+                                {myRoi >= 0 ? '+' : ''}
+                                {myRoi}% ROI
+                              </span>
+                              <span> · {myHistory.length} picks</span>
+                            </div>
+                          </div>
+                          <div className="rendimiento-tasa">
+                            <span className="rendimiento-tasa-label">TASA DE ACIERTO</span>
+                            <span className="rendimiento-tasa-val num">{myEfectividad}%</span>
+                          </div>
+                        </div>
+                      </div>
 
-                  <div className="bankroll-card">
-                    <table className="bk">
-                      <thead>
-                        <tr>
-                          <th>Pick</th>
-                          <th>Monto</th>
-                          <th>Resultado</th>
-                          <th>Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {myHistory
-                          .slice()
-                          .reverse()
-                          .map((h) => (
-                            <tr key={h.id}>
-                              <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{h.market}</td>
-                              <td className={h.stake === 0 ? '' : h.units >= 0 ? 'hit' : 'miss'} style={h.stake === 0 ? { color: 'var(--muted)' } : undefined}>
-                                {formatCOP(h.units, true)}
-                              </td>
-                              <td
-                                className={h.stake === 0 ? '' : h.units >= 0 ? 'hit' : 'miss'}
-                                style={h.stake === 0 ? { color: 'var(--muted)' } : undefined}
-                              >
-                                {h.stake === 0 ? 'Sin ventaja — Kelly no apostó' : h.units >= 0 ? 'Acierto' : 'Fallo'}
-                              </td>
-                              <td>{formatCOP(h.balance)}</td>
-                            </tr>
+                      <div className="stat-strip stat-strip-3">
+                        <div className="stat-card">
+                          <div className="label">Ganados</div>
+                          <div className="value hit num">{myHits}</div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="label">Perdidos</div>
+                          <div className="value miss num">{myMisses}</div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="label">Cuota Prom.</div>
+                          <div className="value num">{myAvgOdds || '—'}</div>
+                        </div>
+                      </div>
+
+                      <div className="bankroll-card week-precision-card">
+                        <div className="rendimiento-label">Precisión esta semana</div>
+                        <div className="week-precision-row">
+                          {myWeekPrecision.map((d, i) => (
+                            <div className="week-precision-col" key={i}>
+                              <div className="week-precision-track">
+                                <div
+                                  className={`week-precision-fill ${d.hasData ? (d.pct >= 50 ? 'hit' : 'miss') : ''}`}
+                                  style={{ height: `${d.hasData ? Math.max(d.pct, 8) : 0}%` }}
+                                ></div>
+                              </div>
+                              <span className="week-precision-day">{d.label}</span>
+                            </div>
                           ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </div>
+                      </div>
+
+                      <div className="bankroll-card">
+                        <strong>Evolución</strong>
+                        <LineChart series={mySeries} />
+                      </div>
+
+                      <div className="section-head">
+                        <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <ProfileIcon name="trending-up" size={17} /> Planes resueltos
+                        </h2>
+                        <span className="see-all">{myHistory.length}</span>
+                      </div>
+
+                      <div className="bankroll-card">
+                        <table className="bk">
+                          <thead>
+                            <tr>
+                              <th>Pick</th>
+                              <th>Monto</th>
+                              <th>Resultado</th>
+                              <th>Balance</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {myHistory
+                              .slice()
+                              .reverse()
+                              .map((h) => (
+                                <tr key={h.id}>
+                                  <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{h.market}</td>
+                                  <td className={h.stake === 0 ? '' : h.units >= 0 ? 'hit' : 'miss'} style={h.stake === 0 ? { color: 'var(--muted)' } : undefined}>
+                                    {formatCOP(h.units, true)}
+                                  </td>
+                                  <td
+                                    className={h.stake === 0 ? '' : h.units >= 0 ? 'hit' : 'miss'}
+                                    style={h.stake === 0 ? { color: 'var(--muted)' } : undefined}
+                                  >
+                                    {h.stake === 0 ? 'Sin ventaja — Kelly no apostó' : h.units >= 0 ? 'Acierto' : 'Fallo'}
+                                  </td>
+                                  <td>{formatCOP(h.balance)}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  ) : null}
                 </>
               )}
             </>
