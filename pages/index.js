@@ -104,6 +104,7 @@ const TRANSLATIONS = {
     filaIdioma: 'Idioma',
     filaPrivacidad: 'Privacidad',
     filaPrivacidadDesc: 'Qué datos guardamos y cómo los usamos',
+    filaTerminosDesc: 'Qué es CAMILOREY y qué no es',
     filaAyuda: 'Ayuda y Soporte',
     filaAyudaDesc: 'Escríbenos si algo no funciona o tienes una duda',
     ayudaFaqTitle: 'Ayuda y FAQ',
@@ -132,6 +133,7 @@ const TRANSLATIONS = {
     footerDisclaimer:
       'ofrece análisis y opiniones propias con fines informativos y de entretenimiento sobre la Liga Pro Checa de tenis de mesa. No garantizamos resultados y no gestionamos apuestas ni fondos de terceros. Servicio dirigido exclusivamente a mayores de 18 años. Si sientes que el juego deja de ser un entretenimiento, busca ayuda profesional. Juega siempre con responsabilidad.',
     politicaPrivacidad: 'Política de Privacidad',
+    terminosCondiciones: 'Términos y Condiciones',
 
     loginTitle: 'Iniciar sesión',
     loginSub: 'Utiliza tu cuenta de Google para continuar',
@@ -279,6 +281,7 @@ const TRANSLATIONS = {
     filaIdioma: 'Language',
     filaPrivacidad: 'Privacy',
     filaPrivacidadDesc: 'What data we store and how we use it',
+    filaTerminosDesc: 'What CAMILOREY is and isn’t',
     filaAyuda: 'Help & Support',
     filaAyudaDesc: "Write to us if something's not working or you have a question",
     ayudaFaqTitle: 'Help & FAQ',
@@ -307,6 +310,7 @@ const TRANSLATIONS = {
     footerDisclaimer:
       "provides our own analysis and opinions for informational and entertainment purposes about the Czech Liga Pro table tennis league. We don't guarantee results and we don't handle bets or funds on anyone's behalf. Service intended exclusively for adults 18 and over. If gambling stops being entertainment for you, seek professional help. Always play responsibly.",
     politicaPrivacidad: 'Privacy Policy',
+    terminosCondiciones: 'Terms and Conditions',
 
     loginTitle: 'Sign in',
     loginSub: 'Use your Google account to continue',
@@ -453,6 +457,7 @@ const TRANSLATIONS = {
     filaIdioma: 'Idioma',
     filaPrivacidad: 'Privacidade',
     filaPrivacidadDesc: 'Quais dados guardamos e como os usamos',
+    filaTerminosDesc: 'O que o CAMILOREY é e o que não é',
     filaAyuda: 'Ajuda e Suporte',
     filaAyudaDesc: 'Escreva para nós se algo não funcionar ou tiver dúvidas',
     ayudaFaqTitle: 'Ajuda e FAQ',
@@ -481,6 +486,7 @@ const TRANSLATIONS = {
     footerDisclaimer:
       'oferece análises e opiniões próprias com fins informativos e de entretenimento sobre a Liga Pro Checa de tênis de mesa. Não garantimos resultados e não administramos apostas nem fundos de terceiros. Serviço destinado exclusivamente a maiores de 18 anos. Se sentir que o jogo deixou de ser entretenimento, procure ajuda profissional. Jogue sempre com responsabilidade.',
     politicaPrivacidad: 'Política de Privacidade',
+    terminosCondiciones: 'Termos e Condições',
 
     loginTitle: 'Entrar',
     loginSub: 'Use sua conta do Google para continuar',
@@ -3037,6 +3043,16 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'file') {
+    return (
+      <svg {...common}>
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z" />
+        <path d="M14 2v6h6" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+        <line x1="8" y1="17" x2="13" y2="17" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -3662,6 +3678,17 @@ function ProfileModal({
           <div className="profile-row-body">
             <strong>{t('filaPrivacidad')}</strong>
             <p>{t('filaPrivacidadDesc')}</p>
+          </div>
+          <ProfileIcon name="chevron-right" size={16} />
+        </a>
+
+        <a className="profile-row" href="/terminos" target="_blank" rel="noopener noreferrer">
+          <span className="profile-row-icon">
+            <ProfileIcon name="file" />
+          </span>
+          <div className="profile-row-body">
+            <strong>{t('terminosCondiciones')}</strong>
+            <p>{t('filaTerminosDesc')}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </a>
@@ -4957,8 +4984,9 @@ export default function Home({
 
       <footer className="site">
         <strong>CAMILOREY</strong> {t('footerDisclaimer')}
-        <div style={{ marginTop: '10px' }}>
+        <div style={{ marginTop: '10px', display: 'flex', gap: '14px' }}>
           <a href="/privacidad">{t('politicaPrivacidad')}</a>
+          <a href="/terminos">{t('terminosCondiciones')}</a>
         </div>
       </footer>
 
