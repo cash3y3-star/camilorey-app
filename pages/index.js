@@ -109,6 +109,12 @@ const TRANSLATIONS = {
     filaInvita: 'Invita y recibe',
     filaInvitaDesc: 'Comparte tu código, gana recompensas',
 
+    ayudaFaqTitle: 'Ayuda y FAQ',
+    ayudaFaqDesc: 'Encuentra respuestas o contacta a nuestro equipo',
+    soporteEmail: 'Soporte por Email',
+    respuesta24h: 'respuesta en 24h',
+    preguntasFrecuentes: 'PREGUNTAS FRECUENTES',
+
     temaOscuro: 'Oscuro',
     temaOscuroDesc: 'Siempre usar modo oscuro',
     temaClaro: 'Claro',
@@ -281,6 +287,12 @@ const TRANSLATIONS = {
     filaInvita: 'Invite & earn',
     filaInvitaDesc: 'Share your code, earn rewards',
 
+    ayudaFaqTitle: 'Help & FAQ',
+    ayudaFaqDesc: 'Find answers or contact our team',
+    soporteEmail: 'Email Support',
+    respuesta24h: 'reply within 24h',
+    preguntasFrecuentes: 'FREQUENTLY ASKED QUESTIONS',
+
     temaOscuro: 'Dark',
     temaOscuroDesc: 'Always use dark mode',
     temaClaro: 'Light',
@@ -452,6 +464,12 @@ const TRANSLATIONS = {
     filaInvita: 'Convide e ganhe',
     filaInvitaDesc: 'Compartilhe seu código, ganhe recompensas',
 
+    ayudaFaqTitle: 'Ajuda e FAQ',
+    ayudaFaqDesc: 'Encontre respostas ou fale com nossa equipe',
+    soporteEmail: 'Suporte por Email',
+    respuesta24h: 'resposta em 24h',
+    preguntasFrecuentes: 'PERGUNTAS FREQUENTES',
+
     temaOscuro: 'Escuro',
     temaOscuroDesc: 'Sempre usar modo escuro',
     temaClaro: 'Claro',
@@ -534,6 +552,199 @@ const TRANSLATIONS = {
     buscandoMarcadorVivo: 'Buscando placar ao vivo…',
     sinDetallePuntoAPunto: 'Não temos o detalhe ponto a ponto desta partida — só é salvo para partidas que alguém assistiu ao vivo pelo nosso site.'
   }
+};
+
+// Contenido real de la sub-pantalla "Ayuda y FAQ" del Perfil — cada
+// respuesta describe cómo funciona CAMILOREY de verdad (mismos
+// factores de lib/confidence.js, mismo origen de cuotas de
+// lib/rushbet.js), nada de texto genérico de relleno.
+const HELP_FAQ = {
+  es: [
+    {
+      icon: 'chart',
+      title: 'Predicciones',
+      items: [
+        {
+          q: '¿Cómo se generan los picks?',
+          a: 'Se generan automáticamente comparando el rating de cada jugador, su racha reciente y el historial de enfrentamientos directos (H2H) contra su rival, con datos reales de la Liga Pro Checa — no hay texto ni números inventados.'
+        },
+        {
+          q: '¿Qué significa el Índice IA?',
+          a: 'Es el porcentaje de confianza que calcula nuestro modelo combinando esos tres factores (ahora mismo con más peso en el rating del jugador). No es una garantía de resultado, solo indica qué tan favorito creemos que es.'
+        },
+        {
+          q: '¿Los picks se actualizan en tiempo real?',
+          a: 'Sí. Mientras un partido está en vivo, el marcador se actualiza cada pocos segundos, y en cuanto termina, el pick se resuelve automáticamente como acertado o fallado.'
+        },
+        {
+          q: '¿Vendrán más deportes además de tenis de mesa?',
+          a: 'Todavía no — por ahora CAMILOREY cubre solo la Liga Pro Checa de tenis de mesa. Si eso cambia, lo vas a ver anunciado aquí primero.'
+        }
+      ]
+    },
+    {
+      icon: 'user',
+      title: 'Cuenta',
+      items: [
+        {
+          q: '¿Cómo cambio mi nombre, idioma o tema?',
+          a: 'Desde tu Perfil, en la sección Ajustes, puedes cambiar tu nombre, idioma, tema (oscuro/claro/sistema) y formato de cuotas cuando quieras.'
+        },
+        {
+          q: '¿Cómo activo las notificaciones?',
+          a: 'Toca "Notificaciones" en tu Perfil y acepta el permiso que te pide el navegador. Te avisamos cuando se cierra un set o termina un partido de un pick que sigues.'
+        }
+      ]
+    },
+    {
+      icon: 'dollar',
+      title: 'Predicciones y cuotas',
+      items: [
+        {
+          q: '¿De dónde salen las cuotas?',
+          a: 'De Rushbet (licencia Coljuegos en Colombia). Cruzamos cada partido con su cuota real por nombre de jugador y hora.'
+        },
+        {
+          q: '¿Por qué a veces no aparece la cuota de un pick?',
+          a: 'Porque en el momento en que se generó el pick, Rushbet todavía no había listado ese partido en su tablero. Lo seguimos intentando en cada actualización hasta encontrarla.'
+        }
+      ]
+    },
+    {
+      icon: 'tool',
+      title: 'Técnico',
+      items: [
+        {
+          q: '¿Qué hago si algo no funciona?',
+          a: 'Escríbenos por email contándonos qué pasó, en qué pantalla y, si puedes, con una captura de pantalla — respondemos en menos de 24h.'
+        }
+      ]
+    }
+  ],
+  en: [
+    {
+      icon: 'chart',
+      title: 'Predictions',
+      items: [
+        {
+          q: 'How are picks generated?',
+          a: "They're generated automatically by comparing each player's rating, their recent streak, and their head-to-head record against the opponent, using real Czech Liga Pro data — nothing is made up."
+        },
+        {
+          q: 'What does the AI Score mean?',
+          a: "It's the confidence percentage our model calculates by combining those three factors (rating currently weighted the most). It's not a guarantee of the result, just how big a favorite we think a player is."
+        },
+        {
+          q: 'Do picks update in real time?',
+          a: 'Yes. While a match is live, the score updates every few seconds, and as soon as it ends, the pick is automatically resolved as a hit or a miss.'
+        },
+        {
+          q: 'Will more sports be added besides table tennis?',
+          a: "Not yet — for now CAMILOREY only covers Czech Liga Pro table tennis. If that changes, you'll see it announced here first."
+        }
+      ]
+    },
+    {
+      icon: 'user',
+      title: 'Account',
+      items: [
+        {
+          q: 'How do I change my name, language, or theme?',
+          a: 'From your Profile, under Settings, you can change your name, language, theme (dark/light/system), and odds format whenever you want.'
+        },
+        {
+          q: 'How do I enable notifications?',
+          a: "Tap \"Notifications\" in your Profile and accept the browser permission prompt. We'll notify you when a set closes or a match you follow ends."
+        }
+      ]
+    },
+    {
+      icon: 'dollar',
+      title: 'Predictions & odds',
+      items: [
+        {
+          q: 'Where do the odds come from?',
+          a: 'From Rushbet (licensed by Coljuegos in Colombia). We match each match to its real odds by player name and time.'
+        },
+        {
+          q: "Why don't some picks show odds?",
+          a: "Because at the moment the pick was generated, Rushbet hadn't listed that match on their board yet. We keep retrying on every update until we find it."
+        }
+      ]
+    },
+    {
+      icon: 'tool',
+      title: 'Technical',
+      items: [
+        {
+          q: "What do I do if something isn't working?",
+          a: 'Email us and tell us what happened, on which screen, and a screenshot if you can — we reply within 24h.'
+        }
+      ]
+    }
+  ],
+  pt: [
+    {
+      icon: 'chart',
+      title: 'Previsões',
+      items: [
+        {
+          q: 'Como os picks são gerados?',
+          a: 'São gerados automaticamente comparando o rating de cada jogador, sua sequência recente e o histórico de confrontos diretos (H2H) contra o adversário, com dados reais da Liga Pro Checa — nada de texto ou números inventados.'
+        },
+        {
+          q: 'O que significa o Índice IA?',
+          a: 'É a porcentagem de confiança que nosso modelo calcula combinando esses três fatores (agora com mais peso no rating do jogador). Não é garantia de resultado, só indica o quão favorito achamos que ele é.'
+        },
+        {
+          q: 'Os picks são atualizados em tempo real?',
+          a: 'Sim. Enquanto uma partida está ao vivo, o placar é atualizado a cada poucos segundos, e assim que termina, o pick é resolvido automaticamente como acerto ou erro.'
+        },
+        {
+          q: 'Vão adicionar mais esportes além do tênis de mesa?',
+          a: 'Ainda não — por enquanto o CAMILOREY cobre só a Liga Pro Checa de tênis de mesa. Se isso mudar, você vai ver anunciado aqui primeiro.'
+        }
+      ]
+    },
+    {
+      icon: 'user',
+      title: 'Conta',
+      items: [
+        {
+          q: 'Como mudo meu nome, idioma ou tema?',
+          a: 'No seu Perfil, na seção Ajustes, você pode mudar seu nome, idioma, tema (escuro/claro/sistema) e formato de odds quando quiser.'
+        },
+        {
+          q: 'Como ativo as notificações?',
+          a: 'Toque em "Notificações" no seu Perfil e aceite a permissão do navegador. Avisamos quando um set fecha ou termina uma partida que você segue.'
+        }
+      ]
+    },
+    {
+      icon: 'dollar',
+      title: 'Previsões e odds',
+      items: [
+        {
+          q: 'De onde vêm as odds?',
+          a: 'Da Rushbet (licença Coljuegos na Colômbia). Cruzamos cada partida com sua odd real por nome do jogador e horário.'
+        },
+        {
+          q: 'Por que às vezes um pick não mostra a odd?',
+          a: 'Porque no momento em que o pick foi gerado, a Rushbet ainda não tinha listado essa partida no placar. Continuamos tentando a cada atualização até encontrar.'
+        }
+      ]
+    },
+    {
+      icon: 'tool',
+      title: 'Técnico',
+      items: [
+        {
+          q: 'O que faço se algo não estiver funcionando?',
+          a: 'Escreva para nós por email contando o que aconteceu, em qual tela e, se puder, com uma captura de tela — respondemos em menos de 24h.'
+        }
+      ]
+    }
+  ]
 };
 
 function useTranslate(lang) {
@@ -2743,6 +2954,36 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'user') {
+    return (
+      <svg {...common}>
+        <path d="M20 21a8 8 0 0 0-16 0" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    );
+  }
+  if (name === 'tool') {
+    return (
+      <svg {...common}>
+        <path d="M14.7 6.3a4 4 0 0 0-5.6 5.6L2 19l3 3 7.1-7.1a4 4 0 0 0 5.6-5.6l-2.8 2.8-2-2Z" />
+      </svg>
+    );
+  }
+  if (name === 'mail') {
+    return (
+      <svg {...common}>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m2 6 10 7 10-7" />
+      </svg>
+    );
+  }
+  if (name === 'chevron-down') {
+    return (
+      <svg {...common}>
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -2910,6 +3151,10 @@ function ProfileModal({
   };
   const [oddsScreenOpen, setOddsScreenOpen] = useState(false);
   const [langScreenOpen, setLangScreenOpen] = useState(false);
+  const [helpScreenOpen, setHelpScreenOpen] = useState(false);
+  const [openFaqCat, setOpenFaqCat] = useState(0);
+  const [openFaqItem, setOpenFaqItem] = useState(null);
+  const faqCategories = HELP_FAQ[lang] || HELP_FAQ.es;
   const ejemplo = lang === 'en' ? 'Example' : 'Ejemplo';
   const ODDS_FORMAT_OPTIONS = [
     ['decimal', `${ejemplo}: 2.23`],
@@ -3041,6 +3286,95 @@ function ProfileModal({
                   <strong>{label}</strong>
                 </div>
                 <span className="theme-option-radio">{lang === key ? <ProfileIcon name="check" size={12} /> : null}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (helpScreenOpen) {
+    return (
+      <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+        <div className="modal">
+          <div className="subscreen-head">
+            <button
+              className="subscreen-back"
+              onClick={() => {
+                setHelpScreenOpen(false);
+                setOpenFaqItem(null);
+              }}
+            >
+              <ProfileIcon name="arrow-left" size={18} />
+            </button>
+            <h3>{t('ayudaFaqTitle')}</h3>
+          </div>
+
+          <div className="profile-row profile-row-theme" style={{ border: 'none', padding: '4px 0 0' }}>
+            <span className="profile-row-icon">
+              <ProfileIcon name="help" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('ayudaFaqTitle')}</strong>
+              <p>{t('ayudaFaqDesc')}</p>
+            </div>
+          </div>
+
+          <a className="profile-row" href={`mailto:${process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'cash3y3@gmail.com'}`}>
+            <span className="profile-row-icon">
+              <ProfileIcon name="mail" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('soporteEmail')}</strong>
+              <p>
+                {process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'cash3y3@gmail.com'} · {t('respuesta24h')}
+              </p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
+
+          <div className="profile-section-label">{t('preguntasFrecuentes')}</div>
+
+          <div className="faq-list">
+            {faqCategories.map((cat, ci) => (
+              <div key={cat.title} className="faq-category">
+                <div
+                  className="faq-category-head"
+                  onClick={() => {
+                    setOpenFaqCat(openFaqCat === ci ? null : ci);
+                    setOpenFaqItem(null);
+                  }}
+                >
+                  <span className="faq-category-icon">
+                    <ProfileIcon name={cat.icon} size={17} />
+                  </span>
+                  <strong className="faq-category-title">{cat.title}</strong>
+                  <span className="faq-category-count">{cat.items.length}</span>
+                  <span className={`faq-chevron ${openFaqCat === ci ? 'open' : ''}`}>
+                    <ProfileIcon name="chevron-down" size={16} />
+                  </span>
+                </div>
+
+                {openFaqCat === ci ? (
+                  <div className="faq-items">
+                    {cat.items.map((item, qi) => {
+                      const key = `${ci}-${qi}`;
+                      const isOpen = openFaqItem === key;
+                      return (
+                        <div key={key} className="faq-item">
+                          <div className="faq-item-q" onClick={() => setOpenFaqItem(isOpen ? null : key)}>
+                            <span>{item.q}</span>
+                            <span className={`faq-chevron ${isOpen ? 'open' : ''}`}>
+                              <ProfileIcon name="chevron-down" size={14} />
+                            </span>
+                          </div>
+                          {isOpen ? <p className="faq-item-a">{item.a}</p> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -3279,7 +3613,7 @@ function ProfileModal({
           <ProfileIcon name="chevron-right" size={16} />
         </a>
 
-        <a className="profile-row" href={`mailto:${process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'cash3y3@gmail.com'}`}>
+        <div className="profile-row" onClick={() => setHelpScreenOpen(true)}>
           <span className="profile-row-icon">
             <ProfileIcon name="help" />
           </span>
@@ -3288,7 +3622,7 @@ function ProfileModal({
             <p>{t('filaAyudaDesc')}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
-        </a>
+        </div>
 
         <div
           className="profile-row"
@@ -5279,6 +5613,34 @@ const CSS = `
   .theme-preview-label{display:block; text-align:center; font-size:10.5px; padding:6px 0; font-weight:700;}
   .theme-preview-light .theme-preview-label{color:#1E1815; background:#fff;}
   .theme-preview-dark .theme-preview-label{color:#F5F1EC; background:#1B1917;}
+
+  .faq-list{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
+  .faq-category{border-radius:12px; background:var(--bg-alt); border:1px solid var(--line); overflow:hidden;}
+  .faq-category-head{
+    display:flex; align-items:center; gap:10px; padding:12px; cursor:pointer;
+  }
+  .faq-category-icon{
+    width:30px; height:30px; border-radius:9px; flex:none; color:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    background:var(--card); border:1px solid var(--line);
+  }
+  .faq-category-title{flex:1; min-width:0; font-size:13.5px; color:var(--ink);}
+  .faq-category-count{
+    font-size:11px; color:var(--muted); background:var(--card); border:1px solid var(--line);
+    border-radius:20px; padding:1px 8px; flex:none;
+  }
+  .faq-chevron{display:flex; color:var(--muted); transition:transform .15s ease; flex:none;}
+  .faq-chevron.open{transform:rotate(180deg); color:var(--ink);}
+  .faq-items{display:flex; flex-direction:column; border-top:1px solid var(--line);}
+  .faq-item{border-top:1px solid var(--line);}
+  .faq-item:first-child{border-top:none;}
+  .faq-item-q{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:11px 12px 11px 52px; cursor:pointer; font-size:13px; color:var(--ink);
+  }
+  .faq-item-a{
+    margin:0; padding:0 16px 14px 52px; font-size:12.5px; line-height:1.5; color:var(--muted);
+  }
 
   .profile-edit-inline{display:flex; gap:8px; margin-top:8px;}
   .profile-name-input{
