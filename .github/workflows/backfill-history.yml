@@ -1,7 +1,20 @@
-name: Backfill player history (one-off / on demand)
+name: Backfill player history
 
+# Corre cada 30 min (a los :15/:45, para no coincidir con sync.yml que
+# corre a los :00/:30) además de poder dispararse a mano. Cada corrida
+# es rápida en estado estable: solo completa torneos que todavía no
+# tengamos para jugadores con un pick pendiente — el trabajo pesado
+# real solo pasa la primera vez que aparece un jugador nuevo.
 on:
+  schedule:
+    - cron: '15,45 * * * *'
   workflow_dispatch:
+
+# Igual que sync.yml: si una corrida se demora, que la siguiente
+# espere en vez de pisarse con torneos/jugadores a medio guardar.
+concurrency:
+  group: backfill-camilorey
+  cancel-in-progress: false
 
 jobs:
   backfill:

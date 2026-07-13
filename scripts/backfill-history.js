@@ -1,20 +1,22 @@
 // ============================================================
-// CAMILOREY — backfill de historial completo de jugadores
-// Corre bajo demanda (workflow_dispatch), no en el cron normal.
+// CAMILOREY — backfill de historial reciente de jugadores
+// Corre cada 30 min (.github/workflows/backfill-history.yml), además
+// de poder dispararse a mano.
 //
 // scripts/sync.js solo descubre torneos en una ventana de unas
 // horas alrededor de "ahora" — nunca vuelve atrás a completar el
-// historial viejo de un jugador. Por eso "Estadísticas" puede
-// aparecer vacío para jugadores con carrera larga pero pocos
-// partidos recientes en nuestra base.
+// historial viejo de un jugador. Por eso "Estadísticas"/H2H pueden
+// aparecer vacíos para un jugador o un cruce que en la realidad sí
+// tiene historial, solo que nosotros nunca lo vimos.
 //
 // tt.league-pro.com expone en /en/players/{id} un historial
-// paginado de TODOS los torneos de un jugador (?page=N, 8 por
-// página). Este script recorre esa lista para cada jugador con un
-// pick pendiente, detecta los torneos que nos faltan, y completa
-// jugadores/torneos/partidos terminados desde /en/tournaments/{id}
-// (mismo parser que sync.js). NO genera picks nuevos ni toca
-// bankroll_log — esto es solo historia para mostrar, no apuestas.
+// paginado de los torneos de un jugador (?page=N, 8 por página, del
+// más reciente al más viejo). Este script recorre esa lista para
+// cada jugador con un pick pendiente, detecta los torneos que nos
+// faltan, y completa jugadores/torneos/partidos terminados desde
+// /en/tournaments/{id} (mismo parser que sync.js). NO genera picks
+// nuevos ni toca bankroll_log — esto es solo historia para mostrar,
+// no apuestas.
 // ============================================================
 
 const { createClient } = require('@supabase/supabase-js');
@@ -90,10 +92,18 @@ async function upsertFinishedMatches(t, widgets) {
   return count;
 }
 
-async function fetchAllTournamentIdsForPlayer(playerId) {
+// El historial de un jugador viene ordenado del torneo más reciente
+// al más viejo — para una corrida INCREMENTAL (cada 30 min) no hace
+// falta re-caminar la carrera completa cada vez (para alguien con
+// 1000+ torneos eso son cientos de páginas por corrida, solo para
+// confirmar que ya los tenemos todos). Con las primeras `maxPages`
+// páginas (más recientes) alcanza de sobra para lo que se muestra
+// (forma reciente = últimos 10, H2H = últimos 20) — el resto de la
+// carrera ya quedó cubierto por corridas anteriores.
+async function fetchRecentTournamentIdsForPlayer(playerId, maxPages = 6) {
   const ids = [];
   let page = 1;
-  while (true) {
+  while (page <= maxPages) {
     const detail = await fetchNuxtData(`/en/players/${playerId}?page=${page}`);
     const widget = detail['player-previous-tournaments'];
     const items = widget?.items || [];
@@ -129,10 +139,10 @@ async function run() {
   const tournamentIdsToFetch = new Set();
   for (const playerId of playerIds) {
     try {
-      const ids = await fetchAllTournamentIdsForPlayer(playerId);
+      const ids = await fetchRecentTournamentIdsForPlayer(playerId);
       const newOnes = ids.filter((id) => !knownTournamentIds.has(id));
       for (const id of newOnes) tournamentIdsToFetch.add(id);
-      console.log(`Jugador ${playerId}: ${ids.length} torneos en su carrera, ${newOnes.length} nuevos para nosotros`);
+      console.log(`Jugador ${playerId}: ${ids.length} torneos recientes revisados, ${newOnes.length} nuevos para nosotros`);
     } catch (e) {
       console.error(`Error listando torneos del jugador ${playerId}: ${e.message}`);
     }
