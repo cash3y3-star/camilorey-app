@@ -2,8 +2,9 @@ import Head from 'next/head';
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
+import { logError } from '../lib/logError';
 
-const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos', 'modelo', 'mibankroll'];
+const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos', 'modelo', 'errores', 'mibankroll'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 
@@ -141,7 +142,7 @@ function streakLabelFromHistory(history) {
 
 export async function getServerSideProps({ query }) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
+  try {
   // Calendario, Bankroll y el conteo de usuarios no dependen de nada
   // de la cadena de picks/resolvedPicks/tournamentGroups de abajo —
   // antes se pedían en secuencia DESPUÉS de toda esa cadena, sumando
@@ -721,6 +722,36 @@ export async function getServerSideProps({ query }) {
       userCount: userCount || 0
     }
   };
+  } catch (err) {
+    // Si CUALQUIER cosa de arriba truena, antes se caía el sitio
+    // entero (pantalla de error de Next.js) — mejor registrar el
+    // error y devolver props vacíos/seguros para que la página cargue
+    // igual (aunque sea sin datos) mientras se investiga.
+    console.error('Error en getServerSideProps:', err);
+    await logError(supabase, {
+      source: 'getServerSideProps',
+      message: err.message,
+      stack: err.stack,
+      context: { query }
+    });
+    const fallbackDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    return {
+      props: {
+        stats: { efectividad: 0, racha: 0, cuotaProm: null, roi: 0, unidades: 0 },
+        picks: [],
+        resolvedPicks: [],
+        tournamentGroups: [],
+        matches: [],
+        bankrollLog: [],
+        bankrollSeries: [],
+        currentDateStr: fallbackDate,
+        prevDateStr: fallbackDate,
+        nextDateStr: fallbackDate,
+        isToday: true,
+        userCount: 0
+      }
+    };
+  }
 }
 
 // Nivel del chat (estilo AiScore) — solo define el color/tier visual
@@ -2434,6 +2465,31 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
+  // Errores de la app (getServerSideProps, rutas API) — mismo patrón
+  // que Modelo: solo se consulta al entrar a esa pestaña.
+  const [errorLog, setErrorLog] = useState(null);
+  const [errorLogError, setErrorLogError] = useState(null);
+  useEffect(() => {
+    if (view !== 'errores' || !isAdmin || !supabaseClient) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/error-log', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok) setErrorLogError(data.error || 'Error cargando el registro de errores.');
+        else setErrorLog(data.errors);
+      } catch (e) {
+        if (!cancelled) setErrorLogError(e.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isAdmin]);
+
   const tabPicks =
     pickTab === 'pendientes'
       ? picks
@@ -2569,6 +2625,7 @@ export default function Home({
           {isAdmin ? navLink('bankroll', 'Bankroll') : null}
           {isAdmin ? navLink('grupos', 'Grupos') : null}
           {isAdmin ? navLink('modelo', 'Modelo') : null}
+          {isAdmin ? navLink('errores', 'Errores') : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className="badge18">+18 · Juega con cabeza</span>
@@ -3015,6 +3072,42 @@ export default function Home({
         </section>
         )}
 
+        {isAdmin && (
+        <section className={`view ${view === 'errores' ? 'active' : ''}`}>
+          <span className="eyebrow">Solo tú ves esto</span>
+          <h1 className="page-title">Errores</h1>
+          <p className="page-sub">Últimos 50 errores de la app (no de los cronjobs — esos avisan por su cuenta).</p>
+          {errorLogError ? (
+            <p className="page-sub">Error: {errorLogError}</p>
+          ) : !errorLog ? (
+            <p className="page-sub">Cargando…</p>
+          ) : errorLog.length === 0 ? (
+            <p className="page-sub">Sin errores registrados. 🎉</p>
+          ) : (
+            <div className="stat-rows" style={{ gap: 0 }}>
+              {errorLog.map((e) => (
+                <div className="error-row" key={e.id}>
+                  <div className="error-row-top">
+                    <span className="error-row-source">{e.source}</span>
+                    <span className="error-row-date">
+                      {new Intl.DateTimeFormat('es-CO', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: 'America/Bogota'
+                      }).format(new Date(e.created_at))}
+                    </span>
+                  </div>
+                  <div className="error-row-message">{e.message}</div>
+                  {e.context ? <div className="error-row-context">{JSON.stringify(e.context)}</div> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+        )}
+
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">Tus picks seguidos</span>
           <h1 className="page-title">Seguidos</h1>
@@ -3251,6 +3344,15 @@ export default function Home({
               <path d="M7 14l4-5 4 3 5-7" />
             </svg>
             Modelo
+          </a>
+        ) : null}
+        {isAdmin ? (
+          <a href="#errores" className={view === 'errores' ? 'active' : ''}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v5M12 16h.01" />
+            </svg>
+            Errores
           </a>
         ) : null}
       </nav>
@@ -3842,6 +3944,17 @@ const CSS = `
   .model-verdict-better{background:rgba(93,202,165,.14); color:var(--hit);}
   .model-verdict-worse{background:rgba(240,149,149,.14); color:var(--miss);}
   .model-verdict-unknown{background:var(--bg-alt); color:var(--muted); border:1px solid var(--line);}
+
+  .error-row{padding:12px 0; border-bottom:1px solid var(--line);}
+  .error-row:last-child{border-bottom:none;}
+  .error-row-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:4px;}
+  .error-row-source{
+    font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.4px;
+    color:var(--miss); font-weight:700;
+  }
+  .error-row-date{font-family:var(--font-mono); font-size:11px; color:var(--muted); flex:none;}
+  .error-row-message{font-size:13.5px; color:var(--ink); line-height:1.4;}
+  .error-row-context{font-family:var(--font-mono); font-size:11px; color:var(--muted); margin-top:4px; word-break:break-all;}
 
   footer.site{
     max-width:980px; margin:0 auto; padding:20px 20px 40px; color:var(--muted); font-size:12px; line-height:1.6;
