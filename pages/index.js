@@ -3878,6 +3878,33 @@ function ProfileModal({
   );
 }
 
+// Sonido corto al seguir un pick — se sintetiza con Web Audio API en
+// vez de cargar un archivo de audio, así no hace falta ningún asset
+// nuevo. Un "ding" breve de dos tonos ascendentes.
+function playFollowSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(660, now);
+    osc.frequency.exponentialRampToValueAtTime(990, now + 0.08);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.25, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.2);
+    osc.onended = () => ctx.close();
+  } catch (e) {
+    // silencioso — si el navegador bloquea audio, simplemente no suena
+  }
+}
+
 // Kelly: fracción óptima del banco a arriesgar dado el edge real
 // (confianza como probabilidad, cuota real de Rushbet) — f* = (b·p - q) / b,
 // b = cuota-1, p = confianza/100, q = 1-p. Si f* <= 0 el modelo no ve
@@ -4306,6 +4333,7 @@ export default function Home({
         return;
       }
       setFollowedPickIds((prev) => new Set(prev).add(pick.id));
+      playFollowSound();
       ensurePushSubscription(user);
     }
   };
