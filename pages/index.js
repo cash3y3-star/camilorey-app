@@ -7,6 +7,249 @@ import { logError } from '../lib/logError';
 const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos', 'modelo', 'errores', 'mibankroll'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
+const LANG_KEY = 'camilorey_lang';
+
+// Sistema de idiomas — español (default, SSR siempre lo usa) + inglés.
+// t('clave', {var:valor}) devuelve el texto de TRANSLATIONS[lang] (o
+// español si falta la clave en el idioma elegido, para que nunca
+// aparezca un hueco en blanco si algo queda sin traducir todavía).
+// Primera pasada: cubre el menú, encabezados de cada vista, Perfil
+// completo y los textos comunes (botones, disclaimer). El contenido
+// que viene de la base (nombres de jugadores, torneos, análisis de
+// picks) se arma con esta misma función donde ya se puede — el resto
+// se traduce en una segunda pasada.
+const TRANSLATIONS = {
+  es: {
+    navInicio: 'Inicio',
+    navCalendario: 'Calendario',
+    navPicks: 'Picks',
+    navSeguidos: 'Seguidos',
+    navMiBankroll: 'Mi Bankroll',
+    navBankroll: 'Bankroll',
+    navGrupos: 'Grupos',
+    navModelo: 'Modelo',
+    navErrores: 'Errores',
+    entrar: 'Entrar',
+    cerrarSesion: 'Cerrar sesión',
+    cargando: 'Cargando…',
+    tuNombre: 'Tu nombre',
+    notifActivadas: 'Activadas — te avisamos de tus picks seguidos',
+    notifBloqueadas: 'Bloqueadas en el navegador — toca para ver cómo activarlas',
+    notifToca: 'Toca para activar avisos de tus picks seguidos',
+    statusActivas: 'Activas',
+    statusActivar: 'Activar',
+    guardar: 'Guardar',
+
+    inicioEyebrow: 'Liga Pro Checa · Tenis de mesa',
+    inicioTitle: 'Picks del día',
+    inicioSub: 'Análisis propio sobre partidos de la Liga Pro Checa, contrastado con nuestro propio historial.',
+    holaSaludo: 'Hola',
+    statEfectividad: 'Efectividad',
+    statRachaActual: 'Racha actual',
+    statROI: 'ROI',
+    statBalance: 'Balance',
+    enVivoAhora: 'En vivo ahora',
+    pickDestacado: 'Pick destacado del día',
+    noHayPicksActivos: 'No hay picks activos en este momento.',
+    verTodosPicks: 'Ver todos los picks →',
+
+    picksEyebrow: 'Todos los picks',
+    picksTitle: 'Picks',
+    picksEnEstaCategoria: 'picks en esta categoría',
+    tabTodos: 'Todos',
+    tabPendientes: 'Pendientes',
+    tabGanados: 'Ganados',
+    tabPerdidos: 'Perdidos',
+    noHayPicksCategoria: 'No hay picks en esta categoría todavía.',
+
+    calendarioEyebrow: 'Liga Pro Checa',
+    calendarioTitle: 'Calendario',
+    calendarioSub: 'Partidos próximos y finalizados. Los que están en vivo ahora mismo están en Inicio.',
+    filtroProximos: 'PRÓXIMOS',
+    filtroFinalizados: 'FINALIZADOS',
+    filtroTodos: 'TODOS',
+    partidosDeHoy: 'Partidos de hoy',
+    partidos: 'Partidos',
+    noHayPartidosCategoria: 'No hay partidos en esta categoría para este día.',
+
+    seguidosEyebrow: 'Tus picks seguidos',
+    seguidosTitle: 'Seguidos',
+    seguidosSub: 'Sigue un pick tocando la estrella y te avisamos con una notificación cuando termine un set o el partido.',
+    iniciaSesionSeguir: 'Inicia sesión con Google (arriba a la derecha) para seguir picks.',
+    noSiguesNingunPick: 'Todavía no sigues ningún pick — toca la ☆ en cualquier tarjeta.',
+
+    miBankrollEyebrow: 'Simulador personal',
+    miBankrollTitle: 'Mi Bankroll',
+    miBankrollSub:
+      'Cómo te habría ido apostando con Kelly solo en los picks que sigues — no es dinero real, es para que practiques el tamaño de apuesta antes de arriesgar el tuyo.',
+    iniciaSesionBankroll: 'Inicia sesión con Google (arriba a la derecha) para armar tu bankroll.',
+    funcionPremium: 'Función premium',
+    funcionPremiumDesc:
+      'Mi Bankroll va a estar disponible próximamente para cuentas premium — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.',
+
+    perfilPlanGratuito: 'Plan gratuito',
+    perfilPlanPremium: 'Plan premium',
+    perfilMiembroDesde: 'Miembro desde',
+    mejoraTuPlan: 'Mejora tu plan',
+    mejoraTuPlanDesc: 'Mi Bankroll y más funciones premium',
+    verPlanes: 'Ver Planes ›',
+    ajustes: 'AJUSTES',
+    filaNombre: 'Nombre',
+    filaNotificaciones: 'Notificaciones',
+    filaSuscripcion: 'Suscripción',
+    filaSuscripcionDesc: 'Administra tu plan',
+    filaCuotas: 'Formato de Cuotas',
+    filaTema: 'Tema',
+    filaTemaDesc: 'Elige cómo se ve CAMILOREY en este dispositivo.',
+    filaIdioma: 'Idioma',
+    filaPrivacidad: 'Privacidad',
+    filaPrivacidadDesc: 'Qué datos guardamos y cómo los usamos',
+    filaAyuda: 'Ayuda y Soporte',
+    filaAyudaDesc: 'Escríbenos si algo no funciona o tienes una duda',
+    filaInvita: 'Invita y recibe',
+    filaInvitaDesc: 'Comparte tu código, gana recompensas',
+
+    temaOscuro: 'Oscuro',
+    temaOscuroDesc: 'Siempre usar modo oscuro',
+    temaClaro: 'Claro',
+    temaClaroDesc: 'Siempre usar modo claro',
+    temaSistema: 'Sistema',
+    temaSistemaDesc: 'Seguir ajustes del dispositivo',
+    vistaPrevia: 'Vista previa',
+
+    idiomaEspanol: 'Español',
+    idiomaIngles: 'Inglés',
+    oddsDecimal: 'Decimal',
+    oddsAmericano: 'Americano',
+    oddsFraccional: 'Fraccional',
+    oddsHongkong: 'Hong Kong',
+    oddsIndonesio: 'Indonesio',
+
+    footerDisclaimer:
+      'ofrece análisis y opiniones propias con fines informativos y de entretenimiento sobre la Liga Pro Checa de tenis de mesa. No garantizamos resultados y no gestionamos apuestas ni fondos de terceros. Servicio dirigido exclusivamente a mayores de 18 años. Si sientes que el juego deja de ser un entretenimiento, busca ayuda profesional. Juega siempre con responsabilidad.',
+    politicaPrivacidad: 'Política de Privacidad'
+  },
+  en: {
+    navInicio: 'Home',
+    navCalendario: 'Schedule',
+    navPicks: 'Picks',
+    navSeguidos: 'Following',
+    navMiBankroll: 'My Bankroll',
+    navBankroll: 'Bankroll',
+    navGrupos: 'Groups',
+    navModelo: 'Model',
+    navErrores: 'Errors',
+    entrar: 'Sign in',
+    cerrarSesion: 'Sign out',
+    cargando: 'Loading…',
+    tuNombre: 'Your name',
+    notifActivadas: "Enabled — we'll notify you about your followed picks",
+    notifBloqueadas: 'Blocked in your browser — tap to see how to enable them',
+    notifToca: 'Tap to enable alerts for your followed picks',
+    statusActivas: 'On',
+    statusActivar: 'Enable',
+    guardar: 'Save',
+
+    inicioEyebrow: 'Czech Liga Pro · Table tennis',
+    inicioTitle: "Today's picks",
+    inicioSub: 'Our own analysis of Czech Liga Pro matches, checked against our own track record.',
+    holaSaludo: 'Hi',
+    statEfectividad: 'Accuracy',
+    statRachaActual: 'Current streak',
+    statROI: 'ROI',
+    statBalance: 'Balance',
+    enVivoAhora: 'Live now',
+    pickDestacado: "Today's featured pick",
+    noHayPicksActivos: 'No active picks right now.',
+    verTodosPicks: 'See all picks →',
+
+    picksEyebrow: 'All picks',
+    picksTitle: 'Picks',
+    picksEnEstaCategoria: 'picks in this category',
+    tabTodos: 'All',
+    tabPendientes: 'Pending',
+    tabGanados: 'Won',
+    tabPerdidos: 'Lost',
+    noHayPicksCategoria: 'No picks in this category yet.',
+
+    calendarioEyebrow: 'Czech Liga Pro',
+    calendarioTitle: 'Schedule',
+    calendarioSub: 'Upcoming and finished matches. Anything live right now is on the Home tab.',
+    filtroProximos: 'UPCOMING',
+    filtroFinalizados: 'FINISHED',
+    filtroTodos: 'ALL',
+    partidosDeHoy: "Today's matches",
+    partidos: 'Matches',
+    noHayPartidosCategoria: 'No matches in this category for this day.',
+
+    seguidosEyebrow: 'Your followed picks',
+    seguidosTitle: 'Following',
+    seguidosSub: 'Follow a pick by tapping the star and we’ll notify you when a set or the match ends.',
+    iniciaSesionSeguir: 'Sign in with Google (top right) to follow picks.',
+    noSiguesNingunPick: "You aren't following any picks yet — tap the ☆ on any card.",
+
+    miBankrollEyebrow: 'Personal simulator',
+    miBankrollTitle: 'My Bankroll',
+    miBankrollSub:
+      "How you'd have done betting Kelly stakes only on the picks you follow — not real money, just practice sizing your bets before risking your own.",
+    iniciaSesionBankroll: 'Sign in with Google (top right) to set up your bankroll.',
+    funcionPremium: 'Premium feature',
+    funcionPremiumDesc:
+      "My Bankroll will be available soon for premium accounts — there's nothing to pay yet, we're just giving you a heads up before it opens.",
+
+    perfilPlanGratuito: 'Free plan',
+    perfilPlanPremium: 'Premium plan',
+    perfilMiembroDesde: 'Member since',
+    mejoraTuPlan: 'Upgrade your plan',
+    mejoraTuPlanDesc: 'My Bankroll and more premium features',
+    verPlanes: 'See Plans ›',
+    ajustes: 'SETTINGS',
+    filaNombre: 'Name',
+    filaNotificaciones: 'Notifications',
+    filaSuscripcion: 'Subscription',
+    filaSuscripcionDesc: 'Manage your plan',
+    filaCuotas: 'Odds Format',
+    filaTema: 'Theme',
+    filaTemaDesc: 'Choose how CAMILOREY looks on this device.',
+    filaIdioma: 'Language',
+    filaPrivacidad: 'Privacy',
+    filaPrivacidadDesc: 'What data we store and how we use it',
+    filaAyuda: 'Help & Support',
+    filaAyudaDesc: "Write to us if something's not working or you have a question",
+    filaInvita: 'Invite & earn',
+    filaInvitaDesc: 'Share your code, earn rewards',
+
+    temaOscuro: 'Dark',
+    temaOscuroDesc: 'Always use dark mode',
+    temaClaro: 'Light',
+    temaClaroDesc: 'Always use light mode',
+    temaSistema: 'System',
+    temaSistemaDesc: 'Follow device settings',
+    vistaPrevia: 'Preview',
+
+    idiomaEspanol: 'Spanish',
+    idiomaIngles: 'English',
+    oddsDecimal: 'Decimal',
+    oddsAmericano: 'American',
+    oddsFraccional: 'Fractional',
+    oddsHongkong: 'Hong Kong',
+    oddsIndonesio: 'Indonesian',
+
+    footerDisclaimer:
+      "provides our own analysis and opinions for informational and entertainment purposes about the Czech Liga Pro table tennis league. We don't guarantee results and we don't handle bets or funds on anyone's behalf. Service intended exclusively for adults 18 and over. If gambling stops being entertainment for you, seek professional help. Always play responsibly.",
+    politicaPrivacidad: 'Privacy Policy'
+  }
+};
+
+function useTranslate(lang) {
+  return (key, vars) => {
+    let str = TRANSLATIONS[lang]?.[key] ?? TRANSLATIONS.es[key] ?? key;
+    if (vars) {
+      for (const [k, v] of Object.entries(vars)) str = str.replaceAll(`{${k}}`, v);
+    }
+    return str;
+  };
+}
 
 // pref es lo que la persona eligió ('oscuro'/'claro'/'sistema') — si
 // es 'sistema', el tema real a pintar depende de las preferencias del
@@ -815,14 +1058,6 @@ function formatCOP(n, withSign = false) {
   const sign = withSign ? (n >= 0 ? '+' : '-') : '';
   return `${sign}$${abs}`;
 }
-
-const ODDS_FORMAT_LABEL = {
-  decimal: 'Decimal',
-  americano: 'Americano',
-  fraccional: 'Fraccional',
-  hongkong: 'Hong Kong',
-  indonesio: 'Indonesio'
-};
 
 // Todas las cuotas se guardan en decimal (lo que da Rushbet) — esto
 // solo convierte para MOSTRAR, según la preferencia de cada quien.
@@ -2373,8 +2608,11 @@ function ProfileModal({
   onChangeTheme,
   oddsFormat,
   onChangeOddsFormat,
+  lang,
+  onChangeLang,
   onProfileUpdated
 }) {
+  const t = useTranslate(lang);
   const [notifStatus, setNotifStatus] = useState('unknown');
   const [nameInput, setNameInput] = useState(displayName || '');
   const [savingName, setSavingName] = useState(false);
@@ -2382,14 +2620,27 @@ function ProfileModal({
   // de expandirse ahí mismo en la lista — mismo patrón que la
   // referencia, donde tocar la fila navega a otra vista.
   const [themeScreenOpen, setThemeScreenOpen] = useState(false);
-  const THEME_LABEL = { oscuro: 'Oscuro', claro: 'Claro', sistema: 'Sistema' };
+  const THEME_LABEL = { oscuro: t('temaOscuro'), claro: t('temaClaro'), sistema: t('temaSistema') };
+  const ODDS_LABEL = {
+    decimal: t('oddsDecimal'),
+    americano: t('oddsAmericano'),
+    fraccional: t('oddsFraccional'),
+    hongkong: t('oddsHongkong'),
+    indonesio: t('oddsIndonesio')
+  };
   const [oddsScreenOpen, setOddsScreenOpen] = useState(false);
+  const [langScreenOpen, setLangScreenOpen] = useState(false);
+  const ejemplo = lang === 'en' ? 'Example' : 'Ejemplo';
   const ODDS_FORMAT_OPTIONS = [
-    ['decimal', 'Ejemplo: 2.23'],
-    ['americano', 'Ejemplo: +123 / -100'],
-    ['fraccional', 'Ejemplo: 5/4'],
-    ['hongkong', 'Ejemplo: 1.23'],
-    ['indonesio', 'Ejemplo: +1.23 / -1.23']
+    ['decimal', `${ejemplo}: 2.23`],
+    ['americano', `${ejemplo}: +123 / -100`],
+    ['fraccional', `${ejemplo}: 5/4`],
+    ['hongkong', `${ejemplo}: 1.23`],
+    ['indonesio', `${ejemplo}: +1.23 / -1.23`]
+  ];
+  const LANG_OPTIONS = [
+    ['es', t('idiomaEspanol')],
+    ['en', t('idiomaIngles')]
   ];
 
   useEffect(() => {
@@ -2442,7 +2693,7 @@ function ProfileModal({
             <button className="subscreen-back" onClick={() => setOddsScreenOpen(false)}>
               <ProfileIcon name="arrow-left" size={18} />
             </button>
-            <h3>Formato de Cuotas</h3>
+            <h3>{t('filaCuotas')}</h3>
           </div>
 
           <div className="profile-row profile-row-theme" style={{ border: 'none', padding: '4px 0 0' }}>
@@ -2450,8 +2701,12 @@ function ProfileModal({
               <ProfileIcon name="dollar" />
             </span>
             <div className="profile-row-body">
-              <strong>Formato de Cuotas</strong>
-              <p>Cómo se muestran las cuotas en todo el sitio (siempre se guardan en decimal por dentro).</p>
+              <strong>{t('filaCuotas')}</strong>
+              <p>
+                {lang === 'en'
+                  ? 'How odds are shown across the site (always stored as decimal internally).'
+                  : 'Cómo se muestran las cuotas en todo el sitio (siempre se guardan en decimal por dentro).'}
+              </p>
             </div>
           </div>
 
@@ -2463,12 +2718,48 @@ function ProfileModal({
                 onClick={() => onChangeOddsFormat(key)}
               >
                 <div className="theme-option-body">
-                  <strong>{ODDS_FORMAT_LABEL[key]}</strong>
+                  <strong>{ODDS_LABEL[key]}</strong>
                   <span>{example}</span>
                 </div>
                 <span className="theme-option-radio">
                   {oddsFormat === key ? <ProfileIcon name="check" size={12} /> : null}
                 </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (langScreenOpen) {
+    return (
+      <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+        <div className="modal">
+          <div className="subscreen-head">
+            <button className="subscreen-back" onClick={() => setLangScreenOpen(false)}>
+              <ProfileIcon name="arrow-left" size={18} />
+            </button>
+            <h3>{t('filaIdioma')}</h3>
+          </div>
+
+          <div className="profile-row profile-row-theme" style={{ border: 'none', padding: '4px 0 0' }}>
+            <span className="profile-row-icon">
+              <ProfileIcon name="globe" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('filaIdioma')}</strong>
+              <p>{lang === 'en' ? 'Choose the language for CAMILOREY.' : 'Elige el idioma de CAMILOREY.'}</p>
+            </div>
+          </div>
+
+          <div className="theme-option-list">
+            {LANG_OPTIONS.map(([key, label]) => (
+              <div key={key} className={`theme-option ${lang === key ? 'active' : ''}`} onClick={() => onChangeLang(key)}>
+                <div className="theme-option-body">
+                  <strong>{label}</strong>
+                </div>
+                <span className="theme-option-radio">{lang === key ? <ProfileIcon name="check" size={12} /> : null}</span>
               </div>
             ))}
           </div>
@@ -2485,7 +2776,7 @@ function ProfileModal({
             <button className="subscreen-back" onClick={() => setThemeScreenOpen(false)}>
               <ProfileIcon name="arrow-left" size={18} />
             </button>
-            <h3>Tema</h3>
+            <h3>{t('filaTema')}</h3>
           </div>
 
           <div className="profile-row profile-row-theme" style={{ border: 'none', padding: '4px 0 0' }}>
@@ -2493,16 +2784,16 @@ function ProfileModal({
               <ProfileIcon name="moon" />
             </span>
             <div className="profile-row-body">
-              <strong>Tema</strong>
-              <p>Elige cómo se ve CAMILOREY en este dispositivo.</p>
+              <strong>{t('filaTema')}</strong>
+              <p>{t('filaTemaDesc')}</p>
             </div>
           </div>
 
           <div className="theme-option-list">
             {[
-              ['oscuro', 'moon', 'Oscuro', 'Siempre usar modo oscuro'],
-              ['claro', 'sun', 'Claro', 'Siempre usar modo claro'],
-              ['sistema', 'monitor', 'Sistema', 'Seguir ajustes del dispositivo']
+              ['oscuro', 'moon', t('temaOscuro'), t('temaOscuroDesc')],
+              ['claro', 'sun', t('temaClaro'), t('temaClaroDesc')],
+              ['sistema', 'monitor', t('temaSistema'), t('temaSistemaDesc')]
             ].map(([key, icon, title, sub]) => (
               <div
                 key={key}
@@ -2530,7 +2821,7 @@ function ProfileModal({
                 <span className="theme-preview-line"></span>
               </div>
               <div className="theme-preview-block"></div>
-              <span className="theme-preview-label">Claro</span>
+              <span className="theme-preview-label">{t('temaClaro')}</span>
             </div>
             <div className="theme-preview-card theme-preview-dark">
               <div className="theme-preview-head">
@@ -2538,7 +2829,7 @@ function ProfileModal({
                 <span className="theme-preview-line"></span>
               </div>
               <div className="theme-preview-block"></div>
-              <span className="theme-preview-label">Oscuro</span>
+              <span className="theme-preview-label">{t('temaOscuro')}</span>
             </div>
           </div>
         </div>
@@ -2562,8 +2853,8 @@ function ProfileModal({
               <h3 style={{ fontSize: '18px' }}>{displayName || user.email}</h3>
               <div className="sub">{user.email}</div>
               <div className="profile-plan-line">
-                {isAdmin ? 'Plan premium' : 'Plan gratuito'}
-                {memberSince ? ` · Miembro desde ${memberSince}` : ''}
+                {isAdmin ? t('perfilPlanPremium') : t('perfilPlanGratuito')}
+                {memberSince ? ` · ${t('perfilMiembroDesde')} ${memberSince}` : ''}
               </div>
             </div>
           </div>
@@ -2577,35 +2868,39 @@ function ProfileModal({
             type="button"
             className="upgrade-card"
             onClick={() =>
-              alert('Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.')
+              alert(
+                lang === 'en'
+                  ? "You'll be able to upgrade your plan very soon — there's nothing to pay yet, we're just giving you a heads up before it opens."
+                  : 'Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.'
+              )
             }
           >
             <span className="upgrade-card-icon">
               <ProfileIcon name="crown" />
             </span>
             <span className="upgrade-card-body">
-              <strong>Mejora tu plan</strong>
-              <span>Mi Bankroll y más funciones premium</span>
+              <strong>{t('mejoraTuPlan')}</strong>
+              <span>{t('mejoraTuPlanDesc')}</span>
             </span>
-            <span className="upgrade-card-cta">Ver Planes ›</span>
+            <span className="upgrade-card-cta">{t('verPlanes')}</span>
           </button>
         ) : null}
 
-        <div className="profile-section-label">AJUSTES</div>
+        <div className="profile-section-label">{t('ajustes')}</div>
 
         <div className="profile-row profile-row-theme">
           <span className="profile-row-icon">
             <ProfileIcon name="edit" />
           </span>
           <div className="profile-row-body">
-            <strong>Nombre</strong>
+            <strong>{t('filaNombre')}</strong>
             <div className="profile-edit-inline">
               <input
                 type="text"
                 className="profile-name-input"
                 value={nameInput}
                 maxLength={40}
-                placeholder="Tu nombre"
+                placeholder={t('tuNombre')}
                 onChange={(e) => setNameInput(e.target.value)}
               />
               <button
@@ -2614,7 +2909,7 @@ function ProfileModal({
                 disabled={savingName || !nameInput.trim() || nameInput.trim() === displayName}
                 onClick={saveName}
               >
-                {savingName ? '...' : 'Guardar'}
+                {savingName ? '...' : t('guardar')}
               </button>
             </div>
           </div>
@@ -2625,27 +2920,36 @@ function ProfileModal({
             <ProfileIcon name="bell" />
           </span>
           <div className="profile-row-body">
-            <strong>Notificaciones</strong>
+            <strong>{t('filaNotificaciones')}</strong>
             <p>
               {notifStatus === 'granted'
-                ? 'Activadas — te avisamos de tus picks seguidos'
+                ? t('notifActivadas')
                 : notifStatus === 'denied'
-                ? 'Bloqueadas en el navegador — toca para ver cómo activarlas'
-                : 'Toca para activar avisos de tus picks seguidos'}
+                ? t('notifBloqueadas')
+                : t('notifToca')}
             </p>
           </div>
           <span className={`status ${notifStatus === 'granted' ? 'live' : 'soon'}`}>
-            {notifStatus === 'granted' ? 'Activas' : 'Activar'}
+            {notifStatus === 'granted' ? t('statusActivas') : t('statusActivar')}
           </span>
         </div>
 
-        <div className="profile-row" onClick={() => alert('Suscripción — todavía no hay planes para administrar, muy pronto vas a poder verlos aquí.')}>
+        <div
+          className="profile-row"
+          onClick={() =>
+            alert(
+              lang === 'en'
+                ? "Subscription — no plans to manage yet, you'll be able to see them here very soon."
+                : 'Suscripción — todavía no hay planes para administrar, muy pronto vas a poder verlos aquí.'
+            )
+          }
+        >
           <span className="profile-row-icon">
             <ProfileIcon name="card" />
           </span>
           <div className="profile-row-body">
-            <strong>Suscripción</strong>
-            <p>Administra tu plan</p>
+            <strong>{t('filaSuscripcion')}</strong>
+            <p>{t('filaSuscripcionDesc')}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </div>
@@ -2655,8 +2959,8 @@ function ProfileModal({
             <ProfileIcon name="dollar" />
           </span>
           <div className="profile-row-body">
-            <strong>Formato de Cuotas</strong>
-            <p>{ODDS_FORMAT_LABEL[oddsFormat] || 'Decimal'}</p>
+            <strong>{t('filaCuotas')}</strong>
+            <p>{ODDS_LABEL[oddsFormat] || ODDS_LABEL.decimal}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </div>
@@ -2666,19 +2970,19 @@ function ProfileModal({
             <ProfileIcon name="moon" />
           </span>
           <div className="profile-row-body">
-            <strong>Tema</strong>
-            <p>{THEME_LABEL[themePref] || 'Sistema'}</p>
+            <strong>{t('filaTema')}</strong>
+            <p>{THEME_LABEL[themePref] || THEME_LABEL.sistema}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </div>
 
-        <div className="profile-row" onClick={() => alert('Por ahora CAMILOREY solo está disponible en español.')}>
+        <div className="profile-row" onClick={() => setLangScreenOpen(true)}>
           <span className="profile-row-icon">
             <ProfileIcon name="globe" />
           </span>
           <div className="profile-row-body">
-            <strong>Idioma</strong>
-            <p>Español</p>
+            <strong>{t('filaIdioma')}</strong>
+            <p>{lang === 'en' ? t('idiomaIngles') : t('idiomaEspanol')}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </div>
@@ -2688,8 +2992,8 @@ function ProfileModal({
             <ProfileIcon name="shield" />
           </span>
           <div className="profile-row-body">
-            <strong>Privacidad</strong>
-            <p>Qué datos guardamos y cómo los usamos</p>
+            <strong>{t('filaPrivacidad')}</strong>
+            <p>{t('filaPrivacidadDesc')}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </a>
@@ -2699,19 +3003,28 @@ function ProfileModal({
             <ProfileIcon name="help" />
           </span>
           <div className="profile-row-body">
-            <strong>Ayuda y Soporte</strong>
-            <p>Escríbenos si algo no funciona o tienes una duda</p>
+            <strong>{t('filaAyuda')}</strong>
+            <p>{t('filaAyudaDesc')}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </a>
 
-        <div className="profile-row" onClick={() => alert('Invita y recibe — todavía no existe, pero está en camino. Muy pronto vas a poder invitar amigos desde aquí.')}>
+        <div
+          className="profile-row"
+          onClick={() =>
+            alert(
+              lang === 'en'
+                ? "Invite & earn — doesn't exist yet, but it's on the way. You'll be able to invite friends from here very soon."
+                : 'Invita y recibe — todavía no existe, pero está en camino. Muy pronto vas a poder invitar amigos desde aquí.'
+            )
+          }
+        >
           <span className="profile-row-icon">
             <ProfileIcon name="gift" />
           </span>
           <div className="profile-row-body">
-            <strong>Invita y recibe</strong>
-            <p>Comparte tu código, gana recompensas</p>
+            <strong>{t('filaInvita')}</strong>
+            <p>{t('filaInvitaDesc')}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </div>
@@ -2724,7 +3037,7 @@ function ProfileModal({
             onLogout();
           }}
         >
-          Cerrar sesión
+          {t('cerrarSesion')}
         </button>
       </div>
     </div>
@@ -2838,6 +3151,23 @@ export default function Home({
     setOddsFormat(fmt);
     if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_odds_format', fmt);
   };
+
+  // Idioma — el servidor siempre renderiza en español (SSR no sabe la
+  // preferencia todavía); apenas monta el cliente, si hay un idioma
+  // guardado distinto, se cambia. Puede pasar un salto visible de
+  // es→en en la primera carga si alguien ya eligió inglés antes —
+  // aceptable por ahora, igual que pasó con el tema antes de tener el
+  // script anti-parpadeo.
+  const [lang, setLang] = useState('es');
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem(LANG_KEY) : null;
+    if (saved) setLang(saved);
+  }, []);
+  const changeLang = (l) => {
+    setLang(l);
+    if (typeof window !== 'undefined') window.localStorage.setItem(LANG_KEY, l);
+  };
+  const t = useTranslate(lang);
 
   // Banco de PLANEACIÓN (para el Slip Kelly) — separado del balance
   // real de "Rendimiento". Arranca igual al balance real, pero es
@@ -3291,17 +3621,17 @@ export default function Home({
           <span className="dot"></span>
         </a>
         <nav className="top-nav">
-          {navLink('inicio', 'Inicio')}
-          {navLink('calendario', 'Calendario')}
-          {navLink('picks', 'Picks')}
-          {navLink('seguidos', 'Seguidos')}
+          {navLink('inicio', t('navInicio'))}
+          {navLink('calendario', t('navCalendario'))}
+          {navLink('picks', t('navPicks'))}
+          {navLink('seguidos', t('navSeguidos'))}
           <a href="#mibankroll" data-view="mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
-            Mi Bankroll {!isAdmin ? <ProfileIcon name="lock" size={11} /> : null}
+            {t('navMiBankroll')} {!isAdmin ? <ProfileIcon name="lock" size={11} /> : null}
           </a>
-          {isAdmin ? navLink('bankroll', 'Bankroll') : null}
-          {isAdmin ? navLink('grupos', 'Grupos') : null}
-          {isAdmin ? navLink('modelo', 'Modelo') : null}
-          {isAdmin ? navLink('errores', 'Errores') : null}
+          {isAdmin ? navLink('bankroll', t('navBankroll')) : null}
+          {isAdmin ? navLink('grupos', t('navGrupos')) : null}
+          {isAdmin ? navLink('modelo', t('navModelo')) : null}
+          {isAdmin ? navLink('errores', t('navErrores')) : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {user ? (
@@ -3337,7 +3667,7 @@ export default function Home({
           ) : (
             <button className="login-btn" onClick={() => setShowLoginModal(true)}>
               <GoogleGIcon size={14} />
-              Entrar
+              {t('entrar')}
             </button>
           )}
         </div>
@@ -3352,16 +3682,18 @@ export default function Home({
         <section className={`view ${view === 'inicio' ? 'active' : ''}`}>
           {greetingName ? (
             <div className="greeting">
-              <div className="greeting-hi">Hola, {greetingName} 👋</div>
+              <div className="greeting-hi">
+                {t('holaSaludo')}, {greetingName} 👋
+              </div>
               <div className="greeting-date">{todayLabel}</div>
             </div>
           ) : (
             <>
-              <span className="eyebrow">Liga Pro Checa · Tenis de mesa</span>
-              <h1 className="page-title">Picks del día</h1>
+              <span className="eyebrow">{t('inicioEyebrow')}</span>
+              <h1 className="page-title">{t('inicioTitle')}</h1>
             </>
           )}
-          <p className="page-sub">Análisis propio sobre partidos de la Liga Pro Checa, contrastado con nuestro propio historial.</p>
+          <p className="page-sub">{t('inicioSub')}</p>
 
           <a href="https://t.me/+q_JbStqxCsFhYWE8" target="_blank" rel="noopener noreferrer" className="tg-banner">
             <div className="tg-banner-text">
@@ -3378,24 +3710,24 @@ export default function Home({
 
           <div className="stat-strip stat-strip-4">
             <div className="stat-card">
-              <div className="label">Efectividad</div>
+              <div className="label">{t('statEfectividad')}</div>
               <div className="value hit num">{stats.efectividad}%</div>
             </div>
             <div className="stat-card">
-              <div className="label">Racha actual</div>
+              <div className="label">{t('statRachaActual')}</div>
               <div className="value num">
                 {stats.racha === 0 ? '—' : `${Math.abs(stats.racha)}${stats.racha > 0 ? 'W' : 'L'}`}
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">ROI</div>
+              <div className="label">{t('statROI')}</div>
               <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
                 {stats.roi >= 0 ? '+' : ''}
                 {stats.roi}%
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">Balance</div>
+              <div className="label">{t('statBalance')}</div>
               <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
             </div>
           </div>
@@ -3403,7 +3735,7 @@ export default function Home({
           {featured ? (
             <>
               <div className="section-head">
-                <h2>Pick destacado del día</h2>
+                <h2>{t('pickDestacado')}</h2>
               </div>
               <PickCard
                 pick={featured}
@@ -3415,14 +3747,14 @@ export default function Home({
               />
             </>
           ) : (
-            <p className="page-sub">No hay picks activos en este momento.</p>
+            <p className="page-sub">{t('noHayPicksActivos')}</p>
           )}
 
           {liveMatches.length > 0 ? (
             <>
               <div className="section-head">
                 <h2>
-                  <span className="live-dot"></span> En vivo ahora ({liveMatches.length})
+                  <span className="live-dot"></span> {t('enVivoAhora')} ({liveMatches.length})
                 </h2>
               </div>
               {liveMatches.map((m, i) => (
@@ -3439,21 +3771,23 @@ export default function Home({
 
           <div className="section-head">
             <a href="#picks" className="see-all">
-              Ver todos los picks →
+              {t('verTodosPicks')}
             </a>
           </div>
         </section>
 
         <section className={`view ${view === 'picks' ? 'active' : ''}`}>
-          <span className="eyebrow">Todos los picks</span>
-          <h1 className="page-title">Picks</h1>
-          <p className="page-sub">{tabPicks.length} picks en esta categoría</p>
+          <span className="eyebrow">{t('picksEyebrow')}</span>
+          <h1 className="page-title">{t('picksTitle')}</h1>
+          <p className="page-sub">
+            {tabPicks.length} {t('picksEnEstaCategoria')}
+          </p>
           <div className="tabs">
             {[
-              ['todos', 'Todos'],
-              ['pendientes', 'Pendientes'],
-              ['ganados', 'Ganados'],
-              ['perdidos', 'Perdidos']
+              ['todos', t('tabTodos')],
+              ['pendientes', t('tabPendientes')],
+              ['ganados', t('tabGanados')],
+              ['perdidos', t('tabPerdidos')]
             ].map(([key, label]) => (
               <div key={key} className={`tab ${pickTab === key ? 'active' : ''}`} onClick={() => setPickTab(key)}>
                 {label}
@@ -3462,7 +3796,7 @@ export default function Home({
           </div>
           <div className="pick-grid">
             {tabPicks.length === 0 ? (
-              <p className="page-sub">No hay picks en esta categoría todavía.</p>
+              <p className="page-sub">{t('noHayPicksCategoria')}</p>
             ) : (
               tabPicks.map((p) => (
                 <PickCard
@@ -3479,9 +3813,9 @@ export default function Home({
         </section>
 
         <section className={`view ${view === 'calendario' ? 'active' : ''}`}>
-          <span className="eyebrow">Liga Pro Checa</span>
-          <h1 className="page-title">Calendario</h1>
-          <p className="page-sub">Partidos próximos y finalizados. Los que están en vivo ahora mismo están en Inicio.</p>
+          <span className="eyebrow">{t('calendarioEyebrow')}</span>
+          <h1 className="page-title">{t('calendarioTitle')}</h1>
+          <p className="page-sub">{t('calendarioSub')}</p>
           <div className="day-strip">
             {dayStrip.map((d) => (
               <a
@@ -3496,24 +3830,24 @@ export default function Home({
           </div>
           <div className="match-filter-row">
             <div className={`match-filter-btn ${matchFilter === 'proximos' ? 'active' : ''}`} onClick={() => setMatchFilter('proximos')}>
-              PRÓXIMOS
+              {t('filtroProximos')}
             </div>
             <div
               className={`match-filter-btn ${matchFilter === 'finalizados' ? 'active' : ''}`}
               onClick={() => setMatchFilter('finalizados')}
             >
-              FINALIZADOS
+              {t('filtroFinalizados')}
             </div>
             <div className={`match-filter-btn ${matchFilter === 'todos' ? 'active' : ''}`} onClick={() => setMatchFilter('todos')}>
-              TODOS
+              {t('filtroTodos')}
             </div>
           </div>
           <div className="section-head">
-            <h2>Partidos {currentDateStr === dayStrip[0].dateStr ? 'de hoy' : ''}</h2>
+            <h2>{currentDateStr === dayStrip[0].dateStr ? t('partidosDeHoy') : t('partidos')}</h2>
           </div>
           <div>
             {filteredMatches.length === 0 ? (
-              <p className="page-sub">No hay partidos en esta categoría para este día.</p>
+              <p className="page-sub">{t('noHayPartidosCategoria')}</p>
             ) : (
               filteredMatches.map((m, i) => (
                 <MatchRow
@@ -3798,17 +4132,15 @@ export default function Home({
         )}
 
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
-          <span className="eyebrow">Tus picks seguidos</span>
-          <h1 className="page-title">Seguidos</h1>
-          <p className="page-sub">
-            Sigue un pick tocando la estrella y te avisamos con una notificación cuando termine un set o el partido.
-          </p>
+          <span className="eyebrow">{t('seguidosEyebrow')}</span>
+          <h1 className="page-title">{t('seguidosTitle')}</h1>
+          <p className="page-sub">{t('seguidosSub')}</p>
           {!user ? (
-            <p className="page-sub">Inicia sesión con Google (arriba a la derecha) para seguir picks.</p>
+            <p className="page-sub">{t('iniciaSesionSeguir')}</p>
           ) : (
             (() => {
               if (followedDetail.length === 0) {
-                return <p className="page-sub">Todavía no sigues ningún pick — toca la ☆ en cualquier tarjeta.</p>;
+                return <p className="page-sub">{t('noSiguesNingunPick')}</p>;
               }
               return (
                 <div className="pick-grid">
@@ -3829,24 +4161,21 @@ export default function Home({
         </section>
 
         <section className={`view ${view === 'mibankroll' ? 'active' : ''}`}>
-          <span className="eyebrow">Simulador personal</span>
-          <h1 className="page-title">Mi Bankroll</h1>
-          <p className="page-sub">
-            Cómo te habría ido apostando con Kelly solo en los picks que sigues — no es dinero real, es para que
-            practiques el tamaño de apuesta antes de arriesgar el tuyo.
-          </p>
+          <span className="eyebrow">{t('miBankrollEyebrow')}</span>
+          <h1 className="page-title">{t('navMiBankroll')}</h1>
+          <p className="page-sub">{t('miBankrollSub')}</p>
           {!user ? (
-            <p className="page-sub">Inicia sesión con Google (arriba a la derecha) para armar tu bankroll.</p>
+            <p className="page-sub">{t('iniciaSesionBankroll')}</p>
           ) : !isAdmin ? (
             <div className="premium-lock-card">
               <div className="premium-lock-icon">
                 <ProfileIcon name="lock" size={22} />
               </div>
-              <h3>Función premium</h3>
-              <p>Mi Bankroll va a estar disponible próximamente para cuentas premium — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.</p>
+              <h3>{t('funcionPremium')}</h3>
+              <p>{t('funcionPremiumDesc')}</p>
             </div>
           ) : !myBankLoaded ? (
-            <p className="page-sub">Cargando…</p>
+            <p className="page-sub">{t('cargando')}</p>
           ) : (
             <>
               <div className="bankroll-card">
@@ -3971,12 +4300,9 @@ export default function Home({
       </main>
 
       <footer className="site">
-        <strong>CAMILOREY</strong> ofrece análisis y opiniones propias con fines informativos y de entretenimiento
-        sobre la Liga Pro Checa de tenis de mesa. No garantizamos resultados y no gestionamos apuestas ni fondos de
-        terceros. Servicio dirigido exclusivamente a mayores de 18 años. Si sientes que el juego deja de ser un
-        entretenimiento, busca ayuda profesional. Juega siempre con responsabilidad.
+        <strong>CAMILOREY</strong> {t('footerDisclaimer')}
         <div style={{ marginTop: '10px' }}>
-          <a href="/privacidad">Política de Privacidad</a>
+          <a href="/privacidad">{t('politicaPrivacidad')}</a>
         </div>
       </footer>
 
@@ -3986,7 +4312,7 @@ export default function Home({
             <path d="M3 11l9-7 9 7" />
             <path d="M5 10v9h14v-9" />
           </svg>
-          Inicio
+          {t('navInicio')}
         </a>
         <a href="#calendario" className={view === 'calendario' ? 'active' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3994,19 +4320,19 @@ export default function Home({
             <path d="M3 10h18M8 3v4M16 3v4" />
             <path d="m9 14 2 2 4-4" />
           </svg>
-          Calendario
+          {t('navCalendario')}
         </a>
         <a href="#picks" className={view === 'picks' ? 'active' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
           </svg>
-          Picks
+          {t('navPicks')}
         </a>
         <a href="#seguidos" className={view === 'seguidos' ? 'active' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
           </svg>
-          Seguidos
+          {t('navSeguidos')}
         </a>
         <a href="#mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
           <span style={{ position: 'relative', display: 'inline-flex' }}>
@@ -4021,7 +4347,7 @@ export default function Home({
               </span>
             ) : null}
           </span>
-          Mi Bankroll
+          {t('navMiBankroll')}
         </a>
         {isAdmin ? (
           <a href="#bankroll" className={view === 'bankroll' ? 'active' : ''}>
@@ -4030,7 +4356,7 @@ export default function Home({
               <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
               <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
             </svg>
-            Bankroll
+            {t('navBankroll')}
           </a>
         ) : null}
         {isAdmin ? (
@@ -4041,7 +4367,7 @@ export default function Home({
               <rect x="3" y="14" width="7" height="7" rx="1" />
               <rect x="14" y="14" width="7" height="7" rx="1" />
             </svg>
-            Grupos
+            {t('navGrupos')}
           </a>
         ) : null}
         {isAdmin ? (
@@ -4050,7 +4376,7 @@ export default function Home({
               <path d="M3 3v18h18" />
               <path d="M7 14l4-5 4 3 5-7" />
             </svg>
-            Modelo
+            {t('navModelo')}
           </a>
         ) : null}
         {isAdmin ? (
@@ -4059,7 +4385,7 @@ export default function Home({
               <circle cx="12" cy="12" r="9" />
               <path d="M12 8v5M12 16h.01" />
             </svg>
-            Errores
+            {t('navErrores')}
           </a>
         ) : null}
       </nav>
@@ -4095,6 +4421,8 @@ export default function Home({
           onChangeTheme={changeTheme}
           oddsFormat={oddsFormat}
           onChangeOddsFormat={changeOddsFormat}
+          lang={lang}
+          onChangeLang={changeLang}
           onProfileUpdated={(patch) => setMyProfile((prev) => ({ ...prev, ...patch }))}
         />
       )}
