@@ -3050,7 +3050,6 @@ export default function Home({
           {isAdmin ? navLink('errores', 'Errores') : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span className="badge18">+18 · Juega con cabeza</span>
           {user ? (
             <button
               className="bell-btn"
@@ -3930,11 +3929,6 @@ const CSS = `
     transition:background .15s, color .15s;
   }
   nav.top-nav a.active, nav.top-nav a:hover{background:var(--court); color:#fff;}
-  .badge18{
-    font-family:var(--font-mono); font-size:11px; font-weight:600;
-    color:var(--court-soft-text); background:var(--court-soft);
-    border-radius:999px; padding:4px 9px; margin-left:8px;
-  }
   .login-btn{
     display:inline-flex; align-items:center; gap:6px;
     font-family:var(--font-body); font-size:12px; font-weight:700; color:var(--ink);
