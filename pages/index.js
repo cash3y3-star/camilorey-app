@@ -4826,7 +4826,7 @@ export default function Home({
                 return <p className="page-sub">{t('noSiguesNingunPick')}</p>;
               }
               return (
-                <div className="pick-grid">
+                <div className="pick-grid pick-grid-seguidos">
                   {followedDetail.map((p) => (
                     <PickCard
                       key={p.id}
@@ -5402,6 +5402,17 @@ const CSS = `
     content:""; position:absolute; inset:0; border-radius:50%;
     background:linear-gradient(155deg, rgba(255,255,255,.16), transparent 55%);
     pointer-events:none;
+  }
+
+  /* Seguidos: fotos grandes tipo retrato en vez del circulito chico,
+     pedido explícitamente para esta vista (referencia de otra app) —
+     el resto del sitio (Inicio/Picks/Calendario) sigue con el avatar
+     chico de siempre. */
+  .pick-grid-seguidos .avatar{width:92px; height:92px; border-radius:18px; font-size:22px;}
+  .pick-grid-seguidos .avatar::after{border-radius:18px;}
+  .pick-grid-seguidos .pc-player-name{font-size:14px;}
+  @media (max-width:640px){
+    .pick-grid-seguidos .avatar{width:78px; height:78px; border-radius:16px; font-size:19px;}
   }
 
   .pc-stats-row{display:flex; gap:18px; justify-content:center; margin-bottom:12px; padding:10px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
