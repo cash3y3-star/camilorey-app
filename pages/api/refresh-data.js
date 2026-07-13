@@ -138,7 +138,8 @@ export default async function handler(req, res) {
       const playerA = playersById.get(match.player_a_id);
       const playerB = playersById.get(match.player_b_id);
       const favored = playersById.get(pick.predicted_winner_id);
-      const opponent = pick.predicted_winner_id === match.player_a_id ? playerB : playerA;
+      const favoredIsA = pick.predicted_winner_id === match.player_a_id;
+      const opponent = favoredIsA ? playerB : playerA;
       if (!favored || !opponent) return null;
 
       let matchStatus = 'soon';
@@ -146,7 +147,7 @@ export default async function handler(req, res) {
       else if (match.status === 'live') matchStatus = 'live';
       else if (match.scheduled_at && new Date(match.scheduled_at) <= new Date()) matchStatus = 'live';
 
-      return { pick, match, favored, opponent, tournament: tournamentsById.get(match.tournament_id), matchStatus };
+      return { pick, match, favored, opponent, favoredIsA, tournament: tournamentsById.get(match.tournament_id), matchStatus };
     })
     .filter(Boolean);
 
@@ -174,7 +175,7 @@ export default async function handler(req, res) {
           : match.set_scores.map((s) => ({ a: s.b, b: s.a }))
         : null;
 
-      return { pick, match, favored, opponent, tournament: tournamentsById.get(match.tournament_id), score, setScores };
+      return { pick, match, favored, opponent, favoredIsA, tournament: tournamentsById.get(match.tournament_id), score, setScores };
     })
     .filter(Boolean);
 
@@ -273,7 +274,7 @@ export default async function handler(req, res) {
   ]);
   const EMPTY_FORM = { history: [], streakLabel: null, h2h: '0-0', h2hTotal: 0, h2hMatches: [] };
 
-  const picks = pendingPrelim.map(({ pick, match, favored, opponent, tournament, matchStatus }) => {
+  const picks = pendingPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament, matchStatus }) => {
     const form = formByPickId.get(pick.id) || EMPTY_FORM;
     const confidence = Math.round(pick.confidence);
     return {
@@ -289,6 +290,7 @@ export default async function handler(req, res) {
       opponentInitials: initialsOf(opponent?.name),
       opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
       opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
+      favoredIsA,
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
       market: pick.market,
@@ -319,7 +321,7 @@ export default async function handler(req, res) {
     (picksWithGoodOdds.length ? picksWithGoodOdds : picks).slice().sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
 
-  const resolvedPicks = resolvedPrelim.map(({ pick, match, favored, opponent, tournament, score, setScores }) => {
+  const resolvedPicks = resolvedPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament, score, setScores }) => {
     const form = formByPickId.get(pick.id) || EMPTY_FORM;
     const confidence = Math.round(pick.confidence);
     return {
@@ -335,6 +337,7 @@ export default async function handler(req, res) {
       opponentInitials: initialsOf(opponent.name),
       opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
       opponentHasCutout: Boolean(opponent.avatar_cutout_url),
+      favoredIsA,
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
       market: pick.market,
