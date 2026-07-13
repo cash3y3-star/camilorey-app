@@ -21,6 +21,9 @@ self.addEventListener('push', (event) => {
     renotify: Boolean(payload.tag),
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
+    // Solo Android/Chrome respeta este patrón (ms: vibra, pausa, vibra) —
+    // en iOS/desktop el navegador simplemente lo ignora sin romper nada.
+    vibrate: [200, 100, 200],
     data: { url: payload.url || '/' }
   };
 

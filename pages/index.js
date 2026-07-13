@@ -3905,6 +3905,13 @@ function playFollowSound() {
   }
 }
 
+// Vibración cortita al seguir un pick — solo existe en Chrome/Android
+// (navigator.vibrate), Safari/iOS y desktop no la tienen, por eso el
+// chequeo antes de llamarla.
+function vibrateFollow() {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(40);
+}
+
 // Kelly: fracción óptima del banco a arriesgar dado el edge real
 // (confianza como probabilidad, cuota real de Rushbet) — f* = (b·p - q) / b,
 // b = cuota-1, p = confianza/100, q = 1-p. Si f* <= 0 el modelo no ve
@@ -4334,6 +4341,7 @@ export default function Home({
       }
       setFollowedPickIds((prev) => new Set(prev).add(pick.id));
       playFollowSound();
+      vibrateFollow();
       ensurePushSubscription(user);
     }
   };
