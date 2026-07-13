@@ -1800,6 +1800,68 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
   );
 }
 
+// Tarjeta de "Seguidos" — a diferencia de PickCard (que muestra los
+// DOS jugadores lado a lado con "VS"), esta muestra una sola foto
+// grande del jugador favorito (a quien le apostamos), estilo tarjeta
+// de picks de otra app que se pidió replicar tal cual: foto grande
+// arriba, insignia de acierto/fallo encima en una esquina, nombre +
+// contra quién abajo, la selección en una píldora de color, y la
+// barra del Índice IA como "barra de progreso" en la parte de abajo.
+function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
+  const resultClass = pick.result === 'hit' ? 'hit' : pick.result === 'miss' ? 'miss' : 'pending';
+  return (
+    <div className="followed-card" onClick={onClick}>
+      <div className="followed-photo">
+        {pick.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={pick.avatarUrl} alt="" referrerPolicy="no-referrer" />
+        ) : (
+          <span className="followed-photo-initials">{pick.initials}</span>
+        )}
+        {onToggleFollow ? (
+          <button
+            className={`follow-btn followed-star ${followed ? 'active' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFollow(pick);
+            }}
+            title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
+          >
+            {followed ? '★' : '☆'}
+          </button>
+        ) : null}
+        <span className="followed-flag-badge">🇨🇿</span>
+        {pick.result === 'hit' ? (
+          <span className="followed-result-badge hit">
+            <ProfileIcon name="check" size={16} />
+          </span>
+        ) : pick.result === 'miss' ? (
+          <span className="followed-result-badge miss">✕</span>
+        ) : pick.matchStatus === 'live' ? (
+          <span className="followed-result-badge live">
+            <span className="live-dot"></span>
+          </span>
+        ) : null}
+      </div>
+
+      <div className="followed-body">
+        <span className="followed-tournament">{pick.tournament}</span>
+        <strong className="followed-name">{pick.player}</strong>
+        <span className="followed-meta">
+          vs {pick.opponent} · {pick.time}
+        </span>
+        <span className={`followed-pill ${resultClass}`}>{pick.market}</span>
+        <div className="followed-bar-row">
+          <div className="followed-bar-track">
+            <div className={`followed-bar-fill tier-${pick.tier}`} style={{ width: `${pick.confidence}%` }}></div>
+          </div>
+          <span className="followed-bar-val num">{pick.confidence}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Mientras el partido está en vivo, consulta el marcador real cada
 // 8s (mismo endpoint que usa el modal de detalle) para mostrarlo
 // directo en la tarjeta de Calendario, sin tener que abrirla.
@@ -4826,15 +4888,14 @@ export default function Home({
                 return <p className="page-sub">{t('noSiguesNingunPick')}</p>;
               }
               return (
-                <div className="pick-grid pick-grid-seguidos">
+                <div className="followed-grid">
                   {followedDetail.map((p) => (
-                    <PickCard
+                    <FollowedPickCard
                       key={p.id}
                       pick={p}
                       onClick={() => setModalPick(p)}
                       followed={true}
                       onToggleFollow={toggleFollow}
-                      oddsFormat={oddsFormat}
                     />
                   ))}
                 </div>
@@ -5404,15 +5465,61 @@ const CSS = `
     pointer-events:none;
   }
 
-  /* Seguidos: fotos grandes tipo retrato en vez del circulito chico,
-     pedido explícitamente para esta vista (referencia de otra app) —
-     el resto del sitio (Inicio/Picks/Calendario) sigue con el avatar
-     chico de siempre. */
-  .pick-grid-seguidos .avatar{width:92px; height:92px; border-radius:18px; font-size:22px;}
-  .pick-grid-seguidos .avatar::after{border-radius:18px;}
-  .pick-grid-seguidos .pc-player-name{font-size:14px;}
-  @media (max-width:640px){
-    .pick-grid-seguidos .avatar{width:78px; height:78px; border-radius:16px; font-size:19px;}
+  /* Seguidos: tarjeta con foto grande de un solo jugador (el
+     favorito), estilo picks de otra app pedido tal cual por
+     referencia — distinta de PickCard (que muestra a los dos
+     jugadores lado a lado con "VS"), solo se usa en esta vista. */
+  .followed-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px;}
+  .followed-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; cursor:pointer; box-shadow:var(--shadow);
+    transition:border-color .15s, transform .12s;
+  }
+  .followed-card:hover{border-color:var(--court); transform:translateY(-1px);}
+  .followed-photo{
+    position:relative; width:100%; aspect-ratio:1/1;
+    background:linear-gradient(150deg, var(--court), #14100F 130%);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .followed-photo img{width:100%; height:100%; object-fit:cover; display:block;}
+  .followed-photo-initials{font-family:var(--font-display); font-weight:800; font-size:34px; color:#fff;}
+  .followed-star{
+    position:absolute; top:8px; left:8px; z-index:2; margin:0;
+    width:28px; height:28px; border-radius:50%; background:rgba(14,13,12,.55);
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+  }
+  .followed-flag-badge{
+    position:absolute; bottom:8px; left:8px; width:26px; height:26px; border-radius:50%;
+    background:rgba(14,13,12,.7); display:flex; align-items:center; justify-content:center; font-size:13px;
+  }
+  .followed-result-badge{
+    position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px; font-weight:800;
+    border:2px solid rgba(255,255,255,.25);
+  }
+  .followed-result-badge.hit{background:var(--hit);}
+  .followed-result-badge.miss{background:var(--miss);}
+  .followed-result-badge.live{background:rgba(14,13,12,.7);}
+  .followed-body{padding:12px;}
+  .followed-tournament{display:block; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-name{display:block; font-size:15px; font-weight:800; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-meta{display:block; font-size:11.5px; color:var(--muted); margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-pill{
+    display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.2px;
+    padding:5px 10px; border-radius:20px; margin-bottom:10px; max-width:100%;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .followed-pill.pending{background:var(--court-soft); color:var(--court-soft-text);}
+  .followed-pill.hit{background:rgba(60,179,113,.16); color:var(--hit);}
+  .followed-pill.miss{background:rgba(226,68,74,.16); color:var(--miss);}
+  .followed-bar-row{display:flex; align-items:center; gap:8px;}
+  .followed-bar-track{flex:1; height:5px; border-radius:99px; background:var(--bg-alt); overflow:hidden;}
+  .followed-bar-fill{height:100%; border-radius:99px; background:var(--court);}
+  .followed-bar-fill.tier-alta{background:var(--hit);}
+  .followed-bar-fill.tier-media{background:#E0A030;}
+  .followed-bar-val{font-size:11.5px; color:var(--muted); flex:none;}
+  @media (max-width:480px){
+    .followed-grid{grid-template-columns:1fr;}
   }
 
   .pc-stats-row{display:flex; gap:18px; justify-content:center; margin-bottom:12px; padding:10px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
