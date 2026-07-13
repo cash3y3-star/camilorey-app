@@ -4353,7 +4353,12 @@ export default function Home({
     .filter((p) => (p.result === 'hit' || p.result === 'miss') && p.odds)
     .slice()
     .sort((a, b) => (a.scheduledAt || 0) - (b.scheduledAt || 0));
-  const myPendingFollowed = followedDetail.filter((p) => p.result === 'pending' && p.odds);
+  // Antes se excluía del todo un pick seguido si Rushbet aún no tenía
+  // su cuota (pasa seguido — el cruce se reintenta en cada corrida del
+  // sync) — el pick simplemente desaparecía de Mi Bankroll sin
+  // explicación. Ahora se muestra igual, solo que sin sugerencia de
+  // Kelly hasta que aparezca la cuota real.
+  const myPendingFollowed = followedDetail.filter((p) => p.result === 'pending');
 
   let myRunningBalance = myBankPlan;
   const myHistory = myResolvedFollowed.map((p) => {
@@ -5228,7 +5233,9 @@ export default function Home({
                               <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{r.market}</td>
                               <td className="num">{r.confidence}%</td>
                               <td className="num">{formatOdds(r.odds, oddsFormat)}</td>
-                              <td className="num">{r.fraction > 0 ? formatCOP(r.suggested) : t('sinVentaja')}</td>
+                              <td className="num">
+                                {!r.odds ? 'Esperando cuota' : r.fraction > 0 ? formatCOP(r.suggested) : t('sinVentaja')}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
