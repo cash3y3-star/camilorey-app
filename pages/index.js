@@ -34,6 +34,19 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+// iOS/iPadOS (Safari o cualquier navegador ahí, todos corren sobre
+// WebKit) solo expone la API de push cuando el sitio está agregado a
+// la pantalla de inicio (PWA instalada) — en una pestaña normal de
+// Safari, 'PushManager' in window da false aunque el dispositivo sea
+// moderno. Sin distinguir este caso, el mensaje "no soportado" es
+// engañoso: sí funciona, solo falta instalarlo.
+function isIosNotInstalled() {
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  return isIos && !isStandalone;
+}
+
 // Pide permiso de notificaciones, registra el service worker y guarda
 // la suscripción en Supabase. Se llama la primera vez que alguien
 // sigue un pick (silencioso) y también desde el botón de campana del
@@ -48,7 +61,7 @@ async function ensurePushSubscription(user) {
     !('PushManager' in window) ||
     typeof Notification === 'undefined'
   ) {
-    return 'unsupported';
+    return isIosNotInstalled() ? 'ios-needs-install' : 'unsupported';
   }
   // El navegador NO vuelve a preguntar si ya se bloqueó una vez —
   // hay que decirle a la persona que lo active a mano desde los
@@ -1881,6 +1894,10 @@ function ProfileModal({ user, isAdmin, onClose, onLogout, themePref, onChangeThe
     } else if (result === 'denied') {
       setNotifStatus('denied');
       alert('Tienes las notificaciones bloqueadas para este sitio. Actívalas desde la configuración del navegador.');
+    } else if (result === 'ios-needs-install') {
+      alert(
+        'En iPhone/iPad, las notificaciones solo funcionan si agregas CAMILOREY a tu pantalla de inicio primero: toca Compartir (el cuadrito con la flecha) → "Agregar a pantalla de inicio", y abre la app desde ese ícono en vez de Safari.'
+      );
     } else if (result === 'unsupported') {
       alert('Tu navegador no soporta notificaciones push.');
     } else {
@@ -2348,6 +2365,10 @@ export default function Home({
                 else if (result === 'denied')
                   alert(
                     'Tienes las notificaciones bloqueadas para este sitio. Actívalas desde la configuración/permisos del navegador para este dominio y vuelve a intentar.'
+                  );
+                else if (result === 'ios-needs-install')
+                  alert(
+                    'En iPhone/iPad, las notificaciones solo funcionan si agregas CAMILOREY a tu pantalla de inicio primero: toca Compartir (el cuadrito con la flecha) → "Agregar a pantalla de inicio", y abre la app desde ese ícono en vez de Safari.'
                   );
                 else if (result === 'unsupported') alert('Tu navegador no soporta notificaciones push.');
                 else alert('No se pudo activar las notificaciones, intenta de nuevo.');
