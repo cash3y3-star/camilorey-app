@@ -2083,6 +2083,29 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'crown') {
+    return (
+      <svg {...common}>
+        <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7Z" />
+      </svg>
+    );
+  }
+  if (name === 'help') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <path d="M12 17h.01" />
+      </svg>
+    );
+  }
+  if (name === 'chevron-right') {
+    return (
+      <svg {...common}>
+        <path d="m9 18 6-6-6-6" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -2335,6 +2358,10 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
     onProfileUpdated({ custom_avatar_url: null });
   };
 
+  const memberSince = user.created_at
+    ? new Intl.DateTimeFormat('es', { month: 'short', year: 'numeric' }).format(new Date(user.created_at))
+    : null;
+
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
@@ -2349,9 +2376,10 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
             </div>
             <div>
               <h3 style={{ fontSize: '18px' }}>{displayName || user.email}</h3>
-              <div className="sub">
-                {user.email}
-                {isAdmin ? ' · Admin' : ''}
+              <div className="sub">{user.email}</div>
+              <div className="profile-plan-line">
+                {isAdmin ? 'Plan premium' : 'Plan gratuito'}
+                {memberSince ? ` · Miembro desde ${memberSince}` : ''}
               </div>
             </div>
           </div>
@@ -2359,6 +2387,27 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
             ✕
           </button>
         </div>
+
+        {!isAdmin ? (
+          <button
+            type="button"
+            className="upgrade-card"
+            onClick={() =>
+              alert('Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.')
+            }
+          >
+            <span className="upgrade-card-icon">
+              <ProfileIcon name="crown" />
+            </span>
+            <span className="upgrade-card-body">
+              <strong>Mejora tu plan</strong>
+              <span>Mi Bankroll y más funciones premium</span>
+            </span>
+            <span className="upgrade-card-cta">Ver Planes ›</span>
+          </button>
+        ) : null}
+
+        <div className="profile-section-label">AJUSTES</div>
 
         <div className="profile-row profile-row-theme">
           <span className="profile-row-icon">
@@ -2475,6 +2524,28 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
             </div>
           </div>
         </div>
+
+        <a className="profile-row" href="/privacidad" target="_blank" rel="noopener noreferrer">
+          <span className="profile-row-icon">
+            <ProfileIcon name="shield" />
+          </span>
+          <div className="profile-row-body">
+            <strong>Privacidad</strong>
+            <p>Qué datos guardamos y cómo los usamos</p>
+          </div>
+          <ProfileIcon name="chevron-right" size={16} />
+        </a>
+
+        <a className="profile-row" href={`mailto:${process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'cash3y3@gmail.com'}`}>
+          <span className="profile-row-icon">
+            <ProfileIcon name="help" />
+          </span>
+          <div className="profile-row-body">
+            <strong>Ayuda y Soporte</strong>
+            <p>Escríbenos si algo no funciona o tienes una duda</p>
+          </div>
+          <ProfileIcon name="chevron-right" size={16} />
+        </a>
 
         <button
           className="btn btn-ghost risk-modal-btn"
@@ -4336,7 +4407,28 @@ const CSS = `
   }
   .consent-tip-num{font-family:var(--font-mono); font-size:10px; color:var(--muted);}
 
-  .profile-row{display:flex; align-items:center; gap:12px; padding:14px 0; border-top:1px solid var(--line); cursor:pointer;}
+  .profile-row{display:flex; align-items:center; gap:12px; padding:14px 0; border-top:1px solid var(--line); cursor:pointer; text-decoration:none; color:inherit;}
+  .profile-plan-line{font-size:12px; color:var(--muted); margin-top:2px;}
+  .profile-section-label{
+    font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:.6px;
+    text-transform:uppercase; color:var(--muted); margin:20px 0 2px;
+  }
+  .upgrade-card{
+    width:100%; display:flex; align-items:center; gap:12px; text-align:left; margin-top:14px;
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:14px; padding:14px; cursor:pointer;
+  }
+  .upgrade-card-icon{
+    width:36px; height:36px; border-radius:10px; flex:none; color:#FFC845;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,193,7,.14); border:1px solid rgba(255,193,7,.35);
+  }
+  .upgrade-card-body{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
+  .upgrade-card-body strong{font-size:13.5px; color:var(--ink);}
+  .upgrade-card-body span{font-size:12px; color:var(--muted);}
+  .upgrade-card-cta{
+    flex:none; font-size:12px; font-weight:700; color:var(--ink);
+    background:var(--card); border:1px solid var(--line); border-radius:999px; padding:7px 12px;
+  }
   .profile-row-icon{
     width:40px; height:40px; border-radius:50%; flex:none;
     display:flex; align-items:center; justify-content:center;
