@@ -1951,11 +1951,40 @@ function RiskModal({ count, tips, onClose }) {
   );
 }
 
-// Perfil — reemplaza el logout inmediato al tocar el avatar. Solo
-// tiene lo que sí podemos respaldar con algo real: notificaciones
-// (activar/ver estado real del permiso del navegador), tema (fijo en
-// oscuro, informativo) y cerrar sesión. Nada de idioma/suscripción/
-// cuotas que no existen todavía.
+// Decoración pura (mesa en perspectiva + pelota rebotando en loop) en
+// los márgenes — SOLO existe visualmente a partir de 1400px de ancho
+// (ver .table-decor en el CSS, display:none por debajo de eso), que
+// es donde sobra espacio vacío a los lados del contenido (max-width
+// 980px). "side" solo decide si se espeja con CSS (mismo SVG para los
+// dos lados, con id único por lado para que el <mpath> de cada uno no
+// choque) — no cambia el dibujo. pointer-events:none + aria-hidden
+// porque es 100% decorativo, no debe interferir con nada ni leerse
+// por un lector de pantalla.
+function TableDecor({ side }) {
+  const pathId = `table-decor-path-${side}`;
+  return (
+    <div className={`table-decor table-decor-${side}`} aria-hidden="true">
+      <svg viewBox="0 0 200 500" width="200" height="500" fill="none">
+        <path d="M14 90 L166 250 L14 420" stroke="var(--court)" strokeWidth="1.2" opacity="0.5" />
+        <path d="M14 250 L200 250" stroke="var(--court)" strokeWidth="1" opacity="0.35" />
+        <path
+          id={pathId}
+          d="M14,250 A78,118 0 1,0 170,250 A78,118 0 1,0 14,250 Z"
+          stroke="var(--court)"
+          strokeWidth="1"
+          strokeDasharray="3 7"
+          opacity="0.4"
+        />
+        <circle r="6" fill="var(--decor-ball)">
+          <animateMotion dur="5s" repeatCount="indefinite">
+            <mpath href={`#${pathId}`} xlinkHref={`#${pathId}`} />
+          </animateMotion>
+        </circle>
+      </svg>
+    </div>
+  );
+}
+
 function GoogleGIcon({ size = 20 }) {
   return (
     <svg viewBox="0 0 48 48" width={size} height={size}>
@@ -2610,6 +2639,9 @@ export default function Home({
           }}
         />
       </Head>
+
+      <TableDecor side="left" />
+      <TableDecor side="right" />
 
       <header className="site">
         <a href="#inicio" className="logo">
@@ -3407,6 +3439,7 @@ const CSS = `
     --font-mono:'IBM Plex Mono', monospace;
     --radius:16px;
     --shadow:0 2px 12px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.3);
+    --decor-ball:#D4A24C;
   }
   /* Tema claro — mismos nombres de variable, el resto del CSS ya las
      usa en todos lados, así que basta con redefinirlas acá para que
@@ -3431,6 +3464,7 @@ const CSS = `
     --blue:#2E6CA8;
     --blue-dark:#1E4A73;
     --shadow:0 2px 12px rgba(20,15,12,0.08), 0 1px 2px rgba(20,15,12,0.06);
+    --decor-ball:#B8860B;
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
@@ -3523,6 +3557,21 @@ const CSS = `
   }
 
   main{max-width:980px; margin:0 auto; padding:24px 20px 60px;}
+
+  /* Decoración de mesa + pelota — SOLO en desktop ancho (1400px+),
+     donde sobra espacio vacío a los lados del contenido (980px
+     máximo). display:none por defecto cubre mobile/tablet/laptops
+     angostas sin depender de que el navegador soporte bien la media
+     query — si algo falla, el default seguro es "oculto". */
+  .table-decor{
+    display:none; position:fixed; top:50%; transform:translateY(-50%);
+    width:200px; height:500px; z-index:1; pointer-events:none;
+  }
+  .table-decor-left{left:0;}
+  .table-decor-right{right:0; transform:translateY(-50%) scaleX(-1);}
+  @media (min-width:1400px){
+    .table-decor{display:block;}
+  }
   .view{display:none;}
   .view.active{display:block; animation:fade .35s ease;}
   @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
