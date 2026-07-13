@@ -3070,7 +3070,7 @@ export default function Home({
               }}
               title="Activar notificaciones push"
             >
-              🔔
+              <ProfileIcon name="bell" size={16} />
             </button>
           ) : null}
           {!supabaseClient ? null : user ? (
@@ -4039,7 +4039,7 @@ const CSS = `
   .greeting-date{color:var(--muted); font-size:13px; text-transform:capitalize; margin-top:2px;}
   .bell-btn{
     background:var(--card); border:1px solid var(--line); border-radius:50%;
-    width:32px; height:32px; cursor:pointer; font-size:14px;
+    width:32px; height:32px; cursor:pointer; font-size:14px; color:var(--ink);
     display:flex; align-items:center; justify-content:center;
   }
   .bell-btn:hover{border-color:var(--court);}
