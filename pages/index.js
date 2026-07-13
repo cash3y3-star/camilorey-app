@@ -5469,9 +5469,9 @@ const CSS = `
      favorito), estilo picks de otra app pedido tal cual por
      referencia — distinta de PickCard (que muestra a los dos
      jugadores lado a lado con "VS"), solo se usa en esta vista. */
-  .followed-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px;}
+  .followed-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
   .followed-card{
-    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
     overflow:hidden; cursor:pointer; box-shadow:var(--shadow);
     transition:border-color .15s, transform .12s;
   }
@@ -5482,45 +5482,42 @@ const CSS = `
     display:flex; align-items:center; justify-content:center;
   }
   .followed-photo img{width:100%; height:100%; object-fit:cover; display:block;}
-  .followed-photo-initials{font-family:var(--font-display); font-weight:800; font-size:34px; color:#fff;}
+  .followed-photo-initials{font-family:var(--font-display); font-weight:800; font-size:26px; color:#fff;}
   .followed-star{
-    position:absolute; top:8px; left:8px; z-index:2; margin:0;
-    width:28px; height:28px; border-radius:50%; background:rgba(14,13,12,.55);
-    display:flex; align-items:center; justify-content:center; font-size:16px;
+    position:absolute; top:6px; left:6px; z-index:2; margin:0;
+    width:24px; height:24px; border-radius:50%; background:rgba(14,13,12,.55);
+    display:flex; align-items:center; justify-content:center; font-size:14px;
   }
   .followed-flag-badge{
-    position:absolute; bottom:8px; left:8px; width:26px; height:26px; border-radius:50%;
-    background:rgba(14,13,12,.7); display:flex; align-items:center; justify-content:center; font-size:13px;
+    position:absolute; bottom:6px; left:6px; width:22px; height:22px; border-radius:50%;
+    background:rgba(14,13,12,.7); display:flex; align-items:center; justify-content:center; font-size:11px;
   }
   .followed-result-badge{
-    position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px; font-weight:800;
+    position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800;
     border:2px solid rgba(255,255,255,.25);
   }
   .followed-result-badge.hit{background:var(--hit);}
   .followed-result-badge.miss{background:var(--miss);}
   .followed-result-badge.live{background:rgba(14,13,12,.7);}
-  .followed-body{padding:12px;}
-  .followed-tournament{display:block; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .followed-name{display:block; font-size:15px; font-weight:800; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .followed-meta{display:block; font-size:11.5px; color:var(--muted); margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-body{padding:9px 10px;}
+  .followed-tournament{display:block; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-name{display:block; font-size:13px; font-weight:800; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-meta{display:block; font-size:10.5px; color:var(--muted); margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .followed-pill{
-    display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.2px;
-    padding:5px 10px; border-radius:20px; margin-bottom:10px; max-width:100%;
+    display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.2px;
+    padding:4px 8px; border-radius:20px; margin-bottom:8px; max-width:100%;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .followed-pill.pending{background:var(--court-soft); color:var(--court-soft-text);}
   .followed-pill.hit{background:rgba(60,179,113,.16); color:var(--hit);}
   .followed-pill.miss{background:rgba(226,68,74,.16); color:var(--miss);}
-  .followed-bar-row{display:flex; align-items:center; gap:8px;}
-  .followed-bar-track{flex:1; height:5px; border-radius:99px; background:var(--bg-alt); overflow:hidden;}
+  .followed-bar-row{display:flex; align-items:center; gap:6px;}
+  .followed-bar-track{flex:1; height:4px; border-radius:99px; background:var(--bg-alt); overflow:hidden;}
   .followed-bar-fill{height:100%; border-radius:99px; background:var(--court);}
   .followed-bar-fill.tier-alta{background:var(--hit);}
   .followed-bar-fill.tier-media{background:#E0A030;}
-  .followed-bar-val{font-size:11.5px; color:var(--muted); flex:none;}
-  @media (max-width:480px){
-    .followed-grid{grid-template-columns:1fr;}
-  }
+  .followed-bar-val{font-size:10.5px; color:var(--muted); flex:none;}
 
   .pc-stats-row{display:flex; gap:18px; justify-content:center; margin-bottom:12px; padding:10px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
   .pc-stat{display:flex; flex-direction:column; align-items:center; gap:2px;}
