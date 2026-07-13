@@ -816,6 +816,51 @@ function formatCOP(n, withSign = false) {
   return `${sign}$${abs}`;
 }
 
+const ODDS_FORMAT_LABEL = {
+  decimal: 'Decimal',
+  americano: 'Americano',
+  fraccional: 'Fraccional',
+  hongkong: 'Hong Kong',
+  indonesio: 'Indonesio'
+};
+
+// Todas las cuotas se guardan en decimal (lo que da Rushbet) — esto
+// solo convierte para MOSTRAR, según la preferencia de cada quien.
+// Fórmulas estándar de conversión entre formatos de cuotas reales.
+function formatOdds(decimal, format = 'decimal') {
+  if (!decimal || decimal <= 1) return 'N/D';
+  if (format === 'americano') {
+    const v = decimal >= 2 ? (decimal - 1) * 100 : -100 / (decimal - 1);
+    const r = Math.round(v);
+    return r > 0 ? `+${r}` : `${r}`;
+  }
+  if (format === 'fraccional') {
+    const frac = decimal - 1;
+    let bestNum = 1;
+    let bestDen = 1;
+    let bestErr = Infinity;
+    for (let den = 1; den <= 20; den++) {
+      const num = Math.round(frac * den);
+      if (num <= 0) continue;
+      const err = Math.abs(frac - num / den);
+      if (err < bestErr) {
+        bestErr = err;
+        bestNum = num;
+        bestDen = den;
+      }
+    }
+    return `${bestNum}/${bestDen}`;
+  }
+  if (format === 'hongkong') {
+    return (decimal - 1).toFixed(2);
+  }
+  if (format === 'indonesio') {
+    const v = decimal >= 2 ? decimal - 1 : -1 / (decimal - 1);
+    return v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
+  }
+  return decimal.toFixed(2);
+}
+
 // Frase corta y honesta armada a partir de los factores reales de
 // lib/confidence.js — nada inventado, solo traduce los números.
 function buildAnalysis(factors) {
@@ -870,7 +915,7 @@ function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = ''
   );
 }
 
-function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
+function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsFormat = 'decimal' }) {
   // Solo los picks que vienen de /api/followed-detail traen matchStatus
   // + sourceId — para los demás (Inicio/Picks normales) esto no hace
   // nada y el centro sigue mostrando "VS" como siempre.
@@ -997,7 +1042,7 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured }) {
         <div className={`ia-bar-fill tier-${pick.tier}`} style={{ width: `${pick.confidence}%` }}></div>
       </div>
       <div className="pc-foot">
-        <span className="odd-mini num">{pick.odds ? pick.odds.toFixed(2) : 'Cuota N/D'}</span>
+        <span className="odd-mini num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
         {featured ? (
           <button
             className="btn btn-ball"
@@ -1548,7 +1593,7 @@ function LineChart({ series }) {
 // Análisis (el texto de por qué es favorito) y H2H (cruce directo
 // partido por partido). Todo lo que se muestra sale de datos reales
 // que ya calculamos — no se inventa ningún número.
-function PickDetailModal({ pick, onClose }) {
+function PickDetailModal({ pick, onClose, oddsFormat = 'decimal' }) {
   const [tab, setTab] = useState('resumen');
   const [formView, setFormView] = useState('l10');
 
@@ -1656,7 +1701,7 @@ function PickDetailModal({ pick, onClose }) {
               <div className="stat-row">
                 <div className="stat-row-top">
                   <span className="stat-row-label">🎯 Cuota (Rushbet)</span>
-                  <span className="stat-row-value num">{pick.odds ? pick.odds.toFixed(2) : 'No disponible'}</span>
+                  <span className="stat-row-value num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'No disponible'}</span>
                 </div>
               </div>
               <div className="stat-row">
@@ -2315,7 +2360,21 @@ function LoginModal({ onClose, onLogin }) {
   );
 }
 
-function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAdmin, onClose, onLogout, themePref, onChangeTheme, onProfileUpdated }) {
+function ProfileModal({
+  user,
+  profile,
+  displayName,
+  avatarEmoji,
+  avatarUrl,
+  isAdmin,
+  onClose,
+  onLogout,
+  themePref,
+  onChangeTheme,
+  oddsFormat,
+  onChangeOddsFormat,
+  onProfileUpdated
+}) {
   const [notifStatus, setNotifStatus] = useState('unknown');
   const [nameInput, setNameInput] = useState(displayName || '');
   const [savingName, setSavingName] = useState(false);
@@ -2324,6 +2383,14 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
   // referencia, donde tocar la fila navega a otra vista.
   const [themeScreenOpen, setThemeScreenOpen] = useState(false);
   const THEME_LABEL = { oscuro: 'Oscuro', claro: 'Claro', sistema: 'Sistema' };
+  const [oddsScreenOpen, setOddsScreenOpen] = useState(false);
+  const ODDS_FORMAT_OPTIONS = [
+    ['decimal', 'Ejemplo: 2.23'],
+    ['americano', 'Ejemplo: +123 / -100'],
+    ['fraccional', 'Ejemplo: 5/4'],
+    ['hongkong', 'Ejemplo: 1.23'],
+    ['indonesio', 'Ejemplo: +1.23 / -1.23']
+  ];
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof Notification !== 'undefined') {
@@ -2366,6 +2433,49 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
   const memberSince = user.created_at
     ? new Intl.DateTimeFormat('es', { month: 'short', year: 'numeric' }).format(new Date(user.created_at))
     : null;
+
+  if (oddsScreenOpen) {
+    return (
+      <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+        <div className="modal">
+          <div className="subscreen-head">
+            <button className="subscreen-back" onClick={() => setOddsScreenOpen(false)}>
+              <ProfileIcon name="arrow-left" size={18} />
+            </button>
+            <h3>Formato de Cuotas</h3>
+          </div>
+
+          <div className="profile-row profile-row-theme" style={{ border: 'none', padding: '4px 0 0' }}>
+            <span className="profile-row-icon">
+              <ProfileIcon name="dollar" />
+            </span>
+            <div className="profile-row-body">
+              <strong>Formato de Cuotas</strong>
+              <p>Cómo se muestran las cuotas en todo el sitio (siempre se guardan en decimal por dentro).</p>
+            </div>
+          </div>
+
+          <div className="theme-option-list">
+            {ODDS_FORMAT_OPTIONS.map(([key, example]) => (
+              <div
+                key={key}
+                className={`theme-option ${oddsFormat === key ? 'active' : ''}`}
+                onClick={() => onChangeOddsFormat(key)}
+              >
+                <div className="theme-option-body">
+                  <strong>{ODDS_FORMAT_LABEL[key]}</strong>
+                  <span>{example}</span>
+                </div>
+                <span className="theme-option-radio">
+                  {oddsFormat === key ? <ProfileIcon name="check" size={12} /> : null}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (themeScreenOpen) {
     return (
@@ -2540,16 +2650,13 @@ function ProfileModal({ user, profile, displayName, avatarEmoji, avatarUrl, isAd
           <ProfileIcon name="chevron-right" size={16} />
         </div>
 
-        <div
-          className="profile-row"
-          onClick={() => alert('Formato de cuotas — por ahora todo el sitio usa formato decimal (ej. 2.23). Otros formatos vienen pronto.')}
-        >
+        <div className="profile-row" onClick={() => setOddsScreenOpen(true)}>
           <span className="profile-row-icon">
             <ProfileIcon name="dollar" />
           </span>
           <div className="profile-row-body">
             <strong>Formato de Cuotas</strong>
-            <p>Decimal</p>
+            <p>{ODDS_FORMAT_LABEL[oddsFormat] || 'Decimal'}</p>
           </div>
           <ProfileIcon name="chevron-right" size={16} />
         </div>
@@ -2718,6 +2825,18 @@ export default function Home({
   const dismissPrivacyConsent = () => {
     if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_privacy_seen', '1');
     setShowPrivacyConsent(false);
+  };
+
+  // Formato de cuotas — solo cambia cómo se MUESTRAN (siempre se
+  // guardan en decimal), preferencia por navegador.
+  const [oddsFormat, setOddsFormat] = useState('decimal');
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem('camilorey_odds_format') : null;
+    if (saved) setOddsFormat(saved);
+  }, []);
+  const changeOddsFormat = (fmt) => {
+    setOddsFormat(fmt);
+    if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_odds_format', fmt);
   };
 
   // Banco de PLANEACIÓN (para el Slip Kelly) — separado del balance
@@ -3292,6 +3411,7 @@ export default function Home({
                 followed={followedPickIds.has(featured.id)}
                 onToggleFollow={toggleFollow}
                 featured
+                oddsFormat={oddsFormat}
               />
             </>
           ) : (
@@ -3351,6 +3471,7 @@ export default function Home({
                   onClick={() => setModalPick(p)}
                   followed={followedPickIds.has(p.id)}
                   onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
+                  oddsFormat={oddsFormat}
                 />
               ))
             )}
@@ -3524,7 +3645,7 @@ export default function Home({
                           <tr key={r.id}>
                             <td style={{ fontFamily: 'var(--font-body)', fontWeight: 600 }}>{r.player}</td>
                             <td className="num">{r.confidence}%</td>
-                            <td className="num">{r.odds.toFixed(2)}</td>
+                            <td className="num">{formatOdds(r.odds, oddsFormat)}</td>
                             <td className="num">{r.fraction > 0 ? `${(r.fraction * 100).toFixed(1)}%` : 'Sin ventaja'}</td>
                             <td className="num">{r.fraction > 0 ? formatCOP(r.fraction * bankPlan) : '—'}</td>
                           </tr>
@@ -3698,6 +3819,7 @@ export default function Home({
                       onClick={() => setModalPick(p)}
                       followed={true}
                       onToggleFollow={toggleFollow}
+                      oddsFormat={oddsFormat}
                     />
                   ))}
                 </div>
@@ -3942,7 +4064,9 @@ export default function Home({
         ) : null}
       </nav>
 
-      {modalPick && <PickDetailModal pick={modalPick} onClose={() => setModalPick(null)} />}
+      {modalPick && (
+        <PickDetailModal pick={modalPick} onClose={() => setModalPick(null)} oddsFormat={oddsFormat} />
+      )}
 
       {modalMatch && (
         <MatchDetailModal
@@ -3969,6 +4093,8 @@ export default function Home({
           onLogout={logout}
           themePref={themePref}
           onChangeTheme={changeTheme}
+          oddsFormat={oddsFormat}
+          onChangeOddsFormat={changeOddsFormat}
           onProfileUpdated={(patch) => setMyProfile((prev) => ({ ...prev, ...patch }))}
         />
       )}
