@@ -2516,6 +2516,17 @@ export default function Home({
       <Head>
         <title>CAMILOREY · Picks Liga Pro Checa de tenis de mesa</title>
         <meta name="description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
+        <link rel="canonical" href="https://camilorey-app.vercel.app/" />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="CAMILOREY" />
+        <meta property="og:title" content="CAMILOREY · Picks Liga Pro Checa de tenis de mesa" />
+        <meta property="og:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
+        <meta property="og:url" content="https://camilorey-app.vercel.app/" />
+        <meta property="og:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="CAMILOREY · Picks Liga Pro Checa de tenis de mesa" />
+        <meta name="twitter:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
+        <meta name="twitter:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/svg+xml" href="/icon-master.svg" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
