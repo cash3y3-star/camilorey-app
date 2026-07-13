@@ -1785,6 +1785,60 @@ function RiskModal({ count, tips, onClose }) {
 // (activar/ver estado real del permiso del navegador), tema (fijo en
 // oscuro, informativo) y cerrar sesión. Nada de idioma/suscripción/
 // cuotas que no existen todavía.
+function GoogleGIcon({ size = 20 }) {
+  return (
+    <svg viewBox="0 0 48 48" width={size} height={size}>
+      <path
+        fill="#FFC107"
+        d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"
+      />
+      <path
+        fill="#FF3D00"
+        d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 44c5.5 0 10.4-2.1 14.1-5.6l-6.5-5.5C29.6 34.9 27 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.3 44 24 44z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 30.8 44 24c0-1.3-.1-2.7-.4-3.5z"
+      />
+    </svg>
+  );
+}
+
+// Modal de login — se abre desde el botón "Entrar" del header o
+// cuando alguien intenta seguir un pick sin haber iniciado sesión.
+// El sitio se navega libre sin cuenta (Inicio/Picks/Calendario); esto
+// solo reemplaza el clic directo a Google por una pantalla intermedia
+// con el branding de CAMILOREY, para que quede claro qué se está
+// autorizando antes de saltar a la ventana de Google.
+function LoginModal({ onClose, onLogin }) {
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal login-modal">
+        <button className="modal-close login-modal-close" onClick={onClose}>
+          ✕
+        </button>
+        <div className="login-modal-icon">🔒</div>
+        <h3 className="login-modal-title">Iniciar sesión</h3>
+        <p className="login-modal-sub">
+          Utiliza tu cuenta de <strong>Google</strong> para continuar
+        </p>
+        <button className="google-btn" onClick={onLogin}>
+          <GoogleGIcon size={20} />
+          Iniciar sesión con Google
+        </button>
+        <div className="login-modal-note">
+          <span>🛡️</span>
+          No almacenamos tu contraseña. Autenticación segura con Google.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProfileModal({ user, isAdmin, onClose, onLogout }) {
   const [notifStatus, setNotifStatus] = useState('unknown');
 
@@ -1926,6 +1980,7 @@ export default function Home({
   const prevFollowedCountRef = useRef(0);
   const [bankrollTab, setBankrollTab] = useState('slip');
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   // Banco de PLANEACIÓN (para el Slip Kelly) — separado del balance
   // real de "Rendimiento". Arranca igual al balance real, pero es
   // editable a mano para simular con otro monto. Se guarda en el
@@ -2090,7 +2145,7 @@ export default function Home({
   const toggleFollow = async (pick) => {
     if (!supabaseClient) return;
     if (!user) {
-      loginWithGoogle();
+      setShowLoginModal(true);
       return;
     }
     const already = followedPickIds.has(pick.id);
@@ -2232,25 +2287,8 @@ export default function Home({
               )}
             </div>
           ) : (
-            <button className="login-btn" onClick={loginWithGoogle}>
-              <svg viewBox="0 0 48 48" width="14" height="14">
-                <path
-                  fill="#FFC107"
-                  d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"
-                />
-                <path
-                  fill="#FF3D00"
-                  d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"
-                />
-                <path
-                  fill="#4CAF50"
-                  d="M24 44c5.5 0 10.4-2.1 14.1-5.6l-6.5-5.5C29.6 34.9 27 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.3 44 24 44z"
-                />
-                <path
-                  fill="#1976D2"
-                  d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 30.8 44 24c0-1.3-.1-2.7-.4-3.5z"
-                />
-              </svg>
+            <button className="login-btn" onClick={() => setShowLoginModal(true)}>
+              <GoogleGIcon size={14} />
               Entrar
             </button>
           )}
@@ -2742,6 +2780,10 @@ export default function Home({
       {showProfileModal && user && (
         <ProfileModal user={user} isAdmin={isAdmin} onClose={() => setShowProfileModal(false)} onLogout={logout} />
       )}
+
+      {showLoginModal && (
+        <LoginModal onClose={() => setShowLoginModal(false)} onLogin={loginWithGoogle} />
+      )}
     </>
   );
 }
@@ -3154,7 +3196,7 @@ const CSS = `
   }
   .modal{
     background:var(--card); width:100%; max-width:480px; border-radius:20px 20px 0 0;
-    padding:22px 22px 26px; max-height:88vh; overflow-y:auto;
+    padding:22px 22px 26px; max-height:88vh; overflow-y:auto; position:relative;
     animation:slideup .25s ease;
   }
   @media(min-width:640px){
@@ -3189,6 +3231,28 @@ const CSS = `
   .profile-row-body{flex:1; min-width:0;}
   .profile-row-body strong{display:block; font-size:14px; margin-bottom:2px;}
   .profile-row-body p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.4;}
+
+  .login-modal{text-align:center; padding-top:36px;}
+  .login-modal-close{position:absolute; top:16px; right:16px;}
+  .login-modal-icon{
+    width:64px; height:64px; margin:0 auto 18px; border-radius:50%; font-size:26px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--court-soft); border:1px solid rgba(226,68,74,.4);
+  }
+  .login-modal-title{font-family:var(--font-display); font-size:24px; margin:0 0 8px;}
+  .login-modal-sub{color:var(--muted); font-size:14px; margin:0 0 24px;}
+  .login-modal-sub strong{color:var(--ink);}
+  .google-btn{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:12px;
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:12px;
+    padding:14px; font-family:var(--font-body); font-weight:700; font-size:14.5px; color:var(--ink);
+    cursor:pointer;
+  }
+  .google-btn:hover{border-color:var(--court);}
+  .login-modal-note{
+    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:20px;
+    font-size:12px; color:var(--muted); text-align:left;
+  }
   .modal-market{
     display:inline-block; margin:12px 0; font-weight:700; font-size:14px;
     background:var(--court-soft); color:#FAC7C7; padding:8px 14px; border-radius:10px;
