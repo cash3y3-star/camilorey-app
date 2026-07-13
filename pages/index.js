@@ -2483,6 +2483,27 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
     ? { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials }
     : { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials };
 
+  // pick.h2h/h2hMatches vienen armados desde el punto de vista del
+  // favorito, no del local — este toggle deja ver el mismo cruce
+  // "desde" cualquiera de los dos lados (local o visitante), dando
+  // vuelta el marcador y el acierto/fallo de cada partido cuando
+  // corresponde.
+  const [h2hSide, setH2hSide] = useState('local');
+  const wantsFavoredView = (h2hSide === 'local') === leftIsFavored;
+  const h2hView = wantsFavoredView
+    ? { record: pick.h2h, matches: pick.h2hMatches, oppName: pick.opponent }
+    : {
+        record: pick.h2h.split('-').reverse().join('-'),
+        oppName: pick.player,
+        matches: pick.h2hMatches.map((m) => ({
+          date: m.date,
+          opponent: pick.player,
+          setsFor: m.setsAgainst,
+          setsAgainst: m.setsFor,
+          win: !m.win
+        }))
+      };
+
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
@@ -2637,17 +2658,26 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
           </div>
         ) : pick.h2hTotal > 0 ? (
           <>
+            <div className="tabs" style={{ marginBottom: '14px' }}>
+              <div className={`tab ${h2hSide === 'local' ? 'active' : ''}`} onClick={() => setH2hSide('local')}>
+                Local · {leftPlayer.name}
+              </div>
+              <div className={`tab ${h2hSide === 'visitante' ? 'active' : ''}`} onClick={() => setH2hSide('visitante')}>
+                Visitante · {rightPlayer.name}
+              </div>
+            </div>
+
             <div className="hist-title">
-              <span>{t('h2hContra')} {pick.opponent}</span>
-              <span className="num">{pick.h2h}</span>
+              <span>{t('h2hContra')} {h2hView.oppName}</span>
+              <span className="num">{h2hView.record}</span>
             </div>
             <div className="h2h-bar-track">
               <div
                 className="h2h-bar-fill"
-                style={{ width: `${(Number(pick.h2h.split('-')[0]) / pick.h2hTotal) * 100}%` }}
+                style={{ width: `${(Number(h2hView.record.split('-')[0]) / pick.h2hTotal) * 100}%` }}
               ></div>
             </div>
-            <RecentFormList history={pick.h2hMatches} />
+            <RecentFormList history={h2hView.matches} />
           </>
         ) : (
           <p className="page-sub">{t('sinEnfrentamientos')}</p>
