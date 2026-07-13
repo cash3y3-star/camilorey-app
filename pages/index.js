@@ -1853,7 +1853,7 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
         <span className={`followed-pill ${resultClass}`}>{pick.market}</span>
         <div className="followed-bar-row">
           <div className="followed-bar-track">
-            <div className={`followed-bar-fill tier-${pick.tier}`} style={{ width: `${pick.confidence}%` }}></div>
+            <div className={`followed-bar-fill ${resultClass}`} style={{ width: `${pick.confidence}%` }}></div>
           </div>
           <span className="followed-bar-val num">{pick.confidence}</span>
         </div>
@@ -5514,9 +5514,9 @@ const CSS = `
   .followed-pill.miss{background:rgba(226,68,74,.16); color:var(--miss);}
   .followed-bar-row{display:flex; align-items:center; gap:6px;}
   .followed-bar-track{flex:1; height:4px; border-radius:99px; background:var(--bg-alt); overflow:hidden;}
-  .followed-bar-fill{height:100%; border-radius:99px; background:var(--court);}
-  .followed-bar-fill.tier-alta{background:var(--hit);}
-  .followed-bar-fill.tier-media{background:#E0A030;}
+  .followed-bar-fill{height:100%; border-radius:99px; background:#E0A030;}
+  .followed-bar-fill.hit{background:#22C55E;}
+  .followed-bar-fill.miss{background:#EF4444;}
   .followed-bar-val{font-size:10.5px; color:var(--muted); flex:none;}
 
   .pc-stats-row{display:flex; gap:18px; justify-content:center; margin-bottom:12px; padding:10px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
