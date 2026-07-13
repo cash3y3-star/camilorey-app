@@ -129,68 +129,38 @@ export async function getServerSideProps({ query }) {
     : { data: [] };
   const tournamentsById = new Map((tournaments || []).map((t) => [t.id, t]));
 
-  // Forma reciente real (no solo victoria/derrota) del jugador
-  // favorito de cada pick: fecha, contra quién, y marcador de sets de
-  // ESE partido — estilo la lista de "últimos partidos" de Sofascore,
-  // no un puntito de color. Más reciente primero (index 0).
-  async function recentForm(playerId) {
-    if (!playerId) return [];
-    const { data } = await supabase
-      .from('matches')
-      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
-      .or(`player_a_id.eq.${playerId},player_b_id.eq.${playerId}`)
-      .eq('status', 'finished')
-      .order('scheduled_at', { ascending: false })
-      .limit(10);
-    const rows = data || [];
-    const opponentIds = [...new Set(rows.map((m) => (m.player_a_id === playerId ? m.player_b_id : m.player_a_id)))];
-    const missing = opponentIds.filter((id) => id && !playersById.has(id));
-    if (missing.length) {
-      const { data: extra } = await supabase.from('players').select('id, name, avatar_url, avatar_cutout_url').in('id', missing);
-      for (const p of extra || []) playersById.set(p.id, p);
-    }
-    return rows.map((m) => {
-      const isA = m.player_a_id === playerId;
-      const oppId = isA ? m.player_b_id : m.player_a_id;
-      return {
-        date: m.scheduled_at,
-        opponent: playersById.get(oppId)?.name || '?',
-        setsFor: isA ? m.sets_a : m.sets_b,
-        setsAgainst: isA ? m.sets_b : m.sets_a,
-        win: m.winner_id === playerId
-      };
-    });
-  }
+  // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
+  // sección Picks). Se trae antes de armar "picks"/"resolvedPicks"
+  // porque ambos comparten UNA sola consulta de forma/H2H más abajo.
+  const { data: resolvedPicksRaw } = await supabase
+    .from('picks')
+    .select('*')
+    .neq('result', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(60);
 
-  // Cruce directo histórico entre los dos jugadores de un pick, real
-  // (no viene de picks.factors porque ahí solo se guarda el puntaje
-  // normalizado, no el marcador "6-1" que se ve en la tarjeta). Trae
-  // también la lista partido por partido (mismo shape que recentForm)
-  // para la pestaña H2H del modal de detalle.
-  async function h2hRecord(idA, idB, nameB) {
-    if (!idA || !idB) return { winsA: 0, winsB: 0, matches: [] };
-    const { data } = await supabase
-      .from('matches')
-      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
-      .eq('status', 'finished')
-      .or(`and(player_a_id.eq.${idA},player_b_id.eq.${idB}),and(player_a_id.eq.${idB},player_b_id.eq.${idA})`)
-      .order('scheduled_at', { ascending: false })
-      .limit(20);
-    const rows = data || [];
-    return {
-      winsA: rows.filter((m) => m.winner_id === idA).length,
-      winsB: rows.filter((m) => m.winner_id === idB).length,
-      matches: rows.map((m) => {
-        const isA = m.player_a_id === idA;
-        return {
-          date: m.scheduled_at,
-          opponent: nameB,
-          setsFor: isA ? m.sets_a : m.sets_b,
-          setsAgainst: isA ? m.sets_b : m.sets_a,
-          win: m.winner_id === idA
-        };
-      })
-    };
+  const resolvedMatchIds = [...new Set((resolvedPicksRaw || []).map((p) => p.match_id))];
+  const { data: resolvedMatchesRaw } = resolvedMatchIds.length
+    ? await supabase.from('matches').select('*').in('id', resolvedMatchIds)
+    : { data: [] };
+  const resolvedMatchesById = new Map((resolvedMatchesRaw || []).map((m) => [m.id, m]));
+
+  const resolvedExtraPlayerIds = [
+    ...new Set((resolvedMatchesRaw || []).flatMap((m) => [m.player_a_id, m.player_b_id]))
+  ].filter((id) => id && !playersById.has(id));
+  if (resolvedExtraPlayerIds.length) {
+    const { data: extra } = await supabase
+      .from('players')
+      .select('id, name, avatar_url, avatar_cutout_url')
+      .in('id', resolvedExtraPlayerIds);
+    for (const p of extra || []) playersById.set(p.id, p);
+  }
+  const resolvedExtraTournamentIds = [...new Set((resolvedMatchesRaw || []).map((m) => m.tournament_id))].filter(
+    (id) => id && !tournamentsById.has(id)
+  );
+  if (resolvedExtraTournamentIds.length) {
+    const { data: extra } = await supabase.from('tournaments').select('id, name').in('id', resolvedExtraTournamentIds);
+    for (const t of extra || []) tournamentsById.set(t.id, t);
   }
 
   // Un pick deja de mostrarse como "próximo" un rato ANTES de que
@@ -198,11 +168,8 @@ export async function getServerSideProps({ query }) {
   // supuesto también una vez que ya arrancó o terminó.
   const HIDE_BEFORE_START_MS = 3 * 60 * 1000;
 
-  // Un round-trip por pick (recentForm + h2hRecord) en serie se nota
-  // mucho en el tiempo de carga apenas hay varios picks activos — se
-  // lanzan todos en paralelo con Promise.all en vez de un for..await.
-  const pickResults = await Promise.all(
-    (pendingPicks || []).map(async (pick) => {
+  const pendingPrelim = (pendingPicks || [])
+    .map((pick) => {
       const match = matchesById.get(pick.match_id);
       if (!match) return null;
       if (match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS) return null;
@@ -214,45 +181,169 @@ export async function getServerSideProps({ query }) {
       // incompletos (probablemente de antes del cierre hit/miss) — mejor
       // no mostrarlo que mostrar una tarjeta rota.
       if (!favored || !opponent) return null;
-      const tournament = tournamentsById.get(match.tournament_id);
-      const confidence = Math.round(pick.confidence);
-      const [history, h2h] = await Promise.all([
-        recentForm(pick.predicted_winner_id),
-        h2hRecord(favored.id, opponent.id, opponent.name)
-      ]);
+      return { pick, match, favored, opponent, tournament: tournamentsById.get(match.tournament_id) };
+    })
+    .filter(Boolean);
 
-      return {
-        id: pick.id,
-        matchId: match.id,
-        day: dayLabel(match.scheduled_at),
-        scheduledAt: new Date(match.scheduled_at).getTime(),
-        player: favored?.name || '—',
-        initials: initialsOf(favored?.name),
-        avatarUrl: favored?.avatar_cutout_url || favored?.avatar_url || null,
-        hasCutout: Boolean(favored?.avatar_cutout_url),
-        opponent: opponent?.name || '—',
-        opponentInitials: initialsOf(opponent?.name),
-        opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
-        opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
-        time: timeLabel(match.scheduled_at),
-        tournament: tournament?.name || 'Torneo',
-        market: pick.market,
-        confidence,
-        tier: confidenceTier(confidence),
-        odds: pick.odds ? Number(pick.odds) : null,
-        analysis: buildAnalysis(pick.factors),
+  const resolvedPrelim = (resolvedPicksRaw || [])
+    .map((pick) => {
+      const match = resolvedMatchesById.get(pick.match_id);
+      if (!match) return null;
+      const favored = playersById.get(pick.predicted_winner_id);
+      const opponent =
+        pick.predicted_winner_id === match.player_a_id
+          ? playersById.get(match.player_b_id)
+          : playersById.get(match.player_a_id);
+      if (!favored || !opponent) return null;
+
+      // El resultado final se guarda relativo a jugador A/B, no a
+      // favorito/rival — hay que reordenarlo a favor del favorito
+      // (izquierda en la tarjeta), igual que en followed-detail.js.
+      const favoredIsA = pick.predicted_winner_id === match.player_a_id;
+      const score =
+        match.sets_a != null && match.sets_b != null
+          ? favoredIsA
+            ? `${match.sets_a}-${match.sets_b}`
+            : `${match.sets_b}-${match.sets_a}`
+          : null;
+      const setScores = Array.isArray(match.set_scores)
+        ? favoredIsA
+          ? match.set_scores
+          : match.set_scores.map((s) => ({ a: s.b, b: s.a }))
+        : null;
+
+      return { pick, match, favored, opponent, tournament: tournamentsById.get(match.tournament_id), score, setScores };
+    })
+    .filter(Boolean);
+
+  // Antes, cada pick disparaba 2 consultas propias a Supabase (forma
+  // reciente + H2H) — con decenas de picks pendientes y resueltos a la
+  // vez, eso eran cientos de round-trips en CADA carga de página, y
+  // era la causa real de que el sitio se sintiera cada vez más lento
+  // a medida que crecía el historial. Ahora se trae en una sola
+  // consulta TODOS los partidos terminados de TODOS los jugadores
+  // involucrados (pendientes + resueltos juntos), y la forma reciente
+  // + el cruce directo de cada pick se calculan en memoria a partir de
+  // ese único resultado.
+  async function buildFormAndH2H(pairs) {
+    const result = new Map();
+    const allIds = [...new Set(pairs.flatMap((p) => [p.favoredId, p.opponentId]).filter(Boolean))];
+    if (allIds.length === 0) return result;
+
+    const idList = allIds.join(',');
+    const { data } = await supabase
+      .from('matches')
+      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
+      .eq('status', 'finished')
+      .or(`player_a_id.in.(${idList}),player_b_id.in.(${idList})`)
+      .order('scheduled_at', { ascending: false })
+      .limit(5000);
+    const rows = data || [];
+
+    const missingOpponentIds = [...new Set(rows.flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(
+      (id) => id && !playersById.has(id)
+    );
+    if (missingOpponentIds.length) {
+      const { data: extra } = await supabase
+        .from('players')
+        .select('id, name, avatar_url, avatar_cutout_url')
+        .in('id', missingOpponentIds);
+      for (const p of extra || []) playersById.set(p.id, p);
+    }
+
+    const byPlayer = new Map(allIds.map((id) => [id, []]));
+    for (const m of rows) {
+      if (byPlayer.has(m.player_a_id)) byPlayer.get(m.player_a_id).push(m);
+      if (byPlayer.has(m.player_b_id)) byPlayer.get(m.player_b_id).push(m);
+    }
+
+    for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
+      const playerMatches = byPlayer.get(favoredId) || [];
+      const history = playerMatches.slice(0, 10).map((m) => {
+        const isA = m.player_a_id === favoredId;
+        const oppId = isA ? m.player_b_id : m.player_a_id;
+        return {
+          date: m.scheduled_at,
+          opponent: playersById.get(oppId)?.name || '?',
+          setsFor: isA ? m.sets_a : m.sets_b,
+          setsAgainst: isA ? m.sets_b : m.sets_a,
+          win: m.winner_id === favoredId
+        };
+      });
+      const h2hMatches = playerMatches
+        .filter((m) => m.player_a_id === opponentId || m.player_b_id === opponentId)
+        .slice(0, 20)
+        .map((m) => {
+          const isA = m.player_a_id === favoredId;
+          return {
+            date: m.scheduled_at,
+            opponent: opponentName,
+            setsFor: isA ? m.sets_a : m.sets_b,
+            setsAgainst: isA ? m.sets_b : m.sets_a,
+            win: m.winner_id === favoredId
+          };
+        });
+      const winsFavored = h2hMatches.filter((m) => m.win).length;
+      result.set(pickId, {
         history,
         streakLabel: streakLabelFromHistory(history),
-        h2h: `${h2h.winsA}-${h2h.winsB}`,
-        h2hTotal: h2h.winsA + h2h.winsB,
-        h2hMatches: h2h.matches,
-        score: null,
-        setScores: null,
-        result: 'pending'
-      };
-    })
-  );
-  const picks = pickResults.filter(Boolean);
+        h2h: `${winsFavored}-${h2hMatches.length - winsFavored}`,
+        h2hTotal: h2hMatches.length,
+        h2hMatches
+      });
+    }
+    return result;
+  }
+
+  const formByPickId = await buildFormAndH2H([
+    ...pendingPrelim.map(({ pick, favored, opponent }) => ({
+      pickId: pick.id,
+      favoredId: favored.id,
+      opponentId: opponent.id,
+      opponentName: opponent.name
+    })),
+    ...resolvedPrelim.map(({ pick, favored, opponent }) => ({
+      pickId: pick.id,
+      favoredId: favored.id,
+      opponentId: opponent.id,
+      opponentName: opponent.name
+    }))
+  ]);
+  const EMPTY_FORM = { history: [], streakLabel: null, h2h: '0-0', h2hTotal: 0, h2hMatches: [] };
+
+  const picks = pendingPrelim.map(({ pick, match, favored, opponent, tournament }) => {
+    const form = formByPickId.get(pick.id) || EMPTY_FORM;
+    const confidence = Math.round(pick.confidence);
+    return {
+      id: pick.id,
+      matchId: match.id,
+      day: dayLabel(match.scheduled_at),
+      scheduledAt: new Date(match.scheduled_at).getTime(),
+      player: favored?.name || '—',
+      initials: initialsOf(favored?.name),
+      avatarUrl: favored?.avatar_cutout_url || favored?.avatar_url || null,
+      hasCutout: Boolean(favored?.avatar_cutout_url),
+      opponent: opponent?.name || '—',
+      opponentInitials: initialsOf(opponent?.name),
+      opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
+      opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
+      time: timeLabel(match.scheduled_at),
+      tournament: tournament?.name || 'Torneo',
+      market: pick.market,
+      confidence,
+      tier: confidenceTier(confidence),
+      odds: pick.odds ? Number(pick.odds) : null,
+      analysis: buildAnalysis(pick.factors),
+      history: form.history,
+      streakLabel: form.streakLabel,
+      h2h: form.h2h,
+      h2hTotal: form.h2hTotal,
+      h2hMatches: form.h2hMatches,
+      score: null,
+      setScores: null,
+      result: 'pending'
+    };
+  });
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
   // El pick destacado prioriza cuota real arriba de 1.60 — entre esos,
   // el de mayor confianza. Si ninguno tiene cuota >1.60 (o cuota del
@@ -262,6 +353,41 @@ export async function getServerSideProps({ query }) {
   const topConfidence =
     (picksWithGoodOdds.length ? picksWithGoodOdds : picks).slice().sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
+
+  const resolvedPicks = resolvedPrelim.map(({ pick, match, favored, opponent, tournament, score, setScores }) => {
+    const form = formByPickId.get(pick.id) || EMPTY_FORM;
+    const confidence = Math.round(pick.confidence);
+    return {
+      id: pick.id,
+      matchId: match.id,
+      day: dayLabel(match.scheduled_at),
+      scheduledAt: new Date(match.scheduled_at).getTime(),
+      player: favored.name,
+      initials: initialsOf(favored.name),
+      avatarUrl: favored.avatar_cutout_url || favored.avatar_url || null,
+      hasCutout: Boolean(favored.avatar_cutout_url),
+      opponent: opponent.name,
+      opponentInitials: initialsOf(opponent.name),
+      opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
+      opponentHasCutout: Boolean(opponent.avatar_cutout_url),
+      time: timeLabel(match.scheduled_at),
+      tournament: tournament?.name || 'Torneo',
+      market: pick.market,
+      confidence,
+      tier: confidenceTier(confidence),
+      odds: pick.odds ? Number(pick.odds) : null,
+      analysis: buildAnalysis(pick.factors),
+      history: form.history,
+      streakLabel: form.streakLabel,
+      h2h: form.h2h,
+      h2hTotal: form.h2hTotal,
+      h2hMatches: form.h2hMatches,
+      score,
+      setScores,
+      result: pick.result
+    };
+  });
+  resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
 
   // Tabla de grupo por torneo — igual a como tt.league-pro.com la
   // muestra dentro de cada torneo: los jugadores de ESE grupo se
@@ -376,107 +502,6 @@ export async function getServerSideProps({ query }) {
   )
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-
-  // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
-  // sección Picks) — no se les calcula H2H/racha/forma reciente para
-  // no multiplicar consultas por algo que ya no es accionable.
-  const { data: resolvedPicksRaw } = await supabase
-    .from('picks')
-    .select('*')
-    .neq('result', 'pending')
-    .order('created_at', { ascending: false })
-    .limit(60);
-
-  const resolvedMatchIds = [...new Set((resolvedPicksRaw || []).map((p) => p.match_id))];
-  const { data: resolvedMatchesRaw } = resolvedMatchIds.length
-    ? await supabase.from('matches').select('*').in('id', resolvedMatchIds)
-    : { data: [] };
-  const resolvedMatchesById = new Map((resolvedMatchesRaw || []).map((m) => [m.id, m]));
-
-  const resolvedExtraPlayerIds = [
-    ...new Set((resolvedMatchesRaw || []).flatMap((m) => [m.player_a_id, m.player_b_id]))
-  ].filter((id) => id && !playersById.has(id));
-  if (resolvedExtraPlayerIds.length) {
-    const { data: extra } = await supabase
-      .from('players')
-      .select('id, name, avatar_url, avatar_cutout_url')
-      .in('id', resolvedExtraPlayerIds);
-    for (const p of extra || []) playersById.set(p.id, p);
-  }
-  const resolvedExtraTournamentIds = [...new Set((resolvedMatchesRaw || []).map((m) => m.tournament_id))].filter(
-    (id) => id && !tournamentsById.has(id)
-  );
-  if (resolvedExtraTournamentIds.length) {
-    const { data: extra } = await supabase.from('tournaments').select('id, name').in('id', resolvedExtraTournamentIds);
-    for (const t of extra || []) tournamentsById.set(t.id, t);
-  }
-
-  const resolvedPicksResults = await Promise.all(
-    (resolvedPicksRaw || []).map(async (pick) => {
-      const match = resolvedMatchesById.get(pick.match_id);
-      if (!match) return null;
-      const favored = playersById.get(pick.predicted_winner_id);
-      const opponent =
-        pick.predicted_winner_id === match.player_a_id
-          ? playersById.get(match.player_b_id)
-          : playersById.get(match.player_a_id);
-      if (!favored || !opponent) return null;
-      const tournament = tournamentsById.get(match.tournament_id);
-      const confidence = Math.round(pick.confidence);
-      const [history, h2h] = await Promise.all([
-        recentForm(favored.id),
-        h2hRecord(favored.id, opponent.id, opponent.name)
-      ]);
-
-      // El resultado final se guarda relativo a jugador A/B, no a
-      // favorito/rival — hay que reordenarlo a favor del favorito
-      // (izquierda en la tarjeta), igual que en followed-detail.js.
-      const favoredIsA = pick.predicted_winner_id === match.player_a_id;
-      const score =
-        match.sets_a != null && match.sets_b != null
-          ? favoredIsA
-            ? `${match.sets_a}-${match.sets_b}`
-            : `${match.sets_b}-${match.sets_a}`
-          : null;
-      const setScores = Array.isArray(match.set_scores)
-        ? favoredIsA
-          ? match.set_scores
-          : match.set_scores.map((s) => ({ a: s.b, b: s.a }))
-        : null;
-
-      return {
-        id: pick.id,
-        matchId: match.id,
-        day: dayLabel(match.scheduled_at),
-        scheduledAt: new Date(match.scheduled_at).getTime(),
-        player: favored.name,
-        initials: initialsOf(favored.name),
-        avatarUrl: favored.avatar_cutout_url || favored.avatar_url || null,
-        hasCutout: Boolean(favored.avatar_cutout_url),
-        opponent: opponent.name,
-        opponentInitials: initialsOf(opponent.name),
-        opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
-        opponentHasCutout: Boolean(opponent.avatar_cutout_url),
-        time: timeLabel(match.scheduled_at),
-        tournament: tournament?.name || 'Torneo',
-        market: pick.market,
-        confidence,
-        tier: confidenceTier(confidence),
-        odds: pick.odds ? Number(pick.odds) : null,
-        analysis: buildAnalysis(pick.factors),
-        history,
-        streakLabel: streakLabelFromHistory(history),
-        h2h: `${h2h.winsA}-${h2h.winsB}`,
-        h2hTotal: h2h.winsA + h2h.winsB,
-        h2hMatches: h2h.matches,
-        score,
-        setScores,
-        result: pick.result
-      };
-    })
-  );
-  const resolvedPicks = resolvedPicksResults.filter(Boolean);
-  resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
 
   // Resultados: por default una ventana de "ahora mismo" (unas horas
   // atrás hasta mañana). Si viene ?date=YYYY-MM-DD, se muestra ese
