@@ -1468,7 +1468,12 @@ export async function getServerSideProps({ query }) {
             opponent: opponentName,
             setsFor: isA ? m.sets_a : m.sets_b,
             setsAgainst: isA ? m.sets_b : m.sets_a,
-            win: m.winner_id === favoredId
+            win: m.winner_id === favoredId,
+            // player_a_id = local (mismo criterio que "camiseta roja
+            // siempre a la izquierda" en el resto del sitio) — se
+            // guarda para poder ordenar el H2H local-primero, como
+            // Sofascore, en vez de "favorito siempre primero".
+            favoredWasHome: isA
           };
         });
       const winsFavored = h2hMatches.filter((m) => m.win).length;
@@ -2716,29 +2721,39 @@ function RecentFormList({ history }) {
 // Lista de H2H — a diferencia de RecentFormList (que arma "vs Fulano"
 // desde el punto de vista de un solo jugador), acá se ven los DOS
 // nombres completos en cada cruce, con el que ganó ESE partido
-// resaltado en verde — pedido explícito: se entiende de un vistazo
-// quién le ganó a quién en cada cruce directo, no solo el acumulado.
+// resaltado en verde. El orden es local primero (como Sofascore), no
+// "favorito siempre primero" — favoredWasHome dice si el favorito
+// jugó de local EN ESE partido puntual, así que el orden puede
+// cambiar de una fila a otra según a quién le tocó local esa vez.
 function H2HMatchList({ matches, favoredName, opponentName }) {
   if (!matches || matches.length === 0) {
     return <p className="page-sub">Sin enfrentamientos todavía.</p>;
   }
   return (
     <div className="form-list">
-      {matches.map((m, i) => (
-        <div className="form-list-row" key={i}>
-          <div className="form-list-meta">
-            <span className="form-list-date">{shortDate(m.date)}</span>
-            <span className="form-list-ft">FT</span>
+      {matches.map((m, i) => {
+        const homeIsFavored = m.favoredWasHome !== false;
+        const homeName = homeIsFavored ? favoredName : opponentName;
+        const awayName = homeIsFavored ? opponentName : favoredName;
+        const homeWon = homeIsFavored ? m.win : !m.win;
+        const homeSets = homeIsFavored ? m.setsFor : m.setsAgainst;
+        const awaySets = homeIsFavored ? m.setsAgainst : m.setsFor;
+        return (
+          <div className="form-list-row" key={i}>
+            <div className="form-list-meta">
+              <span className="form-list-date">{shortDate(m.date)}</span>
+              <span className="form-list-ft">FT</span>
+            </div>
+            <div className="h2h-match-names">
+              <span className={`h2h-player-name ${homeWon ? 'h2h-winner' : ''}`}>{homeName}</span>
+              <span className="h2h-match-score num">
+                {homeSets}-{awaySets}
+              </span>
+              <span className={`h2h-player-name ${!homeWon ? 'h2h-winner' : ''}`}>{awayName}</span>
+            </div>
           </div>
-          <div className="h2h-match-names">
-            <span className={`h2h-player-name ${m.win ? 'h2h-winner' : ''}`}>{favoredName}</span>
-            <span className="h2h-match-score num">
-              {m.setsFor}-{m.setsAgainst}
-            </span>
-            <span className={`h2h-player-name ${!m.win ? 'h2h-winner' : ''}`}>{opponentName}</span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

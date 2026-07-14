@@ -296,7 +296,8 @@ export default async function handler(req, res) {
             opponent: opponentName,
             setsFor: isA ? m.sets_a : m.sets_b,
             setsAgainst: isA ? m.sets_b : m.sets_a,
-            win: m.winner_id === favoredId
+            win: m.winner_id === favoredId,
+            favoredWasHome: isA
           };
         });
       const winsFavored = h2hMatches.filter((m) => m.win).length;

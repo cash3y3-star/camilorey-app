@@ -140,7 +140,8 @@ export default async function handler(req, res) {
           opponent: nameB,
           setsFor: isA ? m.sets_a : m.sets_b,
           setsAgainst: isA ? m.sets_b : m.sets_a,
-          win: m.winner_id === idA
+          win: m.winner_id === idA,
+          favoredWasHome: isA
         };
       })
     };
