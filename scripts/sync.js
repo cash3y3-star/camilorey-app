@@ -82,15 +82,13 @@ async function getRecentStreak(playerId) {
 }
 
 // Ordenado por fecha DESC porque, además del ratio agregado, nos
-// importa quién ganó el cruce MÁS RECIENTE — en algunas parejas el
-// H2H tiende a alternar (gana uno, gana el otro) en vez de que un
-// jugador domine sostenido, pero NO en todas: hay parejas donde un
-// jugador sí encadena varias victorias seguidas. Por eso, además de
-// lastMeetingWinnerId, medimos alternationRate: de las transiciones
-// entre cruces consecutivos de ESTA pareja, qué fracción cambió de
-// ganador. 1.0 = siempre alternan, 0.0 = siempre repite el mismo
-// ganador — así el factor de alternancia en confidence.js solo pesa
-// fuerte cuando el patrón real de esta pareja lo respalda.
+// importa el patrón de RACHAS dentro de este cruce directo — no toda
+// pareja alterna partido a partido (gana uno, gana el otro); hay
+// parejas donde el mismo jugador gana 2 seguidos y recién ahí corta
+// el otro. Por eso agrupamos el historial en rachas consecutivas
+// (ej. P1,P1,P2,P1,P1,P2 -> rachas [P1:2, P2:1, P1:2]) y medimos
+// cuánto duran normalmente ANTES de cortarse (typicalRunLength), para
+// comparar contra la racha que está activa ahora mismo.
 async function getH2H(playerAId, playerBId) {
   const { data, error } = await supabase
     .from('matches')
@@ -104,20 +102,47 @@ async function getH2H(playerAId, playerBId) {
   if (error) throw new Error(`select matches (h2h, ${playerAId} vs ${playerBId}): ${error.message}`);
 
   if (!data || data.length === 0) {
-    return { h2hWinsA: 0, h2hTotal: 0, lastMeetingWinnerId: null, alternationRate: 0 };
+    return {
+      h2hWinsA: 0,
+      h2hTotal: 0,
+      currentStreakPlayerId: null,
+      currentStreakLength: 0,
+      typicalRunLength: null,
+      isPerfectAlternation: false
+    };
   }
 
   const chronological = [...data].reverse(); // data viene DESC (más nuevo primero); acá lo damos vuelta
-  let flips = 0;
-  for (let i = 1; i < chronological.length; i++) {
-    if (chronological[i].winner_id !== chronological[i - 1].winner_id) flips++;
+  const runs = [];
+  for (const m of chronological) {
+    const last = runs[runs.length - 1];
+    if (last && last.winnerId === m.winner_id) last.length++;
+    else runs.push({ winnerId: m.winner_id, length: 1 });
   }
+  // La racha activa (la última) todavía puede seguir o cortarse — las
+  // ya COMPLETADAS (todas menos la última) son las que nos dicen
+  // cuánto suele durar una racha para esta pareja antes de cortarse.
+  const completedRuns = runs.slice(0, -1);
+  const currentRun = runs[runs.length - 1];
+  const typicalRunLength = completedRuns.length
+    ? completedRuns.reduce((sum, r) => sum + r.length, 0) / completedRuns.length
+    : null;
+  // Alternancia PERFECTA: nunca, en ningún cruce de la ventana
+  // observada, el mismo jugador repitió victoria — ni siquiera una
+  // vez. Exigimos al menos 3 rachas completadas (o sea, al menos 3
+  // "cortes" confirmados) para no confundir esto con que solo
+  // llevamos 1-2 cruces de casualidad. Es la versión más confiable
+  // del patrón — la mayoría no la sigue de cerca partido a partido,
+  // así que cuando se da, es una ventaja real.
+  const isPerfectAlternation = completedRuns.length >= 3 && runs.every((r) => r.length === 1);
 
   return {
     h2hWinsA: data.filter((m) => m.winner_id === playerAId).length,
     h2hTotal: data.length,
-    lastMeetingWinnerId: data[0].winner_id,
-    alternationRate: chronological.length >= 2 ? flips / (chronological.length - 1) : 0
+    currentStreakPlayerId: currentRun.winnerId,
+    currentStreakLength: currentRun.length,
+    typicalRunLength,
+    isPerfectAlternation
   };
 }
 
@@ -174,8 +199,8 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
     getH2H(sideA.player.id, sideB.player.id)
   ]);
 
-  const h2hLastResult =
-    h2h.lastMeetingWinnerId === sideA.player.id ? 'A' : h2h.lastMeetingWinnerId === sideB.player.id ? 'B' : null;
+  const h2hCurrentStreakIsA =
+    h2h.currentStreakPlayerId === sideA.player.id ? true : h2h.currentStreakPlayerId === sideB.player.id ? false : null;
 
   const { confidence: rawConfidence, factors } = computeConfidence({
     ratingDiff: (sideA.rating_before_tournament || 0) - (sideB.rating_before_tournament || 0),
@@ -183,8 +208,10 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
     streakB,
     h2hWinsA: h2h.h2hWinsA,
     h2hTotal: h2h.h2hTotal,
-    h2hLastResult,
-    h2hAlternationRate: h2h.alternationRate
+    h2hCurrentStreakIsA,
+    h2hCurrentStreakLength: h2h.currentStreakLength,
+    h2hTypicalRunLength: h2h.typicalRunLength,
+    h2hIsPerfectAlternation: h2h.isPerfectAlternation
   });
 
   // computeConfidence devuelve qué tan favorecido está A (70 = parejo,
