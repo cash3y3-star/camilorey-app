@@ -112,6 +112,27 @@ const TRANSLATIONS = {
     mejoraTuPlan: 'Mejora tu plan',
     mejoraTuPlanDesc: 'Mi Bankroll y más funciones premium',
     verPlanes: 'Ver Planes ›',
+    plansTitle: 'Elige tu plan Premium',
+    plansBullet1: 'Detección de cuotas con valor (edge) frente al mercado',
+    plansBullet2: 'Mi Bankroll, H2H completo y análisis con IA sin límites',
+    plansBullet3: 'Cancela cuando quieras, sin letra chica',
+    plansCardBadge: 'ACCESO COMPLETO',
+    plansCardName: 'CAMILOREY Premium',
+    plansCardDesc: 'Para quien sigue los picks en serio',
+    plansFeatRacha: 'Racha reciente',
+    plansFeatPrecision: 'Precisión de acierto',
+    plansFeatCuotas: 'Cuotas en vivo (Rushbet)',
+    plansFeatEdge: 'Edge % frente al mercado',
+    plansFeatHistorico: 'Historial L5 · L10 · L20',
+    plansFeatKelly: 'Bankroll con criterio de Kelly',
+    plansFeatLocalVisitante: 'Forma de local y visitante',
+    plansFeatIA: 'Análisis con IA por partido',
+    plansFeatH2H: 'Head-to-head completo',
+    plansFeatAlertas: 'Alertas de picks en tiempo real',
+    plansCta: 'Suscribirme',
+    plansCtaNote:
+      'El pago se hace fuera del sitio, en un link seguro. Cuando termines, escríbenos al correo o por Telegram con el correo de tu cuenta CAMILOREY y activamos tu acceso premium en minutos.',
+    plansSoon: 'Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.',
     ajustes: 'AJUSTES',
     filaNombre: 'Nombre',
     filaNotificaciones: 'Notificaciones',
@@ -313,6 +334,27 @@ const TRANSLATIONS = {
     mejoraTuPlan: 'Upgrade your plan',
     mejoraTuPlanDesc: 'My Bankroll and more premium features',
     verPlanes: 'See Plans ›',
+    plansTitle: 'Choose your Premium plan',
+    plansBullet1: 'Value-edge odds detection against the market',
+    plansBullet2: 'My Bankroll, full H2H, and unlimited AI analysis',
+    plansBullet3: 'Cancel anytime, no fine print',
+    plansCardBadge: 'FULL ACCESS',
+    plansCardName: 'CAMILOREY Premium',
+    plansCardDesc: 'For people who follow picks seriously',
+    plansFeatRacha: 'Recent streak',
+    plansFeatPrecision: 'Hit accuracy',
+    plansFeatCuotas: 'Live odds (Rushbet)',
+    plansFeatEdge: 'Edge % against the market',
+    plansFeatHistorico: 'L5 · L10 · L20 history',
+    plansFeatKelly: 'Kelly-criterion bankroll',
+    plansFeatLocalVisitante: 'Home and away form',
+    plansFeatIA: 'AI analysis per match',
+    plansFeatH2H: 'Full head-to-head',
+    plansFeatAlertas: 'Real-time pick alerts',
+    plansCta: 'Subscribe',
+    plansCtaNote:
+      "Payment happens off-site, through a secure link. Once you're done, write to us by email or Telegram with your CAMILOREY account email and we'll activate your premium access within minutes.",
+    plansSoon: "You'll be able to upgrade your plan very soon — there's nothing to pay yet, we're just giving you a heads up before it opens.",
     ajustes: 'SETTINGS',
     filaNombre: 'Name',
     filaNotificaciones: 'Notifications',
@@ -513,6 +555,27 @@ const TRANSLATIONS = {
     mejoraTuPlan: 'Melhore seu plano',
     mejoraTuPlanDesc: 'Minha Banca e mais funções premium',
     verPlanes: 'Ver Planos ›',
+    plansTitle: 'Escolha seu plano Premium',
+    plansBullet1: 'Detecção de odds com valor (edge) frente ao mercado',
+    plansBullet2: 'Minha Banca, H2H completo e análise com IA sem limites',
+    plansBullet3: 'Cancele quando quiser, sem letras miúdas',
+    plansCardBadge: 'ACESSO COMPLETO',
+    plansCardName: 'CAMILOREY Premium',
+    plansCardDesc: 'Para quem acompanha os picks a sério',
+    plansFeatRacha: 'Sequência recente',
+    plansFeatPrecision: 'Precisão de acerto',
+    plansFeatCuotas: 'Odds ao vivo (Rushbet)',
+    plansFeatEdge: 'Edge % frente ao mercado',
+    plansFeatHistorico: 'Histórico L5 · L10 · L20',
+    plansFeatKelly: 'Banca com critério de Kelly',
+    plansFeatLocalVisitante: 'Forma como mandante e visitante',
+    plansFeatIA: 'Análise com IA por partida',
+    plansFeatH2H: 'Head-to-head completo',
+    plansFeatAlertas: 'Alertas de picks em tempo real',
+    plansCta: 'Assinar',
+    plansCtaNote:
+      'O pagamento é feito fora do site, em um link seguro. Quando terminar, escreva para nós por e-mail ou Telegram com o e-mail da sua conta CAMILOREY e ativamos seu acesso premium em minutos.',
+    plansSoon: 'Muito em breve você vai poder melhorar seu plano — ainda não há nada para pagar, só estamos avisando antes de abrir.',
     ajustes: 'AJUSTES',
     filaNombre: 'Nome',
     filaNotificaciones: 'Notificações',
@@ -3346,6 +3409,13 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'zap') {
+    return (
+      <svg {...common}>
+        <path d="M13 2 3 14h8l-1 8 10-12h-8l1-8Z" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -3567,6 +3637,7 @@ function ProfileModal({
     indonesio: t('oddsIndonesio')
   };
   const [oddsScreenOpen, setOddsScreenOpen] = useState(false);
+  const [plansScreenOpen, setPlansScreenOpen] = useState(false);
   const [langScreenOpen, setLangScreenOpen] = useState(false);
   const [helpScreenOpen, setHelpScreenOpen] = useState(false);
   const [openFaqCat, setOpenFaqCat] = useState(0);
@@ -3627,6 +3698,86 @@ function ProfileModal({
   const memberSince = user.created_at
     ? new Intl.DateTimeFormat('es', { month: 'short', year: 'numeric' }).format(new Date(user.created_at))
     : null;
+
+  if (plansScreenOpen) {
+    const paymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK;
+    const PLAN_FEATURES = [
+      'plansFeatRacha',
+      'plansFeatPrecision',
+      'plansFeatCuotas',
+      'plansFeatEdge',
+      'plansFeatHistorico',
+      'plansFeatKelly',
+      'plansFeatLocalVisitante',
+      'plansFeatIA',
+      'plansFeatH2H',
+      'plansFeatAlertas'
+    ];
+    return (
+      <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+        <div className="modal plans-modal">
+          <div className="plans-modal-banner">
+            <div className="subscreen-head" style={{ marginBottom: '14px' }}>
+              <button className="subscreen-back" onClick={() => setPlansScreenOpen(false)}>
+                <ProfileIcon name="arrow-left" size={18} />
+              </button>
+              <h3 style={{ color: '#fff' }}>{t('plansTitle')}</h3>
+            </div>
+            <ul className="plans-bullet-list">
+              <li>
+                <ProfileIcon name="zap" size={14} />
+                {t('plansBullet1')}
+              </li>
+              <li>
+                <ProfileIcon name="zap" size={14} />
+                {t('plansBullet2')}
+              </li>
+              <li>
+                <ProfileIcon name="zap" size={14} />
+                {t('plansBullet3')}
+              </li>
+            </ul>
+          </div>
+
+          <div className="plans-card">
+            <span className="plans-card-badge">{t('plansCardBadge')}</span>
+            <div className="plans-card-head">
+              <span className="plans-card-icon">
+                <ProfileIcon name="crown" size={20} />
+              </span>
+              <div>
+                <strong>{t('plansCardName')}</strong>
+                <span>{t('plansCardDesc')}</span>
+              </div>
+            </div>
+            <div className="plans-feature-list">
+              {PLAN_FEATURES.map((key) => (
+                <div className="plans-feature-row" key={key}>
+                  <span>{t(key)}</span>
+                  <ProfileIcon name="check" size={14} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-ball plans-cta-btn"
+            onClick={() => {
+              if (paymentUrl) {
+                window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+              } else {
+                alert(t('plansSoon'));
+              }
+            }}
+          >
+            {t('plansCta')}
+          </button>
+          <p className="plans-cta-note">{t('plansCtaNote')}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (oddsScreenOpen) {
     return (
@@ -3896,22 +4047,7 @@ function ProfileModal({
         </div>
 
         {!isAdmin && !isPremium ? (
-          <button
-            type="button"
-            className="upgrade-card"
-            onClick={() => {
-              const paymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK;
-              if (paymentUrl) {
-                window.open(paymentUrl, '_blank', 'noopener,noreferrer');
-              } else {
-                alert(
-                  lang === 'en'
-                    ? "You'll be able to upgrade your plan very soon — there's nothing to pay yet, we're just giving you a heads up before it opens."
-                    : 'Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.'
-                );
-              }
-            }}
-          >
+          <button type="button" className="upgrade-card" onClick={() => setPlansScreenOpen(true)}>
             <span className="upgrade-card-icon">
               <ProfileIcon name="crown" />
             </span>
@@ -3974,9 +4110,8 @@ function ProfileModal({
         <div
           className="profile-row"
           onClick={() => {
-            const paymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK;
-            if (paymentUrl && !isAdmin && !isPremium) {
-              window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+            if (!isAdmin && !isPremium) {
+              setPlansScreenOpen(true);
             } else if (isPremium) {
               alert(
                 lang === 'en'
@@ -6794,6 +6929,41 @@ const CSS = `
     flex:none; font-size:12px; font-weight:700; color:var(--ink);
     background:var(--card); border:1px solid var(--line); border-radius:999px; padding:7px 12px;
   }
+
+  .plans-modal{ padding:0 22px 26px; }
+  .plans-modal-banner{
+    padding:22px 22px 24px;
+    margin:0 -22px 18px; border-radius:20px 20px 0 0;
+    background:radial-gradient(120% 140% at 0% 0%, #3a3a3a 0%, #17171a 55%, #050505 100%);
+    color:#fff;
+  }
+  .plans-modal-banner .subscreen-back{ background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.3); color:#fff; }
+  .plans-bullet-list{ list-style:none; margin:6px 0 0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  .plans-bullet-list li{ display:flex; align-items:center; gap:10px; font-size:13.5px; color:rgba(255,255,255,.92); }
+  .plans-bullet-list li svg{ flex:none; color:#FFC845; }
+  .plans-card{ position:relative; border:1px solid var(--line); border-radius:16px; padding:18px; background:var(--bg-alt); }
+  .plans-card-badge{
+    position:absolute; top:-11px; right:16px; font-family:var(--font-mono); font-size:10px; font-weight:700;
+    letter-spacing:.5px; text-transform:uppercase; color:#3a2a00; background:#FFC845; border-radius:999px; padding:5px 10px;
+  }
+  .plans-card-head{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .plans-card-icon{
+    width:42px; height:42px; border-radius:12px; flex:none; color:#FFC845;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,193,7,.14); border:1px solid rgba(255,193,7,.35);
+  }
+  .plans-card-head strong{ display:block; font-size:16px; color:var(--ink); }
+  .plans-card-head span{ font-size:12.5px; color:var(--muted); }
+  .plans-feature-list{ display:flex; flex-direction:column; }
+  .plans-feature-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 0; border-top:1px solid var(--line); font-size:13.5px; color:var(--ink);
+  }
+  .plans-feature-row:first-child{ border-top:none; }
+  .plans-feature-row svg{ color:var(--hit); flex:none; }
+  .plans-cta-btn{ width:100%; justify-content:center; margin-top:18px; padding:14px; font-size:14.5px; }
+  .plans-cta-note{ font-size:11.5px; color:var(--muted); text-align:center; line-height:1.5; margin:10px 0 0; }
+
   .profile-row-icon{
     width:40px; height:40px; border-radius:50%; flex:none;
     display:flex; align-items:center; justify-content:center;
