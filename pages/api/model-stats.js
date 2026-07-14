@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   // confianza nuevo, no solo verlos después de que ya se resolvieron.
   const { data: pendingPicks, error: pendingErr } = await supabase
     .from('picks')
-    .select('confidence, odds, market, match_id')
+    .select('id, confidence, odds, market, match_id')
     .eq('result', 'pending')
     .order('confidence', { ascending: false });
   if (pendingErr) return res.status(500).json({ error: pendingErr.message });
@@ -52,6 +52,7 @@ export default async function handler(req, res) {
 
   const pending = (pendingPicks || [])
     .map((p) => ({
+      id: p.id,
       market: p.market,
       confidence: p.confidence,
       odds: p.odds ? Number(p.odds) : null,
@@ -68,7 +69,7 @@ export default async function handler(req, res) {
   if (!picks || picks.length === 0) return res.status(200).json({ n: 0, pending });
 
   const matchIds = [...new Set(picks.map((p) => p.match_id))];
-  const { data: matches } = await supabase.from('matches').select('id, player_a_id').in('id', matchIds);
+  const { data: matches } = await supabase.from('matches').select('id, player_a_id, scheduled_at').in('id', matchIds);
   const matchById = new Map((matches || []).map((m) => [m.id, m]));
 
   const rows = picks
@@ -77,9 +78,11 @@ export default async function handler(req, res) {
       if (!match || !p.factors) return null;
       const sign = p.predicted_winner_id === match.player_a_id ? 1 : -1;
       return {
+        id: p.id,
         hit: p.result === 'hit',
         confidence: p.confidence,
         createdAt: p.created_at,
+        scheduledAt: match.scheduled_at,
         market: p.market,
         ratingScore: (p.factors.ratingScore ?? 0) * sign,
         streakScore: (p.factors.streakScore ?? 0) * sign,
@@ -117,7 +120,14 @@ export default async function handler(req, res) {
   const recent = rows
     .slice(-20)
     .reverse()
-    .map((r) => ({ win: r.hit, date: r.createdAt, confidence: r.confidence, market: r.market }));
+    .map((r) => ({
+      id: r.id,
+      win: r.hit,
+      date: r.createdAt,
+      scheduledAt: r.scheduledAt,
+      confidence: r.confidence,
+      market: r.market
+    }));
 
   return res.status(200).json({
     n,

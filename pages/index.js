@@ -3148,7 +3148,7 @@ const MODEL_FACTOR_LABEL = { ratingScore: 'Rating', streakScore: 'Racha', h2hSco
 // resultado ya es estadísticamente distinguible de una moneda al aire
 // (para bien o para mal). Si lo cruza, todavía no hay muestra
 // suficiente para saberlo — no es lo mismo que "no funciona".
-function ModelStatsView({ stats }) {
+function ModelStatsView({ stats, onPickClick }) {
   const pending = stats.pending || [];
 
   return (
@@ -3162,7 +3162,11 @@ function ModelStatsView({ stats }) {
       ) : (
         <div className="form-list">
           {pending.map((p, i) => (
-            <div className="form-list-row" key={i}>
+            <div
+              className="form-list-row form-list-row-clickable"
+              key={i}
+              onClick={() => onPickClick && onPickClick(p.id)}
+            >
               <div className="form-list-meta">
                 <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
                 <span className="form-list-ft">
@@ -3186,12 +3190,12 @@ function ModelStatsView({ stats }) {
         </div>
       )}
 
-      {stats.n > 0 ? <ModelResolvedStats stats={stats} /> : null}
+      {stats.n > 0 ? <ModelResolvedStats stats={stats} onPickClick={onPickClick} /> : null}
     </>
   );
 }
 
-function ModelResolvedStats({ stats }) {
+function ModelResolvedStats({ stats, onPickClick }) {
   const [loWilson, hiWilson] = stats.wilson95;
   const verdict = loWilson > 0.5 ? 'better' : hiWilson < 0.5 ? 'worse' : 'unknown';
   const verdictLabel =
@@ -3265,10 +3269,19 @@ function ModelResolvedStats({ stats }) {
       </div>
       <div className="form-list">
         {stats.recentSequence.map((r, i) => (
-          <div className="form-list-row" key={i}>
+          <div className="form-list-row form-list-row-clickable" key={i} onClick={() => onPickClick && onPickClick(r.id)}>
             <div className="form-list-meta">
-              <span className="form-list-date">{shortDate(r.date)}</span>
-              <span className="form-list-ft">Índice IA</span>
+              <span className="form-list-date">{shortDate(r.scheduledAt || r.date)}</span>
+              <span className="form-list-ft">
+                {r.scheduledAt
+                  ? new Intl.DateTimeFormat('es-CO', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                      timeZone: 'America/Bogota'
+                    }).format(new Date(r.scheduledAt))
+                  : 'Índice IA'}
+              </span>
             </div>
             <div className="form-list-opp">
               {r.market || 'Pick'}
@@ -6867,7 +6880,14 @@ export default function Home({
           ) : modelStats.n === 0 && (!modelStats.pending || modelStats.pending.length === 0) ? (
             <p className="page-sub">Todavía no hay picks resueltos ni pendientes.</p>
           ) : (
-            <ModelStatsView stats={modelStats} />
+            <ModelStatsView
+              stats={modelStats}
+              onPickClick={(id) => {
+                const found = [...picks, ...resolvedPicks].find((p) => p.id === id);
+                if (found) setModalPick(found);
+                else alert('Ese pick no tiene detalle disponible (es más viejo que la ventana que carga la página).');
+              }}
+            />
           )}
         </section>
         )}
@@ -8255,6 +8275,8 @@ const CSS = `
   .bar.miss{background:var(--miss);}
   .form-list{display:flex; flex-direction:column;}
   .form-list-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);}
+  .form-list-row-clickable{cursor:pointer;}
+  .form-list-row-clickable:hover{background:var(--bg-alt);}
   .form-list-row:last-child{border-bottom:none;}
   .form-list-meta{display:flex; flex-direction:column; align-items:flex-start; gap:1px; width:56px; flex:none;}
   .form-list-date{font-family:var(--font-mono); font-size:10.5px; color:var(--muted);}
