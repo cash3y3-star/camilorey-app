@@ -34,13 +34,38 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'solo el admin puede ver esto' });
   }
 
+  // Picks pendientes (todavía no jugados) — para poder revisar ANTES
+  // de que se jueguen cuáles quedaron publicados con el piso de
+  // confianza nuevo, no solo verlos después de que ya se resolvieron.
+  const { data: pendingPicks, error: pendingErr } = await supabase
+    .from('picks')
+    .select('confidence, odds, market, match_id')
+    .eq('result', 'pending')
+    .order('confidence', { ascending: false });
+  if (pendingErr) return res.status(500).json({ error: pendingErr.message });
+
+  const pendingMatchIds = [...new Set((pendingPicks || []).map((p) => p.match_id))];
+  const { data: pendingMatches } = pendingMatchIds.length
+    ? await supabase.from('matches').select('id, scheduled_at').in('id', pendingMatchIds)
+    : { data: [] };
+  const pendingMatchById = new Map((pendingMatches || []).map((m) => [m.id, m]));
+
+  const pending = (pendingPicks || [])
+    .map((p) => ({
+      market: p.market,
+      confidence: p.confidence,
+      odds: p.odds ? Number(p.odds) : null,
+      scheduledAt: pendingMatchById.get(p.match_id)?.scheduled_at || null
+    }))
+    .sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
+
   const { data: picks, error } = await supabase
     .from('picks')
     .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market')
     .in('result', ['hit', 'miss'])
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
-  if (!picks || picks.length === 0) return res.status(200).json({ n: 0 });
+  if (!picks || picks.length === 0) return res.status(200).json({ n: 0, pending });
 
   const matchIds = [...new Set(picks.map((p) => p.match_id))];
   const { data: matches } = await supabase.from('matches').select('id, player_a_id').in('id', matchIds);
@@ -102,6 +127,7 @@ export default async function handler(req, res) {
     wilson95: [lo, hi],
     buckets,
     factorAvg,
-    recentSequence: recent
+    recentSequence: recent,
+    pending
   });
 }

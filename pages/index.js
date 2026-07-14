@@ -3149,6 +3149,49 @@ const MODEL_FACTOR_LABEL = { ratingScore: 'Rating', streakScore: 'Racha', h2hSco
 // (para bien o para mal). Si lo cruza, todavía no hay muestra
 // suficiente para saberlo — no es lo mismo que "no funciona".
 function ModelStatsView({ stats }) {
+  const pending = stats.pending || [];
+
+  return (
+    <>
+      <div className="section-head">
+        <h2>Pendientes ({pending.length})</h2>
+      </div>
+      <p className="page-sub">Picks ya publicados, todavía sin jugarse — con el piso de confianza 60%.</p>
+      {pending.length === 0 ? (
+        <p className="page-sub">No hay picks pendientes ahora mismo.</p>
+      ) : (
+        <div className="form-list">
+          {pending.map((p, i) => (
+            <div className="form-list-row" key={i}>
+              <div className="form-list-meta">
+                <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
+                <span className="form-list-ft">
+                  {p.scheduledAt
+                    ? new Intl.DateTimeFormat('es-CO', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
+                        timeZone: 'America/Bogota'
+                      }).format(new Date(p.scheduledAt))
+                    : ''}
+                </span>
+              </div>
+              <div className="form-list-opp">
+                {p.market || 'Pick'}
+                <span className="form-list-score num">{Math.round(p.confidence)}%</span>
+              </div>
+              <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {stats.n > 0 ? <ModelResolvedStats stats={stats} /> : null}
+    </>
+  );
+}
+
+function ModelResolvedStats({ stats }) {
   const [loWilson, hiWilson] = stats.wilson95;
   const verdict = loWilson > 0.5 ? 'better' : hiWilson < 0.5 ? 'worse' : 'unknown';
   const verdictLabel =
@@ -6821,8 +6864,8 @@ export default function Home({
             <p className="page-sub">Error: {modelStatsError}</p>
           ) : !modelStats ? (
             <p className="page-sub">Cargando…</p>
-          ) : modelStats.n === 0 ? (
-            <p className="page-sub">Todavía no hay picks resueltos.</p>
+          ) : modelStats.n === 0 && (!modelStats.pending || modelStats.pending.length === 0) ? (
+            <p className="page-sub">Todavía no hay picks resueltos ni pendientes.</p>
           ) : (
             <ModelStatsView stats={modelStats} />
           )}
