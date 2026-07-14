@@ -3228,7 +3228,7 @@ function ModelStatsView({ stats }) {
               <span className="form-list-ft">Índice IA</span>
             </div>
             <div className="form-list-opp">
-              confianza
+              {r.market || 'Pick'}
               <span className="form-list-score num">{r.confidence}%</span>
             </div>
             <span className={`form-list-badge ${r.win ? 'win' : 'loss'}`}>{r.win ? 'W' : 'L'}</span>

@@ -222,6 +222,17 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
   const favored = rawConfidence >= 70 ? sideA.player : sideB.player;
   const pickConfidence = rawConfidence >= 70 ? rawConfidence : 140 - rawConfidence;
 
+  // Piso de publicación — agregado 2026-07-14 después de una racha
+  // floja (4/14). Antes CUALQUIER partido generaba un pick, hasta con
+  // confianza pegada al mínimo de 50 (básicamente un empate técnico
+  // del modelo). Ahora, si no llega a 60, no se publica pick para ese
+  // partido — mejor no dar un pick que dar uno que el propio modelo ve
+  // casi parejo. No es una garantía de que suba el acierto (la muestra
+  // real sigue siendo chica), pero saca del medio los picks con menos
+  // razón de ser "nuestro pick".
+  const MIN_CONFIDENCE_TO_PUBLISH = 60;
+  if (pickConfidence < MIN_CONFIDENCE_TO_PUBLISH) return false;
+
   // Cuota real de Rushbet si logramos cruzar el partido por nombre+hora
   // en su feed de "Liga Pro checa" — queda null si no hay match (no
   // bloquea la generación del pick).
@@ -238,6 +249,7 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
     result: 'pending'
   });
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
+  return true;
 }
 
 // El cruce con Rushbet en generatePick es "una sola oportunidad": si
@@ -389,8 +401,8 @@ async function syncTournamentMatches(t, widgets, rushbetEvents) {
     if (pErr) throw new Error(`select picks(match_id=${matchRow.id}): ${pErr.message}`);
     if (existingPick) continue;
 
-    await generatePick(matchRow, sideA, sideB, rushbetEvents);
-    picksGenerated++;
+    const created = await generatePick(matchRow, sideA, sideB, rushbetEvents);
+    if (created) picksGenerated++;
   }
 
   return { matchesProcessed, picksGenerated, picksResolved };

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
 
   const { data: picks, error } = await supabase
     .from('picks')
-    .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at')
+    .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market')
     .in('result', ['hit', 'miss'])
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
@@ -55,6 +55,7 @@ export default async function handler(req, res) {
         hit: p.result === 'hit',
         confidence: p.confidence,
         createdAt: p.created_at,
+        market: p.market,
         ratingScore: (p.factors.ratingScore ?? 0) * sign,
         streakScore: (p.factors.streakScore ?? 0) * sign,
         h2hScore: (p.factors.h2hScore ?? 0) * sign,
@@ -91,7 +92,7 @@ export default async function handler(req, res) {
   const recent = rows
     .slice(-20)
     .reverse()
-    .map((r) => ({ win: r.hit, date: r.createdAt, confidence: r.confidence }));
+    .map((r) => ({ win: r.hit, date: r.createdAt, confidence: r.confidence, market: r.market }));
 
   return res.status(200).json({
     n,
