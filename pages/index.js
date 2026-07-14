@@ -4728,7 +4728,7 @@ const MIBANKROLL_TRIAL_END = new Date('2026-07-20T23:59:59-05:00').getTime();
 // fecha, entra ÚNICAMENTE el admin — nadie más, ni siquiera la gente
 // que sí estaba en la lista — hasta que se suba una fecha nueva acá a
 // mano para reabrir la prueba o lanzar el sitio de verdad.
-const BETA_GATE_END = new Date('2026-07-14T20:25:00-05:00').getTime();
+const BETA_GATE_END = new Date('2026-07-15T20:25:00-05:00').getTime();
 
 export default function Home({
   stats: initialStats,
