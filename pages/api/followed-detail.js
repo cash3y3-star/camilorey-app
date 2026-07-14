@@ -99,7 +99,7 @@ export default async function handler(req, res) {
       .or(`player_a_id.eq.${playerId},player_b_id.eq.${playerId}`)
       .eq('status', 'finished')
       .order('scheduled_at', { ascending: false })
-      .limit(10);
+      .limit(20);
     const rows = data || [];
     const opponentIds = [...new Set(rows.map((m) => (m.player_a_id === playerId ? m.player_b_id : m.player_a_id)))];
     const missing = opponentIds.filter((id) => id && !playersById.has(id));

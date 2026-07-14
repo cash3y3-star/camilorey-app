@@ -44,6 +44,16 @@ function confidenceTier(confidence) {
   return 'baja';
 }
 
+// Pick "exclusivo" (solo premium/admin, ver 2026-07-14) = confianza
+// alta + cuota real de valor — mismo criterio que en getServerSideProps
+// (pages/index.js), duplicado acá porque este endpoint arma su propio
+// picks/resolvedPicks para el refresco en vivo sin recargar la página.
+const EXCLUSIVE_MIN_CONFIDENCE = 85;
+const EXCLUSIVE_MIN_ODDS = 1.6;
+function isExclusivePick(confidence, odds) {
+  return confidence >= EXCLUSIVE_MIN_CONFIDENCE && Boolean(odds) && Number(odds) >= EXCLUSIVE_MIN_ODDS;
+}
+
 // history viene del más reciente al más viejo (index 0 = último
 // partido jugado) — la racha se cuenta desde el principio del array.
 function streakLabelFromHistory(history) {
@@ -191,9 +201,11 @@ export default async function handler(req, res) {
     // jugador (antes salía de UN lote compartido entre TODOS los
     // jugadores de TODOS los picks a la vez, con un límite fijo — un
     // jugador poco activo terminaba con 1 solo partido en su
-    // historial en vez de sus 10 reales, porque el límite se llenaba
-    // con la actividad de jugadores más activos antes de llegar a
-    // él). Se piden todas en paralelo, cada una acotada a 10 filas.
+    // historial en vez de sus reales, porque el límite se llenaba con
+    // la actividad de jugadores más activos antes de llegar a él). Se
+    // piden todas en paralelo, cada una acotada a 20 filas (el tope
+    // real que puede pedir premium con el selector L20; el recorte a
+    // 5 para cuentas gratis pasa en PickDetailModal, no acá).
     const rawHistoryByPlayer = new Map();
     await Promise.all(
       allIds.map(async (id) => {
@@ -203,7 +215,7 @@ export default async function handler(req, res) {
           .eq('status', 'finished')
           .or(`player_a_id.eq.${id},player_b_id.eq.${id}`)
           .order('scheduled_at', { ascending: false })
-          .limit(10);
+          .limit(20);
         rawHistoryByPlayer.set(id, data || []);
       })
     );
@@ -348,6 +360,7 @@ export default async function handler(req, res) {
       confidence,
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
+      exclusive: isExclusivePick(confidence, pick.odds),
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
@@ -369,9 +382,13 @@ export default async function handler(req, res) {
   // el de mayor confianza. Si ninguno tiene cuota >1.60 (o cuota del
   // todo), cae al de mayor confianza general para no dejar Inicio sin
   // destacado solo porque el cruce con Rushbet no encontró esa cuota.
-  const picksWithGoodOdds = picks.filter((p) => p.odds && p.odds > 1.6);
+  // Los picks exclusivos quedan afuera de este cálculo a propósito: el
+  // destacado se ve sin login premium, nunca puede ser uno de los que
+  // se supone son solo para quien paga.
+  const publicPicks = picks.filter((p) => !p.exclusive);
+  const picksWithGoodOdds = publicPicks.filter((p) => p.odds && p.odds > 1.6);
   const topConfidence =
-    (picksWithGoodOdds.length ? picksWithGoodOdds : picks).slice().sort((a, b) => b.confidence - a.confidence)[0];
+    (picksWithGoodOdds.length ? picksWithGoodOdds : publicPicks).slice().sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
 
   const resolvedPicks = resolvedPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament, score, setScores }) => {
@@ -397,6 +414,7 @@ export default async function handler(req, res) {
       confidence,
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
+      exclusive: isExclusivePick(confidence, pick.odds),
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,

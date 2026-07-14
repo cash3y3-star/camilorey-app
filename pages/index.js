@@ -77,7 +77,15 @@ const TRANSLATIONS = {
     tabPendientes: 'Pendientes',
     tabGanados: 'Ganados',
     tabPerdidos: 'Perdidos',
+    tabExclusivos: 'Exclusivos',
     noHayPicksCategoria: 'No hay picks en esta categoría todavía.',
+    exclusivosLockTitle: 'Picks Exclusivos',
+    exclusivosLockDesc:
+      'Los picks de alta confianza con cuota de valor (1.60 o más) son solo para cuentas premium. Mejora tu plan para verlos.',
+    exclusivosVacio: 'Todavía no hay picks exclusivos activos — vuelve más tarde.',
+    balanceExclusivoTitle: 'Balance Exclusivo',
+    balanceExclusivoSub: 'El acierto real de los picks exclusivos (alta confianza + cuota 1.60+), aparte del balance general.',
+    historialCompletoLock: 'El historial completo (L10/L20) es beneficio premium — mejora tu plan para verlo.',
 
     calendarioEyebrow: 'Liga Pro Checa',
     calendarioTitle: 'Calendario',
@@ -335,7 +343,14 @@ const TRANSLATIONS = {
     tabPendientes: 'Pending',
     tabGanados: 'Won',
     tabPerdidos: 'Lost',
+    tabExclusivos: 'Exclusive',
     noHayPicksCategoria: 'No picks in this category yet.',
+    exclusivosLockTitle: 'Exclusive Picks',
+    exclusivosLockDesc: 'High-confidence picks with value odds (1.60+) are premium-only. Upgrade your plan to see them.',
+    exclusivosVacio: 'No active exclusive picks yet — check back later.',
+    balanceExclusivoTitle: 'Exclusive Balance',
+    balanceExclusivoSub: 'Real hit rate of the exclusive picks (high confidence + 1.60+ odds), tracked apart from the overall balance.',
+    historialCompletoLock: 'Full history (L10/L20) is a premium perk — upgrade your plan to see it.',
 
     calendarioEyebrow: 'Czech Liga Pro',
     calendarioTitle: 'Schedule',
@@ -592,7 +607,14 @@ const TRANSLATIONS = {
     tabPendientes: 'Pendentes',
     tabGanados: 'Ganhos',
     tabPerdidos: 'Perdidos',
+    tabExclusivos: 'Exclusivos',
     noHayPicksCategoria: 'Ainda não há picks nesta categoria.',
+    exclusivosLockTitle: 'Picks Exclusivos',
+    exclusivosLockDesc: 'Os picks de alta confiança com odds de valor (1.60+) são só para contas premium. Melhore seu plano para vê-los.',
+    exclusivosVacio: 'Ainda não há picks exclusivos ativos — volte mais tarde.',
+    balanceExclusivoTitle: 'Banca Exclusiva',
+    balanceExclusivoSub: 'O acerto real dos picks exclusivos (alta confiança + odds 1.60+), separado da banca geral.',
+    historialCompletoLock: 'O histórico completo (L10/L20) é benefício premium — melhore seu plano para vê-lo.',
 
     calendarioEyebrow: 'Liga Pro Checa',
     calendarioTitle: 'Calendário',
@@ -1132,6 +1154,17 @@ function confidenceTier(confidence) {
   return 'baja';
 }
 
+// Pick "exclusivo" (solo premium/admin, ver 2026-07-14) = confianza
+// alta (mismo umbral que confidenceTier) + cuota real de valor. No es
+// una columna aparte en la base: se calcula siempre igual a partir de
+// confidence/odds, tanto acá (SSR) como en cualquier otro lugar que
+// necesite saber si un pick es exclusivo.
+const EXCLUSIVE_MIN_CONFIDENCE = 85;
+const EXCLUSIVE_MIN_ODDS = 1.6;
+function isExclusivePick(confidence, odds) {
+  return confidence >= EXCLUSIVE_MIN_CONFIDENCE && Boolean(odds) && Number(odds) >= EXCLUSIVE_MIN_ODDS;
+}
+
 // history viene del más reciente al más viejo (index 0 = último
 // partido jugado) — la racha se cuenta desde el principio del array.
 function streakLabelFromHistory(history) {
@@ -1316,9 +1349,11 @@ export async function getServerSideProps({ query }) {
     // jugador (antes salía de UN lote compartido entre TODOS los
     // jugadores de TODOS los picks a la vez, con un límite fijo — un
     // jugador poco activo terminaba con 1 solo partido en su
-    // historial en vez de sus 10 reales, porque el límite se llenaba
+    // historial en vez de sus reales, porque el límite se llenaba
     // con la actividad de jugadores más activos antes de llegar a
-    // él). Se piden todas en paralelo, cada una acotada a 10 filas.
+    // él). Se piden todas en paralelo, cada una acotada a 20 filas
+    // (el tope real que puede pedir premium con el selector L20; el
+    // recorte a 5 para cuentas gratis pasa en PickDetailModal, no acá).
     const rawHistoryByPlayer = new Map();
     await Promise.all(
       allIds.map(async (id) => {
@@ -1328,7 +1363,7 @@ export async function getServerSideProps({ query }) {
           .eq('status', 'finished')
           .or(`player_a_id.eq.${id},player_b_id.eq.${id}`)
           .order('scheduled_at', { ascending: false })
-          .limit(10);
+          .limit(20);
         rawHistoryByPlayer.set(id, data || []);
       })
     );
@@ -1473,6 +1508,7 @@ export async function getServerSideProps({ query }) {
       confidence,
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
+      exclusive: isExclusivePick(confidence, pick.odds),
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
@@ -1491,9 +1527,14 @@ export async function getServerSideProps({ query }) {
   // el de mayor confianza. Si ninguno tiene cuota >1.60 (o cuota del
   // todo), cae al de mayor confianza general para no dejar Inicio sin
   // destacado solo porque el cruce con Rushbet no encontró esa cuota.
-  const picksWithGoodOdds = picks.filter((p) => p.odds && p.odds > 1.6);
+  // Los picks exclusivos quedan afuera de este cálculo a propósito:
+  // el destacado se ve en Inicio SIN estar logueado como premium, así
+  // que nunca puede ser uno de los picks que se supone son solo para
+  // quien paga.
+  const publicPicks = picks.filter((p) => !p.exclusive);
+  const picksWithGoodOdds = publicPicks.filter((p) => p.odds && p.odds > 1.6);
   const topConfidence =
-    (picksWithGoodOdds.length ? picksWithGoodOdds : picks).slice().sort((a, b) => b.confidence - a.confidence)[0];
+    (picksWithGoodOdds.length ? picksWithGoodOdds : publicPicks).slice().sort((a, b) => b.confidence - a.confidence)[0];
   if (topConfidence) topConfidence.featured = true;
 
   const resolvedPicks = resolvedPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament, score, setScores }) => {
@@ -1519,6 +1560,7 @@ export async function getServerSideProps({ query }) {
       confidence,
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
+      exclusive: isExclusivePick(confidence, pick.odds),
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
@@ -1972,7 +2014,15 @@ function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = ''
 // en pantalla pedía su propio marcador cada 8s por separado, así que
 // con varios partidos en vivo a la vez se disparaban pedidos
 // duplicados al mismo endpoint una y otra vez.
-function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsFormat = 'decimal', live }) {
+function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsFormat = 'decimal', live, canSeeFullHistory = false }) {
+  // El chip de H2H de la tarjeta respeta el mismo tope que el modal de
+  // detalle (5 gratis, 20 premium) — si no, alguien gratis vería un
+  // "7-3" acá que ya cuenta más de los 5 cruces que se supone puede ver.
+  const cardH2HMax = canSeeFullHistory ? 20 : 5;
+  const cardH2HMatches = (pick.h2hMatches || []).slice(0, cardH2HMax);
+  const cardH2HTotal = cardH2HMatches.length;
+  const cardH2HWins = cardH2HMatches.filter((m) => m.win).length;
+  const cardH2H = `${cardH2HWins}-${cardH2HTotal - cardH2HWins}`;
   let liveSetsWonA = null;
   let liveSetsWonB = null;
   if (pick.matchStatus === 'live' && live) {
@@ -2014,6 +2064,8 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
       <div className="pc-head">
         {featured ? (
           <span className="tier-badge tier-featured">★ Pick destacado del día</span>
+        ) : pick.exclusive ? (
+          <span className="tier-badge tier-exclusive">👑 Exclusivo</span>
         ) : (
           <span className={`tier-badge tier-${pick.tier}`}>{TIER_LABEL[pick.tier]}</span>
         )}
@@ -2077,12 +2129,12 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           ))}
         </div>
       ) : null}
-      {pick.streakLabel || pick.h2hTotal > 0 ? (
+      {pick.streakLabel || cardH2HTotal > 0 ? (
         <div className="pc-stats-row">
-          {pick.h2hTotal > 0 ? (
+          {cardH2HTotal > 0 ? (
             <div className="pc-stat">
               <span className="l">H2H</span>
-              <span className="v num">{pick.h2h}</span>
+              <span className="v num">{cardH2H}</span>
             </div>
           ) : null}
           {pick.streakLabel ? (
@@ -2705,15 +2757,17 @@ function buildRichAnalysis(pick, t) {
 // Análisis (el texto de por qué es favorito) y H2H (cruce directo
 // partido por partido). Todo lo que se muestra sale de datos reales
 // que ya calculamos — no se inventa ningún número.
-function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
+function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFullHistory = false }) {
   const t = useTranslate(lang);
   const [tab, setTab] = useState('resumen');
   // "Estadísticas" ahora es un solo tab con 3 botones (local/H2H/
-  // visitante) y un selector de cantidad aparte — L5/L10 para forma
-  // reciente, L5/L10/L20 para H2H (el H2H suelto que había antes se
-  // fusionó acá).
+  // visitante) y un selector de cantidad aparte — L5/L10/L20 para
+  // forma reciente y para H2H (el H2H suelto que había antes se
+  // fusionó acá). L10/L20 son beneficio premium (ver 2026-07-14):
+  // quien no es admin/premium queda fijo en L5, sin selector.
   const [statSide, setStatSide] = useState('local');
-  const [statRange, setStatRange] = useState(10);
+  const [statRange, setStatRange] = useState(canSeeFullHistory ? 10 : 5);
+  const maxRange = canSeeFullHistory ? 20 : 5;
 
   // Local (camiseta roja) siempre a la izquierda, visitante (azul) a
   // la derecha — pick.player/pick.opponent están ordenados por
@@ -2731,12 +2785,20 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
   // por separado, respetando el selector de cantidad.
   const leftHistoryFull = leftIsFavored ? pick.history : pick.opponentHistory;
   const rightHistoryFull = leftIsFavored ? pick.opponentHistory : pick.history;
-  const displayLeftHistory = leftHistoryFull.slice(0, Math.min(statRange, 10));
-  const displayRightHistory = rightHistoryFull.slice(0, Math.min(statRange, 10));
+  const displayLeftHistory = leftHistoryFull.slice(0, Math.min(statRange, maxRange));
+  const displayRightHistory = rightHistoryFull.slice(0, Math.min(statRange, maxRange));
   const hitsLeft = displayLeftHistory.filter((m) => m.win).length;
   const hitsRight = displayRightHistory.filter((m) => m.win).length;
-  const displayH2H = pick.h2hMatches.slice(0, statRange);
+  const displayH2H = pick.h2hMatches.slice(0, Math.min(statRange, maxRange));
   const hitsH2H = displayH2H.filter((m) => m.win).length;
+
+  // El resumen (pestaña Resumen, no Estadísticas) siempre muestra el
+  // récord H2H al tope permitido para este viewer (5 gratis, 20
+  // premium) — independiente de qué L5/L10/L20 haya elegido en la
+  // otra pestaña, para no mostrar dos números de H2H distintos en el
+  // mismo modal.
+  const resumenH2HMatches = pick.h2hMatches.slice(0, maxRange);
+  const resumenH2HWins = resumenH2HMatches.filter((m) => m.win).length;
 
   const isDone = pick.result === 'hit' || pick.result === 'miss';
   const won = pick.result === 'hit';
@@ -2843,11 +2905,13 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
                   <span className="stat-row-value num">{pick.streakLabel || '—'}</span>
                 </div>
               </div>
-              {pick.h2hTotal > 0 ? (
+              {resumenH2HMatches.length > 0 ? (
                 <div className="stat-row">
                   <div className="stat-row-top">
                     <span className="stat-row-label">⚔️ H2H</span>
-                    <span className="stat-row-value num">{pick.h2h}</span>
+                    <span className="stat-row-value num">
+                      {resumenH2HWins}-{resumenH2HMatches.length - resumenH2HWins}
+                    </span>
                   </div>
                 </div>
               ) : null}
@@ -2871,14 +2935,18 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
               <div className={`tab ${statRange === 5 ? 'active' : ''}`} onClick={() => setStatRange(5)}>
                 L5
               </div>
-              <div className={`tab ${statRange === 10 ? 'active' : ''}`} onClick={() => setStatRange(10)}>
-                L10
+              <div
+                className={`tab ${statRange === 10 ? 'active' : ''} ${!canSeeFullHistory ? 'tab-locked' : ''}`}
+                onClick={() => (canSeeFullHistory ? setStatRange(10) : alert(t('historialCompletoLock')))}
+              >
+                L10 {!canSeeFullHistory ? <ProfileIcon name="lock" size={10} /> : null}
               </div>
-              {statSide === 'h2h' ? (
-                <div className={`tab ${statRange === 20 ? 'active' : ''}`} onClick={() => setStatRange(20)}>
-                  L20
-                </div>
-              ) : null}
+              <div
+                className={`tab ${statRange === 20 ? 'active' : ''} ${!canSeeFullHistory ? 'tab-locked' : ''}`}
+                onClick={() => (canSeeFullHistory ? setStatRange(20) : alert(t('historialCompletoLock')))}
+              >
+                L20 {!canSeeFullHistory ? <ProfileIcon name="lock" size={10} /> : null}
+              </div>
             </div>
 
             {statSide === 'local' ? (
@@ -4774,10 +4842,10 @@ const RISK_LEVELS = {
   agresivo: { label: 'Agresivo', sub: 'Kelly completo', multiplier: 1 }
 };
 
-// Mi Bankroll queda abierto para TODOS (no solo admin) por 7 días
-// desde que se activó esta prueba gratuita — pasada esta fecha,
-// vuelve a quedar detrás del candado premium para quien no sea admin.
-const MIBANKROLL_TRIAL_END = new Date('2026-07-20T23:59:59-05:00').getTime();
+// Mi Bankroll fue gratis para TODOS (no solo admin) como prueba —
+// cerrada a mano el 2026-07-14: de acá en más vuelve a ser función
+// premium real para quien no sea admin/premium.
+const MIBANKROLL_TRIAL_END = new Date('2026-07-14T00:00:00-05:00').getTime();
 
 // Prueba cerrada del sitio completo: hasta esta fecha, solo entran el
 // admin y quien esté en la tabla "beta_access" (Supabase). Pasada esta
@@ -5312,6 +5380,24 @@ export default function Home({
   // el correo de quien pagó. premium_until vencida o null = gratuito.
   const isPremium = Boolean(myProfile?.premium_until && new Date(myProfile.premium_until) > new Date());
 
+  // Picks "exclusivos" (alta confianza + cuota de valor, ver
+  // isExclusivePick en getServerSideProps/refresh-data.js) son
+  // beneficio premium — no se muestran en ninguna lista pública para
+  // quien no sea admin/premium. Se filtran acá, en un solo lugar, en
+  // vez de en cada sitio que use "picks"/"resolvedPicks" para pintar
+  // algo visible a cualquiera.
+  const canSeeExclusive = isAdmin || isPremium;
+  const visiblePicks = useMemo(
+    () => (canSeeExclusive ? picks : picks.filter((p) => !p.exclusive)),
+    [picks, canSeeExclusive]
+  );
+  const visibleResolvedPicks = useMemo(
+    () => (canSeeExclusive ? resolvedPicks : resolvedPicks.filter((p) => !p.exclusive)),
+    [resolvedPicks, canSeeExclusive]
+  );
+  const exclusivePicks = useMemo(() => picks.filter((p) => p.exclusive), [picks]);
+  const exclusiveResolvedPicks = useMemo(() => resolvedPicks.filter((p) => p.exclusive), [resolvedPicks]);
+
   // Prueba cerrada: mientras estemos antes de BETA_GATE_END, cualquier
   // correo de la tabla beta_access entra también, no solo el admin.
   // Pasada esa fecha, betaAllowed solo puede ser true si isAdmin.
@@ -5344,7 +5430,7 @@ export default function Home({
     };
   }, [user, isAdmin]);
 
-  const featured = picks.find((p) => p.featured) || picks[0] || null;
+  const featured = visiblePicks.find((p) => p.featured) || visiblePicks[0] || null;
 
   // Estadísticas del modelo (¿la confianza que calculamos de verdad
   // predice mejor que una moneda al aire?) — solo se consulta cuando
@@ -5396,6 +5482,31 @@ export default function Home({
       cancelled = true;
     };
   }, [view, isAdmin]);
+
+  // Balance de los picks exclusivos — solo se consulta cuando alguien
+  // con acceso entra a la pestaña "Exclusivos" dentro de Picks.
+  const [exclusiveBalance, setExclusiveBalance] = useState(null);
+  const [exclusiveBalanceError, setExclusiveBalanceError] = useState(null);
+  useEffect(() => {
+    if (view !== 'picks' || pickTab !== 'exclusivos' || !canSeeExclusive || !supabaseClient) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/exclusive-balance', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok) setExclusiveBalanceError(data.error || 'Error cargando el balance exclusivo.');
+        else setExclusiveBalance(data);
+      } catch (e) {
+        if (!cancelled) setExclusiveBalanceError(e.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, pickTab, canSeeExclusive]);
 
   // Errores de la app (getServerSideProps, rutas API) — mismo patrón
   // que Modelo: solo se consulta al entrar a esa pestaña.
@@ -5498,12 +5609,16 @@ export default function Home({
 
   const tabPicks =
     pickTab === 'pendientes'
-      ? picks
+      ? visiblePicks
       : pickTab === 'ganados'
-      ? resolvedPicks.filter((p) => p.result === 'hit')
+      ? visibleResolvedPicks.filter((p) => p.result === 'hit')
       : pickTab === 'perdidos'
-      ? resolvedPicks.filter((p) => p.result === 'miss')
-      : [...picks, ...resolvedPicks];
+      ? visibleResolvedPicks.filter((p) => p.result === 'miss')
+      : pickTab === 'exclusivos'
+      ? canSeeExclusive
+        ? [...exclusivePicks, ...exclusiveResolvedPicks]
+        : []
+      : [...visiblePicks, ...visibleResolvedPicks];
 
   // "Mi Bankroll": mismo cálculo de Kelly que el Bankroll del admin,
   // pero corriendo solo sobre los picks que ESTA persona sigue (no
@@ -5893,6 +6008,7 @@ export default function Home({
                 featured
                 oddsFormat={oddsFormat}
                 live={liveScores[featured.sourceId]}
+                canSeeFullHistory={canSeeExclusive}
               />
             </>
           ) : (
@@ -5937,30 +6053,79 @@ export default function Home({
               ['todos', t('tabTodos')],
               ['pendientes', t('tabPendientes')],
               ['ganados', t('tabGanados')],
-              ['perdidos', t('tabPerdidos')]
+              ['perdidos', t('tabPerdidos')],
+              ['exclusivos', t('tabExclusivos')]
             ].map(([key, label]) => (
               <div key={key} className={`tab ${pickTab === key ? 'active' : ''}`} onClick={() => setPickTab(key)}>
                 {label}
+                {key === 'exclusivos' && !canSeeExclusive ? <ProfileIcon name="lock" size={11} /> : null}
               </div>
             ))}
           </div>
-          <div className="pick-grid">
-            {tabPicks.length === 0 ? (
-              <p className="page-sub">{t('noHayPicksCategoria')}</p>
-            ) : (
-              tabPicks.map((p) => (
-                <PickCard
-                  key={p.id}
-                  pick={p}
-                  onClick={() => setModalPick(p)}
-                  followed={followedPickIds.has(p.id)}
-                  onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
-                  oddsFormat={oddsFormat}
-                  live={liveScores[p.sourceId]}
-                />
-              ))
-            )}
-          </div>
+          {pickTab === 'exclusivos' && !canSeeExclusive ? (
+            <div className="premium-lock-card">
+              <div className="premium-lock-icon">
+                <ProfileIcon name="lock" size={22} />
+              </div>
+              <h3>{t('exclusivosLockTitle')}</h3>
+              <p>{t('exclusivosLockDesc')}</p>
+            </div>
+          ) : (
+            <>
+              {pickTab === 'exclusivos' ? (
+                <>
+                  <div className="section-head">
+                    <h2>{t('balanceExclusivoTitle')}</h2>
+                  </div>
+                  <p className="page-sub">{t('balanceExclusivoSub')}</p>
+                  {exclusiveBalanceError ? (
+                    <p className="page-sub">Error: {exclusiveBalanceError}</p>
+                  ) : !exclusiveBalance ? (
+                    <p className="page-sub">{t('cargando')}</p>
+                  ) : exclusiveBalance.n === 0 ? null : (
+                    <div className="stat-strip stat-strip-3">
+                      <div className="stat-card">
+                        <div className="label">{t('statEfectividad')}</div>
+                        <div className="value hit num">{Math.round(exclusiveBalance.hitRate * 100)}%</div>
+                      </div>
+                      <div className="stat-card">
+                        <div className="label">{t('statRachaActual')}</div>
+                        <div className="value num">
+                          {exclusiveBalance.racha === 0
+                            ? '—'
+                            : `${Math.abs(exclusiveBalance.racha)}${exclusiveBalance.racha > 0 ? 'W' : 'L'}`}
+                        </div>
+                      </div>
+                      <div className="stat-card">
+                        <div className="label">{t('statBalance')}</div>
+                        <div className={`value num ${exclusiveBalance.balance >= 0 ? 'hit' : 'miss'}`}>
+                          {formatCOP(exclusiveBalance.balance)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : null}
+              <div className="pick-grid">
+                {tabPicks.length === 0 ? (
+                  <p className="page-sub">{pickTab === 'exclusivos' ? t('exclusivosVacio') : t('noHayPicksCategoria')}</p>
+                ) : (
+                tabPicks.map((p) => (
+                  <PickCard
+                    key={p.id}
+                    pick={p}
+                    onClick={() => setModalPick(p)}
+                    followed={followedPickIds.has(p.id)}
+                    onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
+                    oddsFormat={oddsFormat}
+                    live={liveScores[p.sourceId]}
+                    canSeeFullHistory={canSeeExclusive}
+                  />
+                ))
+              )}
+              </div>
+            </>
+          )}
         </section>
 
         <section className={`view ${view === 'calendario' ? 'active' : ''}`}>
@@ -6805,7 +6970,13 @@ export default function Home({
       </nav>
 
       {modalPick && (
-        <PickDetailModal pick={modalPick} onClose={() => setModalPick(null)} oddsFormat={oddsFormat} lang={lang} />
+        <PickDetailModal
+          pick={modalPick}
+          onClose={() => setModalPick(null)}
+          oddsFormat={oddsFormat}
+          lang={lang}
+          canSeeFullHistory={canSeeExclusive}
+        />
       )}
 
       {modalMatch && (
@@ -7123,6 +7294,7 @@ const CSS = `
   .tier-badge.tier-media{background:rgba(255,193,7,.16); color:#FFC845;}
   .tier-badge.tier-baja{background:var(--bg-alt); color:var(--muted);}
   .tier-badge.tier-featured{background:rgba(255,122,69,.18); color:var(--ball);}
+  .tier-badge.tier-exclusive{background:rgba(255,193,7,.18); color:#FFC845;}
 
   .pc-vs{display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:12px;}
   .pc-player{display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; min-width:0;}
@@ -7322,6 +7494,8 @@ const CSS = `
     display:inline-flex; align-items:center; gap:6px;
   }
   .tab.active{background:var(--court); color:#fff; border-color:var(--court);}
+  .tab.tab-locked{color:var(--muted); opacity:.6;}
+  .tab.tab-locked.active{background:var(--bg-alt); color:var(--muted); border-color:var(--line);}
 
   .status{font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; flex:none;}
   .status.live{background:rgba(226,68,74,.18); color:var(--court); border:1px solid rgba(226,68,74,.5);}
