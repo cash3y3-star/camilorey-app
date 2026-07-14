@@ -15,11 +15,12 @@ const VIEWS = [
   'errores',
   'mibankroll',
   'actividad',
+  'destacados',
   'admin'
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
 // bajo un solo botón "Admin" (ver la sección admin más abajo).
-const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad'];
+const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 const LANG_KEY = 'camilorey_lang';
@@ -44,6 +45,7 @@ const TRANSLATIONS = {
     navGrupos: 'Grupos',
     navModelo: 'Modelo',
     navErrores: 'Errores',
+    navDestacados: 'Destacados',
     entrar: 'Entrar',
     cerrarSesion: 'Cerrar sesión',
     cargando: 'Cargando…',
@@ -301,6 +303,7 @@ const TRANSLATIONS = {
     navGrupos: 'Groups',
     navModelo: 'Model',
     navErrores: 'Errors',
+    navDestacados: 'Featured',
     entrar: 'Sign in',
     cerrarSesion: 'Sign out',
     cargando: 'Loading…',
@@ -557,6 +560,7 @@ const TRANSLATIONS = {
     navGrupos: 'Grupos',
     navModelo: 'Modelo',
     navErrores: 'Erros',
+    navDestacados: 'Destaques',
     entrar: 'Entrar',
     cerrarSesion: 'Sair',
     cargando: 'Carregando…',
@@ -3046,6 +3050,58 @@ function ModelStatsView({ stats }) {
   );
 }
 
+// Historial real de qué pick estuvo marcado como "destacado" cuando
+// se resolvió — viene de picks.featured (persistido en scripts/sync.js,
+// ver updateFeaturedPick), no de un cálculo en vivo en el navegador.
+function FeaturedHistoryView({ data }) {
+  return (
+    <>
+      <div className="stat-strip stat-strip-3">
+        <div className="stat-card">
+          <div className="label">Destacados resueltos</div>
+          <div className="value num">{data.n}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Efectividad</div>
+          <div className="value hit num">{data.hitRate == null ? '—' : `${Math.round(data.hitRate * 100)}%`}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Aciertos / Fallos</div>
+          <div className="value num">
+            {data.hits}/{data.misses}
+          </div>
+        </div>
+      </div>
+
+      <div className="section-head">
+        <h2>Últimos {data.picks.length} destacados</h2>
+      </div>
+      <div className="form-list">
+        {data.picks.map((p) => (
+          <div className="form-list-row" key={p.id}>
+            <div className="form-list-meta">
+              <span className="form-list-date">{shortDate(p.created_at)}</span>
+              <span className="form-list-ft">{p.market}</span>
+            </div>
+            <div className="form-list-opp">
+              confianza
+              <span className="form-list-score num">{Math.round(p.confidence)}%</span>
+              {p.odds ? <span className="form-list-score num">cuota {Number(p.odds).toFixed(2)}</span> : null}
+            </div>
+            {p.result === 'pending' ? (
+              <span className="status soon">Pendiente</span>
+            ) : (
+              <span className={`form-list-badge ${p.result === 'hit' ? 'win' : 'loss'}`}>
+                {p.result === 'hit' ? 'W' : 'L'}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function GroupTable({ group }) {
   return (
     <div className="standings-card">
@@ -5316,6 +5372,31 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
+  // Historial de picks destacados — mismo patrón que Modelo: solo se
+  // consulta al entrar a esa pestaña.
+  const [featuredHistory, setFeaturedHistory] = useState(null);
+  const [featuredHistoryError, setFeaturedHistoryError] = useState(null);
+  useEffect(() => {
+    if (view !== 'destacados' || !isAdmin || !supabaseClient) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/featured-history', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok) setFeaturedHistoryError(data.error || 'Error cargando el historial de destacados.');
+        else setFeaturedHistory(data);
+      } catch (e) {
+        if (!cancelled) setFeaturedHistoryError(e.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isAdmin]);
+
   // Errores de la app (getServerSideProps, rutas API) — mismo patrón
   // que Modelo: solo se consulta al entrar a esa pestaña.
   const [errorLog, setErrorLog] = useState(null);
@@ -5992,6 +6073,16 @@ export default function Home({
             </div>
             <ProfileIcon name="chevron-right" size={16} />
           </a>
+          <a className="profile-row" href="#destacados">
+            <span className="profile-row-icon">
+              <ProfileIcon name="target" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('navDestacados')}</strong>
+              <p>Historial real de qué pick se destacó cada día y si acertó</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
 
           <div className="profile-section-label" style={{ marginTop: '22px' }}>
             PREMIUM MANUAL
@@ -6393,6 +6484,26 @@ export default function Home({
                 ))}
               </div>
             </>
+          )}
+        </section>
+        )}
+
+        {isAdmin && (
+        <section className={`view ${view === 'destacados' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
+          <span className="eyebrow">Solo tú ves esto</span>
+          <h1 className="page-title">{t('navDestacados')}</h1>
+          <p className="page-sub">Qué pick destacamos cada día en Inicio y si acertó — control real, no cálculo en vivo.</p>
+          {featuredHistoryError ? (
+            <p className="page-sub">Error: {featuredHistoryError}</p>
+          ) : !featuredHistory ? (
+            <p className="page-sub">Cargando…</p>
+          ) : featuredHistory.picks.length === 0 ? (
+            <p className="page-sub">Todavía no hay picks destacados registrados.</p>
+          ) : (
+            <FeaturedHistoryView data={featuredHistory} />
           )}
         </section>
         )}

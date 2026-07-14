@@ -291,6 +291,37 @@ async function backfillMissingOdds(rushbetEvents) {
   return updated;
 }
 
+// Recalcula cuál pick es el "destacado" — mismo criterio que Inicio en
+// el frontend (pages/index.js): prioriza cuota real >1.60 y entre esos
+// el de mayor confianza; si ninguno tiene cuota buena, cae al de mayor
+// confianza general. Antes esto SOLO se calculaba en el navegador en
+// cada carga de página y nunca se guardaba, así que no había forma de
+// auditar después "cuál destacamos" ni si acertó. Acá lo persistimos
+// en picks.featured (la columna ya existe en el esquema, solo no se
+// escribía). Solo tocamos picks PENDIENTES: uno que ya se resolvió
+// conserva el featured que tenía en ese momento, así queda como
+// historial real en vez de recalcularse para siempre.
+async function updateFeaturedPick() {
+  const { data: pending, error } = await supabase.from('picks').select('id, confidence, odds, featured').eq('result', 'pending');
+  if (error) throw new Error(`select picks (featured): ${error.message}`);
+  if (!pending || pending.length === 0) return;
+
+  const withGoodOdds = pending.filter((p) => p.odds && p.odds > 1.6);
+  const pool = withGoodOdds.length ? withGoodOdds : pending;
+  const winner = pool.slice().sort((a, b) => b.confidence - a.confidence)[0];
+  if (!winner) return;
+
+  const toUnfeature = pending.filter((p) => p.featured && p.id !== winner.id).map((p) => p.id);
+  if (toUnfeature.length) {
+    const { error: unErr } = await supabase.from('picks').update({ featured: false }).in('id', toUnfeature);
+    if (unErr) throw new Error(`unset featured: ${unErr.message}`);
+  }
+  if (!winner.featured) {
+    const { error: setErr } = await supabase.from('picks').update({ featured: true }).eq('id', winner.id);
+    if (setErr) throw new Error(`set featured(${winner.id}): ${setErr.message}`);
+  }
+}
+
 async function syncTournamentMatches(t, widgets, rushbetEvents) {
   const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
   let matchesProcessed = 0;
@@ -481,6 +512,12 @@ async function run() {
     totals.oddsBackfilled = oddsBackfilled;
   } catch (e) {
     console.error(`Error completando cuotas pendientes: ${e.message}`);
+  }
+
+  try {
+    await updateFeaturedPick();
+  } catch (e) {
+    console.error(`Error actualizando pick destacado: ${e.message}`);
   }
 
   console.log('--- RESUMEN ---');
