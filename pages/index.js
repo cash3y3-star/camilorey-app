@@ -1086,19 +1086,30 @@ export async function getServerSideProps({ query }) {
     const allIds = [...new Set(pairs.flatMap((p) => [p.favoredId, p.opponentId]).filter(Boolean))];
     if (allIds.length === 0) return result;
 
-    const idList = allIds.join(',');
-    const { data } = await supabase
-      .from('matches')
-      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
-      .eq('status', 'finished')
-      .or(`player_a_id.in.(${idList}),player_b_id.in.(${idList})`)
-      .order('scheduled_at', { ascending: false })
-      .limit(5000);
-    const rows = data || [];
-
-    const missingOpponentIds = [...new Set(rows.flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(
-      (id) => id && !playersById.has(id)
+    // Forma reciente de cada jugador: consulta directa y acotada por
+    // jugador (antes salía de UN lote compartido entre TODOS los
+    // jugadores de TODOS los picks a la vez, con un límite fijo — un
+    // jugador poco activo terminaba con 1 solo partido en su
+    // historial en vez de sus 10 reales, porque el límite se llenaba
+    // con la actividad de jugadores más activos antes de llegar a
+    // él). Se piden todas en paralelo, cada una acotada a 10 filas.
+    const rawHistoryByPlayer = new Map();
+    await Promise.all(
+      allIds.map(async (id) => {
+        const { data } = await supabase
+          .from('matches')
+          .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
+          .eq('status', 'finished')
+          .or(`player_a_id.eq.${id},player_b_id.eq.${id}`)
+          .order('scheduled_at', { ascending: false })
+          .limit(10);
+        rawHistoryByPlayer.set(id, data || []);
+      })
     );
+
+    const missingOpponentIds = [
+      ...new Set([...rawHistoryByPlayer.values()].flat().flatMap((m) => [m.player_a_id, m.player_b_id]))
+    ].filter((id) => id && !playersById.has(id));
     if (missingOpponentIds.length) {
       const { data: extra } = await supabase
         .from('players')
@@ -1107,21 +1118,25 @@ export async function getServerSideProps({ query }) {
       for (const p of extra || []) playersById.set(p.id, p);
     }
 
-    const byPlayer = new Map(allIds.map((id) => [id, []]));
-    for (const m of rows) {
-      if (byPlayer.has(m.player_a_id)) byPlayer.get(m.player_a_id).push(m);
-      if (byPlayer.has(m.player_b_id)) byPlayer.get(m.player_b_id).push(m);
-    }
+    const historyFor = (playerId) =>
+      (rawHistoryByPlayer.get(playerId) || []).map((m) => {
+        const isA = m.player_a_id === playerId;
+        const oppId = isA ? m.player_b_id : m.player_a_id;
+        return {
+          date: m.scheduled_at,
+          opponent: playersById.get(oppId)?.name || '?',
+          setsFor: isA ? m.sets_a : m.sets_b,
+          setsAgainst: isA ? m.sets_b : m.sets_a,
+          win: m.winner_id === playerId
+        };
+      });
 
-    // H2H aparte del lote de arriba: ese lote está compartido entre
-    // TODOS los jugadores de TODOS los picks a la vez, con un límite
-    // de 5000 filas — con tanto historial ya cargado (backfill), ese
-    // límite se llena antes de llegar a los cruces reales de la
-    // mayoría de parejas, y el H2H salía en 0 aunque sí se hayan
-    // enfrentado (confirmado: un cruce con 20 partidos reales salía
-    // como "0 enfrentamientos"). Esta consulta va directo por cada
-    // pareja exacta (favorito↔rival), en lotes de 15 para no armar
-    // una sola consulta gigante.
+    // H2H: mismo problema que la forma reciente de arriba tenía antes
+    // (un lote compartido con límite fijo se quedaba corto para
+    // parejas poco activas — confirmado: un cruce con 20 partidos
+    // reales salía como "0 enfrentamientos"). Esta consulta va directo
+    // por cada pareja exacta (favorito↔rival), en lotes de 15 para no
+    // armar una sola consulta gigante.
     const pairKey = (id1, id2) => (id1 < id2 ? `${id1}:${id2}` : `${id2}:${id1}`);
     const uniquePairKeys = [
       ...new Set(pairs.filter((p) => p.favoredId && p.opponentId).map((p) => pairKey(p.favoredId, p.opponentId)))
@@ -1155,22 +1170,6 @@ export async function getServerSideProps({ query }) {
         h2hRowsByPair.get(key).push(m);
       }
     }
-
-    // Forma reciente de UN jugador cualquiera (favorito o rival) — se
-    // arma igual para los dos, a partir del mismo lote compartido de
-    // arriba (ese sí sirve bien para esto, a diferencia del H2H).
-    const historyFor = (playerId) =>
-      (byPlayer.get(playerId) || []).slice(0, 10).map((m) => {
-        const isA = m.player_a_id === playerId;
-        const oppId = isA ? m.player_b_id : m.player_a_id;
-        return {
-          date: m.scheduled_at,
-          opponent: playersById.get(oppId)?.name || '?',
-          setsFor: isA ? m.sets_a : m.sets_b,
-          setsAgainst: isA ? m.sets_b : m.sets_a,
-          win: m.winner_id === playerId
-        };
-      });
 
     for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
       const history = historyFor(favoredId);
