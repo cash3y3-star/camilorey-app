@@ -149,6 +149,11 @@ const TRANSLATIONS = {
     plansPeriodAnual: 'año',
     plansSavingsAnual: ' — Ahorras US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancela cuando quieras',
+    premiumWelcomeEyebrow: 'Suscripción activa',
+    premiumWelcomeTitle: 'Bienvenido a CAMILOREY Premium',
+    premiumWelcomeSub: 'Tu suscripción está activa hasta {date}.',
+    premiumWelcomeCardName: 'CAMILOREY Premium',
+    premiumWelcomeCta: 'Comenzar a Explorar',
     cuentaTitle: 'Cuenta',
     cuentaCambiarFoto: 'Cambiar Foto',
     cuentaFotoSoon: 'Muy pronto vas a poder cambiar tu foto de perfil.',
@@ -414,6 +419,11 @@ const TRANSLATIONS = {
     plansPeriodAnual: 'yr',
     plansSavingsAnual: ' — Save US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancel anytime',
+    premiumWelcomeEyebrow: 'Subscription active',
+    premiumWelcomeTitle: 'Welcome to CAMILOREY Premium',
+    premiumWelcomeSub: 'Your subscription is active until {date}.',
+    premiumWelcomeCardName: 'CAMILOREY Premium',
+    premiumWelcomeCta: 'Start Exploring',
     cuentaTitle: 'Account',
     cuentaCambiarFoto: 'Change Photo',
     cuentaFotoSoon: "You'll be able to change your profile photo very soon.",
@@ -678,6 +688,11 @@ const TRANSLATIONS = {
     plansPeriodAnual: 'ano',
     plansSavingsAnual: ' — Economize US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancele quando quiser',
+    premiumWelcomeEyebrow: 'Assinatura ativa',
+    premiumWelcomeTitle: 'Bem-vindo ao CAMILOREY Premium',
+    premiumWelcomeSub: 'Sua assinatura está ativa até {date}.',
+    premiumWelcomeCardName: 'CAMILOREY Premium',
+    premiumWelcomeCta: 'Começar a Explorar',
     cuentaTitle: 'Conta',
     cuentaCambiarFoto: 'Trocar Foto',
     cuentaFotoSoon: 'Muito em breve você vai poder trocar sua foto de perfil.',
@@ -3850,6 +3865,74 @@ function LoginModal({ onClose, onLogin, lang }) {
   );
 }
 
+// Pantalla de bienvenida cuando el admin activa el premium — diseño
+// inspirado en referencia guardada (banner con ícono, título, tarjeta
+// de plan), en verde en vez de dorado/naranja para que se sienta a
+// "listo, ya quedó activo" en vez de "todavía tenés que pagar" (ese
+// tono ya lo usa la pantalla de Planes). Se muestra una sola vez por
+// activación — ver el useEffect en Home que decide cuándo abrirla.
+function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
+  const t = useTranslate(lang);
+  const dateLabel = premiumUntil
+    ? new Intl.DateTimeFormat(lang === 'en' ? 'en' : lang === 'pt' ? 'pt' : 'es', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(new Date(premiumUntil))
+    : '';
+  const PLAN_FEATURES = [
+    'plansFeatCuotas',
+    'plansFeatEdge',
+    'plansFeatKelly',
+    'plansFeatIA',
+    'plansFeatH2H',
+    'plansFeatAlertas'
+  ];
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal plans-modal">
+        <div className="premium-welcome-banner">
+          <div className="premium-welcome-icon">
+            <ProfileIcon name="crown" size={30} />
+          </div>
+          <div className="risk-modal-eyebrow" style={{ textAlign: 'center' }}>
+            {t('premiumWelcomeEyebrow')}
+          </div>
+          <h3 style={{ color: '#fff', textAlign: 'center' }}>{t('premiumWelcomeTitle')}</h3>
+          <p style={{ color: 'rgba(255,255,255,.85)', fontSize: '13.5px', textAlign: 'center', margin: '10px 0 0' }}>
+            {t('premiumWelcomeSub', { date: dateLabel })}
+          </p>
+        </div>
+
+        <div className="plans-card plans-card-green">
+          <span className="plans-card-badge plans-card-badge-green">{t('plansCardBadge')}</span>
+          <div className="plans-card-head">
+            <span className="plans-card-icon plans-card-icon-green">
+              <ProfileIcon name="crown" size={20} />
+            </span>
+            <div>
+              <strong>{t('premiumWelcomeCardName')}</strong>
+              <span>{t('plansCardDesc')}</span>
+            </div>
+          </div>
+          <div className="plans-feature-list">
+            {PLAN_FEATURES.map((key) => (
+              <div className="plans-feature-row" key={key}>
+                <span>{t(key)}</span>
+                <ProfileIcon name="check" size={14} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button type="button" className="btn btn-ball plans-cta-btn premium-welcome-cta" onClick={onClose}>
+          {t('premiumWelcomeCta')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ProfileModal({
   user,
   profile,
@@ -5397,6 +5480,21 @@ export default function Home({
   );
   const exclusivePicks = useMemo(() => picks.filter((p) => p.exclusive), [picks]);
   const exclusiveResolvedPicks = useMemo(() => resolvedPicks.filter((p) => p.exclusive), [resolvedPicks]);
+
+  // Pantalla de bienvenida premium — se muestra una sola vez por cada
+  // vez que el admin activa/renueva el premium de esta cuenta. Se
+  // guarda en localStorage qué premium_until ya se "reconoció" en
+  // este navegador; si el de ahora es distinto (activación nueva o
+  // renovación con fecha más lejana), se muestra de nuevo.
+  const [showPremiumWelcome, setShowPremiumWelcome] = useState(false);
+  useEffect(() => {
+    if (!user || !isPremium || !myProfile?.premium_until || typeof window === 'undefined') return;
+    const key = `camilorey_premium_seen_${user.id}`;
+    const seen = window.localStorage.getItem(key);
+    if (seen === myProfile.premium_until) return;
+    window.localStorage.setItem(key, myProfile.premium_until);
+    setShowPremiumWelcome(true);
+  }, [user, isPremium, myProfile?.premium_until]);
 
   // Prueba cerrada: mientras estemos antes de BETA_GATE_END, cualquier
   // correo de la tabla beta_access entra también, no solo el admin.
@@ -6979,6 +7077,14 @@ export default function Home({
         />
       )}
 
+      {showPremiumWelcome && (
+        <PremiumWelcomeModal
+          onClose={() => setShowPremiumWelcome(false)}
+          lang={lang}
+          premiumUntil={myProfile?.premium_until}
+        />
+      )}
+
       {modalMatch && (
         <MatchDetailModal
           m={modalMatch}
@@ -7708,6 +7814,22 @@ const CSS = `
   .plans-feature-row svg{ color:var(--hit); flex:none; }
   .plans-cta-btn{ width:100%; justify-content:center; margin-top:18px; padding:14px; font-size:14.5px; }
   .plans-cta-note{ font-size:11.5px; color:var(--muted); text-align:center; line-height:1.5; margin:10px 0 0; }
+
+  .premium-welcome-banner{
+    padding:26px 22px 24px;
+    margin:0 -22px 18px; border-radius:20px 20px 0 0;
+    background:radial-gradient(120% 140% at 50% 0%, #1E9C74 0%, #0F5C46 55%, #06231B 100%);
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .premium-welcome-icon{
+    width:64px; height:64px; border-radius:50%; color:#5DCAA5; margin-bottom:14px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(93,202,165,.16); border:2px solid rgba(93,202,165,.5);
+  }
+  .plans-card-green{ border-color:rgba(93,202,165,.35); background:rgba(93,202,165,.08); }
+  .plans-card-badge-green{ background:#5DCAA5; color:#06231B; }
+  .plans-card-icon-green{ color:#1E9C74; background:rgba(93,202,165,.16); border-color:rgba(93,202,165,.4); }
+  .premium-welcome-cta{ background:#1E9C74; }
 
   .profile-head-clickable{ flex:1; min-width:0; margin-right:10px; }
   .profile-head-clickable svg{ flex:none; color:var(--muted); margin-left:auto; }
