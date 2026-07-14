@@ -67,6 +67,9 @@ const TRANSLATIONS = {
     statBalance: 'Balance',
     enVivoAhora: 'En vivo ahora',
     pickDestacado: 'Pick destacado del día',
+    picksVipBtn: 'PICKS VIP',
+    picksVipTitle: 'Picks VIP',
+    picksVipSub: 'El destacado del día y los picks exclusivos (alta confianza + cuota 1.60+), en un solo lugar.',
     noHayPicksActivos: 'No hay picks activos en este momento.',
     verTodosPicks: 'Ver todos los picks →',
 
@@ -338,6 +341,9 @@ const TRANSLATIONS = {
     statBalance: 'Balance',
     enVivoAhora: 'Live now',
     pickDestacado: "Today's featured pick",
+    picksVipBtn: 'VIP PICKS',
+    picksVipTitle: 'VIP Picks',
+    picksVipSub: "Today's featured pick and the exclusive picks (high confidence + 1.60+ odds), all in one place.",
     noHayPicksActivos: 'No active picks right now.',
     verTodosPicks: 'See all picks →',
 
@@ -607,6 +613,9 @@ const TRANSLATIONS = {
     statBalance: 'Saldo',
     enVivoAhora: 'Ao vivo agora',
     pickDestacado: 'Pick em destaque do dia',
+    picksVipBtn: 'PICKS VIP',
+    picksVipTitle: 'Picks VIP',
+    picksVipSub: 'O destaque do dia e os picks exclusivos (alta confiança + odds 1.60+), tudo num só lugar.',
     noHayPicksActivos: 'Não há picks ativos no momento.',
     verTodosPicks: 'Ver todos os picks →',
 
@@ -3933,6 +3942,126 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
   );
 }
 
+// "Picks VIP" — pantalla aparte (ya no una pestaña dentro de Picks,
+// ver 2026-07-14) con acceso directo desde Inicio, al lado del saludo.
+// Junta el destacado del día + los picks exclusivos + su balance
+// aparte, todo en una sola ventana para quien tiene acceso premium.
+function VipPicksModal({
+  onClose,
+  lang,
+  oddsFormat,
+  canSeeExclusive,
+  featured,
+  exclusivePicks,
+  exclusiveResolvedPicks,
+  exclusiveBalance,
+  exclusiveBalanceError,
+  followedPickIds,
+  toggleFollow,
+  liveScores,
+  onPickClick
+}) {
+  const t = useTranslate(lang);
+  const vipPicks = [...exclusivePicks, ...exclusiveResolvedPicks].slice(0, 15);
+
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal">
+        <div className="subscreen-head">
+          <button className="subscreen-back" onClick={onClose}>
+            <ProfileIcon name="arrow-left" size={18} />
+          </button>
+          <h3>{t('picksVipTitle')}</h3>
+        </div>
+        <p className="page-sub">{t('picksVipSub')}</p>
+
+        {!canSeeExclusive ? (
+          <div className="premium-lock-card">
+            <div className="premium-lock-icon">
+              <ProfileIcon name="lock" size={22} />
+            </div>
+            <h3>{t('exclusivosLockTitle')}</h3>
+            <p>{t('exclusivosLockDesc')}</p>
+          </div>
+        ) : (
+          <>
+            {featured ? (
+              <>
+                <div className="section-head">
+                  <h2>{t('pickDestacado')}</h2>
+                </div>
+                <PickCard
+                  pick={featured}
+                  onClick={() => onPickClick(featured)}
+                  followed={followedPickIds.has(featured.id)}
+                  onToggleFollow={toggleFollow}
+                  featured
+                  oddsFormat={oddsFormat}
+                  live={liveScores[featured.sourceId]}
+                  canSeeFullHistory
+                />
+              </>
+            ) : null}
+
+            <div className="section-head">
+              <h2>{t('balanceExclusivoTitle')}</h2>
+            </div>
+            <p className="page-sub">{t('balanceExclusivoSub')}</p>
+            {exclusiveBalanceError ? (
+              <p className="page-sub">Error: {exclusiveBalanceError}</p>
+            ) : !exclusiveBalance ? (
+              <p className="page-sub">{t('cargando')}</p>
+            ) : exclusiveBalance.n === 0 ? null : (
+              <div className="stat-strip stat-strip-3">
+                <div className="stat-card">
+                  <div className="label">{t('statEfectividad')}</div>
+                  <div className="value hit num">{Math.round(exclusiveBalance.hitRate * 100)}%</div>
+                </div>
+                <div className="stat-card">
+                  <div className="label">{t('statRachaActual')}</div>
+                  <div className="value num">
+                    {exclusiveBalance.racha === 0
+                      ? '—'
+                      : `${Math.abs(exclusiveBalance.racha)}${exclusiveBalance.racha > 0 ? 'W' : 'L'}`}
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="label">{t('statBalance')}</div>
+                  <div className={`value num ${exclusiveBalance.balance >= 0 ? 'hit' : 'miss'}`}>
+                    {formatCOP(exclusiveBalance.balance)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="section-head">
+              <h2>{t('tabExclusivos')}</h2>
+            </div>
+            <div className="pick-grid">
+              {vipPicks.length === 0 ? (
+                <p className="page-sub">{t('exclusivosVacio')}</p>
+              ) : (
+                vipPicks.map((p) => (
+                  <PickCard
+                    key={p.id}
+                    pick={p}
+                    onClick={() => onPickClick(p)}
+                    followed={followedPickIds.has(p.id)}
+                    onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
+                    oddsFormat={oddsFormat}
+                    live={liveScores[p.sourceId]}
+                    canSeeFullHistory
+                  />
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProfileModal({
   user,
   profile,
@@ -4962,6 +5091,7 @@ export default function Home({
   const [matchFilter, setMatchFilter] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
+  const [showVipModal, setShowVipModal] = useState(false);
   const [user, setUser] = useState(null);
 
   // Perfil editable (nombre/emoji/foto propia) — Google solo da el
@@ -5582,11 +5712,11 @@ export default function Home({
   }, [view, isAdmin]);
 
   // Balance de los picks exclusivos — solo se consulta cuando alguien
-  // con acceso entra a la pestaña "Exclusivos" dentro de Picks.
+  // con acceso abre el modal "Picks VIP".
   const [exclusiveBalance, setExclusiveBalance] = useState(null);
   const [exclusiveBalanceError, setExclusiveBalanceError] = useState(null);
   useEffect(() => {
-    if (view !== 'picks' || pickTab !== 'exclusivos' || !canSeeExclusive || !supabaseClient) return undefined;
+    if (!showVipModal || !canSeeExclusive || !supabaseClient) return undefined;
     let cancelled = false;
     (async () => {
       const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -5604,7 +5734,7 @@ export default function Home({
     return () => {
       cancelled = true;
     };
-  }, [view, pickTab, canSeeExclusive]);
+  }, [showVipModal, canSeeExclusive]);
 
   // Errores de la app (getServerSideProps, rutas API) — mismo patrón
   // que Modelo: solo se consulta al entrar a esa pestaña.
@@ -5712,10 +5842,6 @@ export default function Home({
       ? visibleResolvedPicks.filter((p) => p.result === 'hit')
       : pickTab === 'perdidos'
       ? visibleResolvedPicks.filter((p) => p.result === 'miss')
-      : pickTab === 'exclusivos'
-      ? canSeeExclusive
-        ? [...exclusivePicks, ...exclusiveResolvedPicks]
-        : []
       : [...visiblePicks, ...visibleResolvedPicks];
 
   // "Mi Bankroll": mismo cálculo de Kelly que el Bankroll del admin,
@@ -6043,10 +6169,17 @@ export default function Home({
         <section className={`view ${view === 'inicio' ? 'active' : ''}`}>
           {greetingName ? (
             <div className="greeting">
-              <div className="greeting-hi">
-                {t('holaSaludo')}, {greetingName} 👋
+              <div>
+                <div className="greeting-hi">
+                  {t('holaSaludo')}, {greetingName} 👋
+                </div>
+                <div className="greeting-date">{todayLabel}</div>
               </div>
-              <div className="greeting-date">{todayLabel}</div>
+              <button type="button" className="vip-picks-btn" onClick={() => setShowVipModal(true)}>
+                <ProfileIcon name="crown" size={14} />
+                {t('picksVipBtn')}
+                {!canSeeExclusive ? <ProfileIcon name="lock" size={10} /> : null}
+              </button>
             </div>
           ) : (
             <>
@@ -6151,79 +6284,31 @@ export default function Home({
               ['todos', t('tabTodos')],
               ['pendientes', t('tabPendientes')],
               ['ganados', t('tabGanados')],
-              ['perdidos', t('tabPerdidos')],
-              ['exclusivos', t('tabExclusivos')]
+              ['perdidos', t('tabPerdidos')]
             ].map(([key, label]) => (
               <div key={key} className={`tab ${pickTab === key ? 'active' : ''}`} onClick={() => setPickTab(key)}>
                 {label}
-                {key === 'exclusivos' && !canSeeExclusive ? <ProfileIcon name="lock" size={11} /> : null}
               </div>
             ))}
           </div>
-          {pickTab === 'exclusivos' && !canSeeExclusive ? (
-            <div className="premium-lock-card">
-              <div className="premium-lock-icon">
-                <ProfileIcon name="lock" size={22} />
-              </div>
-              <h3>{t('exclusivosLockTitle')}</h3>
-              <p>{t('exclusivosLockDesc')}</p>
-            </div>
-          ) : (
-            <>
-              {pickTab === 'exclusivos' ? (
-                <>
-                  <div className="section-head">
-                    <h2>{t('balanceExclusivoTitle')}</h2>
-                  </div>
-                  <p className="page-sub">{t('balanceExclusivoSub')}</p>
-                  {exclusiveBalanceError ? (
-                    <p className="page-sub">Error: {exclusiveBalanceError}</p>
-                  ) : !exclusiveBalance ? (
-                    <p className="page-sub">{t('cargando')}</p>
-                  ) : exclusiveBalance.n === 0 ? null : (
-                    <div className="stat-strip stat-strip-3">
-                      <div className="stat-card">
-                        <div className="label">{t('statEfectividad')}</div>
-                        <div className="value hit num">{Math.round(exclusiveBalance.hitRate * 100)}%</div>
-                      </div>
-                      <div className="stat-card">
-                        <div className="label">{t('statRachaActual')}</div>
-                        <div className="value num">
-                          {exclusiveBalance.racha === 0
-                            ? '—'
-                            : `${Math.abs(exclusiveBalance.racha)}${exclusiveBalance.racha > 0 ? 'W' : 'L'}`}
-                        </div>
-                      </div>
-                      <div className="stat-card">
-                        <div className="label">{t('statBalance')}</div>
-                        <div className={`value num ${exclusiveBalance.balance >= 0 ? 'hit' : 'miss'}`}>
-                          {formatCOP(exclusiveBalance.balance)}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : null}
-              <div className="pick-grid">
-                {tabPicks.length === 0 ? (
-                  <p className="page-sub">{pickTab === 'exclusivos' ? t('exclusivosVacio') : t('noHayPicksCategoria')}</p>
-                ) : (
-                tabPicks.map((p) => (
-                  <PickCard
-                    key={p.id}
-                    pick={p}
-                    onClick={() => setModalPick(p)}
-                    followed={followedPickIds.has(p.id)}
-                    onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
-                    oddsFormat={oddsFormat}
-                    live={liveScores[p.sourceId]}
-                    canSeeFullHistory={canSeeExclusive}
-                  />
-                ))
-              )}
-              </div>
-            </>
-          )}
+          <div className="pick-grid">
+            {tabPicks.length === 0 ? (
+              <p className="page-sub">{t('noHayPicksCategoria')}</p>
+            ) : (
+              tabPicks.map((p) => (
+                <PickCard
+                  key={p.id}
+                  pick={p}
+                  onClick={() => setModalPick(p)}
+                  followed={followedPickIds.has(p.id)}
+                  onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
+                  oddsFormat={oddsFormat}
+                  live={liveScores[p.sourceId]}
+                  canSeeFullHistory={canSeeExclusive}
+                />
+              ))
+            )}
+          </div>
         </section>
 
         <section className={`view ${view === 'calendario' ? 'active' : ''}`}>
@@ -7085,6 +7170,27 @@ export default function Home({
         />
       )}
 
+      {showVipModal && (
+        <VipPicksModal
+          onClose={() => setShowVipModal(false)}
+          lang={lang}
+          oddsFormat={oddsFormat}
+          canSeeExclusive={canSeeExclusive}
+          featured={featured}
+          exclusivePicks={exclusivePicks}
+          exclusiveResolvedPicks={exclusiveResolvedPicks}
+          exclusiveBalance={exclusiveBalance}
+          exclusiveBalanceError={exclusiveBalanceError}
+          followedPickIds={followedPickIds}
+          toggleFollow={toggleFollow}
+          liveScores={liveScores}
+          onPickClick={(p) => {
+            setShowVipModal(false);
+            setModalPick(p);
+          }}
+        />
+      )}
+
       {modalMatch && (
         <MatchDetailModal
           m={modalMatch}
@@ -7342,8 +7448,15 @@ const CSS = `
   .group-player-name{text-align:left !important; font-weight:600; font-size:13px;}
   .group-self{color:var(--muted);}
 
+  .greeting{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   .greeting-hi{font-family:var(--font-display); font-weight:800; font-size:28px; line-height:1.1;}
   .greeting-date{color:var(--muted); font-size:13px; text-transform:capitalize; margin-top:2px;}
+  .vip-picks-btn{
+    flex:none; display:inline-flex; align-items:center; gap:6px; margin-top:4px;
+    font-size:12px; font-weight:800; letter-spacing:.2px; color:#3a2a00;
+    background:#FFC845; border:none; border-radius:999px; padding:8px 14px; cursor:pointer;
+  }
+  .vip-picks-btn svg{flex:none;}
   .bell-btn{
     background:var(--card); border:1px solid var(--line); border-radius:50%;
     width:32px; height:32px; cursor:pointer; font-size:14px; color:var(--ink);
