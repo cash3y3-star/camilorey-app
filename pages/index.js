@@ -170,7 +170,6 @@ const TRANSLATIONS = {
     delPalabraConfirmacion: 'ELIMINAR',
     delErrorGenerico: 'No se pudo eliminar la cuenta, intenta de nuevo.',
     ajustes: 'AJUSTES',
-    filaNombre: 'Nombre',
     filaNotificaciones: 'Notificaciones',
     filaSuscripcion: 'Suscripción',
     filaSuscripcionDesc: 'Administra tu plan',
@@ -428,7 +427,6 @@ const TRANSLATIONS = {
     delPalabraConfirmacion: 'DELETE',
     delErrorGenerico: "Couldn't delete the account, try again.",
     ajustes: 'SETTINGS',
-    filaNombre: 'Name',
     filaNotificaciones: 'Notifications',
     filaSuscripcion: 'Subscription',
     filaSuscripcionDesc: 'Manage your plan',
@@ -685,7 +683,6 @@ const TRANSLATIONS = {
     delPalabraConfirmacion: 'EXCLUIR',
     delErrorGenerico: 'Não foi possível excluir a conta, tente de novo.',
     ajustes: 'AJUSTES',
-    filaNombre: 'Nome',
     filaNotificaciones: 'Notificações',
     filaSuscripcion: 'Assinatura',
     filaSuscripcionDesc: 'Gerencie seu plano',
@@ -4534,33 +4531,6 @@ function ProfileModal({
         ) : null}
 
         <div className="profile-section-label">{t('ajustes')}</div>
-
-        <div className="profile-row profile-row-theme">
-          <span className="profile-row-icon">
-            <ProfileIcon name="edit" />
-          </span>
-          <div className="profile-row-body">
-            <strong>{t('filaNombre')}</strong>
-            <div className="profile-edit-inline">
-              <input
-                type="text"
-                className="profile-name-input"
-                value={nameInput}
-                maxLength={40}
-                placeholder={t('tuNombre')}
-                onChange={(e) => setNameInput(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn btn-ball"
-                disabled={savingName || !nameInput.trim() || nameInput.trim() === displayName}
-                onClick={saveName}
-              >
-                {savingName ? '...' : t('guardar')}
-              </button>
-            </div>
-          </div>
-        </div>
 
         <div className="profile-row" onClick={handleActivateNotifs}>
           <span className="profile-row-icon">
