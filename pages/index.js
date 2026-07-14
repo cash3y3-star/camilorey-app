@@ -272,7 +272,6 @@ const TRANSLATIONS = {
     victorias: 'victorias',
     derrotas: 'derrotas',
     sinHistorial: 'Sin historial reciente todavía.',
-    h2hContra: 'H2H contra',
     sinEnfrentamientos: 'Todavía no se han enfrentado.',
     buscandoMarcador: 'Buscando marcador…',
     resultadoFinal: 'Resultado final:',
@@ -544,7 +543,6 @@ const TRANSLATIONS = {
     victorias: 'wins',
     derrotas: 'losses',
     sinHistorial: 'No recent history yet.',
-    h2hContra: 'H2H vs',
     sinEnfrentamientos: "They haven't played each other yet.",
     buscandoMarcador: 'Looking for the score…',
     resultadoFinal: 'Final result:',
@@ -817,7 +815,6 @@ const TRANSLATIONS = {
     victorias: 'vitórias',
     derrotas: 'derrotas',
     sinHistorial: 'Ainda sem histórico recente.',
-    h2hContra: 'H2H contra',
     sinEnfrentamientos: 'Ainda não se enfrentaram.',
     buscandoMarcador: 'Buscando placar…',
     resultadoFinal: 'Resultado final:',
@@ -2044,26 +2041,6 @@ function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = ''
 // con varios partidos en vivo a la vez se disparaban pedidos
 // duplicados al mismo endpoint una y otra vez.
 function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsFormat = 'decimal', live, canSeeFullHistory = false }) {
-  // El chip de H2H de la tarjeta respeta el mismo tope que el modal de
-  // detalle (5 gratis, 20 premium) — si no, alguien gratis vería un
-  // "7-3" acá que ya cuenta más de los 5 cruces que se supone puede ver.
-  const cardH2HMax = canSeeFullHistory ? 20 : 5;
-  const cardH2HMatches = (pick.h2hMatches || []).slice(0, cardH2HMax);
-  const cardH2HTotal = cardH2HMatches.length;
-  const cardH2HWins = cardH2HMatches.filter((m) => m.win).length;
-  const cardH2H = `${cardH2HWins}-${cardH2HTotal - cardH2HWins}`;
-  let liveSetsWonA = null;
-  let liveSetsWonB = null;
-  if (pick.matchStatus === 'live' && live) {
-    if (live.source === 'kambi') {
-      liveSetsWonA = (live.sets || []).filter((s) => s.a > s.b).length;
-      liveSetsWonB = (live.sets || []).filter((s) => s.b > s.a).length;
-    } else if (live.source === 'tt' && live.scoreOne != null) {
-      liveSetsWonA = live.scoreOne;
-      liveSetsWonB = live.scoreTwo;
-    }
-  }
-
   // pick.player/pick.opponent están ordenados por favorito/rival, no
   // por local/visitante — pero el local SIEMPRE va a la izquierda con
   // camiseta roja, y el visitante a la derecha con camiseta azul
@@ -2075,6 +2052,31 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
   const rightPlayer = leftIsFavored
     ? { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials }
     : { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials };
+
+  // El chip de H2H de la tarjeta respeta el mismo tope que el modal de
+  // detalle (5 gratis, 20 premium) — si no, alguien gratis vería un
+  // "7-3" acá que ya cuenta más de los 5 cruces que se supone puede ver.
+  // OJO: se reordena a izquierda-derecha (no favorito-rival) porque el
+  // "4-2" se ve pegado a las fotos de local/visitante — si quedara
+  // orientado al favorito, un favorito que juega de visitante haría
+  // leer el número al revés de lo que muestran los avatares arriba.
+  const cardH2HMax = canSeeFullHistory ? 20 : 5;
+  const cardH2HMatches = (pick.h2hMatches || []).slice(0, cardH2HMax);
+  const cardH2HTotal = cardH2HMatches.length;
+  const cardH2HFavoredWins = cardH2HMatches.filter((m) => m.win).length;
+  const cardH2HLeftWins = leftIsFavored ? cardH2HFavoredWins : cardH2HTotal - cardH2HFavoredWins;
+  const cardH2H = `${cardH2HLeftWins}-${cardH2HTotal - cardH2HLeftWins}`;
+  let liveSetsWonA = null;
+  let liveSetsWonB = null;
+  if (pick.matchStatus === 'live' && live) {
+    if (live.source === 'kambi') {
+      liveSetsWonA = (live.sets || []).filter((s) => s.a > s.b).length;
+      liveSetsWonB = (live.sets || []).filter((s) => s.b > s.a).length;
+    } else if (live.source === 'tt' && live.scoreOne != null) {
+      liveSetsWonA = live.scoreOne;
+      liveSetsWonB = live.scoreTwo;
+    }
+  }
 
   return (
     <div className={`pick-card ${featured ? 'pick-card-featured' : ''}`} onClick={onClick}>
@@ -2858,8 +2860,15 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
   const displayRightHistory = rightHistoryFull.slice(0, Math.min(statRange, maxRange));
   const hitsLeft = displayLeftHistory.filter((m) => m.win).length;
   const hitsRight = displayRightHistory.filter((m) => m.win).length;
+  // OJO: los conteos de H2H se reorientan izquierda-derecha (no
+  // favorito-rival) — el favorito puede ser el visitante, y si el
+  // número quedara orientado a él, se leería al revés de lo que
+  // muestran los avatares de arriba (bug real reportado: "4-2" se
+  // veía como si ganara el de la izquierda cuando en realidad ganaba
+  // el de la derecha).
   const displayH2H = pick.h2hMatches.slice(0, Math.min(statRange, maxRange));
-  const hitsH2H = displayH2H.filter((m) => m.win).length;
+  const displayH2HFavoredWins = displayH2H.filter((m) => m.win).length;
+  const hitsH2H = leftIsFavored ? displayH2HFavoredWins : displayH2H.length - displayH2HFavoredWins;
 
   // El resumen (pestaña Resumen, no Estadísticas) siempre muestra el
   // récord H2H al tope permitido para este viewer (5 gratis, 20
@@ -2867,7 +2876,8 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
   // otra pestaña, para no mostrar dos números de H2H distintos en el
   // mismo modal.
   const resumenH2HMatches = pick.h2hMatches.slice(0, maxRange);
-  const resumenH2HWins = resumenH2HMatches.filter((m) => m.win).length;
+  const resumenH2HFavoredWins = resumenH2HMatches.filter((m) => m.win).length;
+  const resumenH2HWins = leftIsFavored ? resumenH2HFavoredWins : resumenH2HMatches.length - resumenH2HFavoredWins;
 
   const isDone = pick.result === 'hit' || pick.result === 'miss';
   const won = pick.result === 'hit';
@@ -3059,7 +3069,9 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             ) : displayH2H.length > 0 ? (
               <>
                 <div className="hist-title">
-                  <span>{t('h2hContra')} {pick.opponent}</span>
+                  <span>
+                    {leftPlayer.name} vs {rightPlayer.name}
+                  </span>
                   <span className="num">
                     {hitsH2H}-{displayH2H.length - hitsH2H}
                   </span>
