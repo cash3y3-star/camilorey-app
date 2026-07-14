@@ -3539,6 +3539,7 @@ function ProfileModal({
   avatarEmoji,
   avatarUrl,
   isAdmin,
+  isPremium,
   onClose,
   onLogout,
   themePref,
@@ -3884,7 +3885,7 @@ function ProfileModal({
               <h3 style={{ fontSize: '18px' }}>{displayName || user.email}</h3>
               <div className="sub">{user.email}</div>
               <div className="profile-plan-line">
-                {isAdmin ? t('perfilPlanPremium') : t('perfilPlanGratuito')}
+                {isAdmin || isPremium ? t('perfilPlanPremium') : t('perfilPlanGratuito')}
                 {memberSince ? ` · ${t('perfilMiembroDesde')} ${memberSince}` : ''}
               </div>
             </div>
@@ -3894,17 +3895,22 @@ function ProfileModal({
           </button>
         </div>
 
-        {!isAdmin ? (
+        {!isAdmin && !isPremium ? (
           <button
             type="button"
             className="upgrade-card"
-            onClick={() =>
-              alert(
-                lang === 'en'
-                  ? "You'll be able to upgrade your plan very soon — there's nothing to pay yet, we're just giving you a heads up before it opens."
-                  : 'Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.'
-              )
-            }
+            onClick={() => {
+              const paymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK;
+              if (paymentUrl) {
+                window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+              } else {
+                alert(
+                  lang === 'en'
+                    ? "You'll be able to upgrade your plan very soon — there's nothing to pay yet, we're just giving you a heads up before it opens."
+                    : 'Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.'
+                );
+              }
+            }}
           >
             <span className="upgrade-card-icon">
               <ProfileIcon name="crown" />
@@ -3967,13 +3973,24 @@ function ProfileModal({
 
         <div
           className="profile-row"
-          onClick={() =>
-            alert(
-              lang === 'en'
-                ? "Subscription — no plans to manage yet, you'll be able to see them here very soon."
-                : 'Suscripción — todavía no hay planes para administrar, muy pronto vas a poder verlos aquí.'
-            )
-          }
+          onClick={() => {
+            const paymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK;
+            if (paymentUrl && !isAdmin && !isPremium) {
+              window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+            } else if (isPremium) {
+              alert(
+                lang === 'en'
+                  ? 'Your premium plan is active. Write to us if you want to cancel or have questions about your subscription.'
+                  : 'Tu plan premium está activo. Escribinos si querés cancelarlo o tenés dudas de tu suscripción.'
+              );
+            } else {
+              alert(
+                lang === 'en'
+                  ? "Subscription — no plans to manage yet, you'll be able to see them here very soon."
+                  : 'Suscripción — todavía no hay planes para administrar, muy pronto vas a poder verlos aquí.'
+              );
+            }
+          }}
         >
           <span className="profile-row-icon">
             <ProfileIcon name="card" />
@@ -4173,7 +4190,7 @@ export default function Home({
     let cancelled = false;
     supabaseClient
       .from('profiles')
-      .select('display_name, avatar_emoji, custom_avatar_url')
+      .select('display_name, avatar_emoji, custom_avatar_url, premium_until')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -4654,6 +4671,11 @@ export default function Home({
 
   const isAdmin = Boolean(user?.email && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
 
+  // Premium se activa a mano (el pago pasa por fuera, link de
+  // TipsterPage) — el admin lo marca desde el panel Admin escribiendo
+  // el correo de quien pagó. premium_until vencida o null = gratuito.
+  const isPremium = Boolean(myProfile?.premium_until && new Date(myProfile.premium_until) > new Date());
+
   // Prueba cerrada: mientras estemos antes de BETA_GATE_END, cualquier
   // correo de la tabla beta_access entra también, no solo el admin.
   // Pasada esa fecha, betaAllowed solo puede ser true si isAdmin.
@@ -4775,6 +4797,42 @@ export default function Home({
       .insert({ event_name: eventName, view: meta.view || null, user_id: user?.id || null })
       .then(() => {})
       .catch(() => {});
+  };
+
+  // Activar/quitar premium a mano — el pago pasa por fuera del sitio
+  // (link de TipsterPage), esto es lo que hace el admin cuando le
+  // avisan que alguien pagó.
+  const [premiumEmail, setPremiumEmail] = useState('');
+  const [premiumDays, setPremiumDays] = useState(30);
+  const [premiumBusy, setPremiumBusy] = useState(false);
+  const [premiumMsg, setPremiumMsg] = useState('');
+  const setPremiumFor = async (days) => {
+    if (!premiumEmail.trim() || !supabaseClient) return;
+    setPremiumBusy(true);
+    setPremiumMsg('');
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/admin-activate-premium', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ email: premiumEmail.trim(), days })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setPremiumMsg(data.error || 'Error activando premium.');
+      } else {
+        setPremiumMsg(
+          days > 0
+            ? `Listo — ${data.profile.email} queda premium hasta ${new Date(data.profile.premium_until).toLocaleDateString('es-CO')}.`
+            : `Listo — le quitamos el premium a ${data.profile.email}.`
+        );
+        setPremiumEmail('');
+      }
+    } catch (e) {
+      setPremiumMsg(e.message);
+    }
+    setPremiumBusy(false);
   };
 
   const tabPicks =
@@ -5047,7 +5105,7 @@ export default function Home({
           {navLink('picks', t('navPicks'))}
           {navLink('seguidos', t('navSeguidos'))}
           <a href="#mibankroll" data-view="mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
-            {t('navMiBankroll')} {!isAdmin && !myBankrollTrialActive ? <ProfileIcon name="lock" size={11} /> : null}
+            {t('navMiBankroll')} {!isAdmin && !isPremium && !myBankrollTrialActive ? <ProfileIcon name="lock" size={11} /> : null}
           </a>
           {isAdmin ? (
             <a href="#admin" className={ADMIN_VIEWS.includes(view) || view === 'admin' ? 'active' : ''}>
@@ -5354,6 +5412,52 @@ export default function Home({
             </div>
             <ProfileIcon name="chevron-right" size={16} />
           </a>
+
+          <div className="profile-section-label" style={{ marginTop: '22px' }}>
+            PREMIUM MANUAL
+          </div>
+          <div className="bankroll-card">
+            <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
+              El pago pasa por fuera del sitio (link de pago). Cuando te avisen que alguien pagó, escribí su correo
+              acá para activarle Mi Bankroll premium.
+            </p>
+            <input
+              type="email"
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px' }}
+              placeholder="correo@ejemplo.com"
+              value={premiumEmail}
+              onChange={(e) => setPremiumEmail(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-ball"
+                disabled={premiumBusy || !premiumEmail.trim()}
+                onClick={() => setPremiumFor(premiumDays)}
+              >
+                Activar {premiumDays} días
+              </button>
+              <input
+                type="number"
+                className="profile-name-input"
+                style={{ width: '80px' }}
+                value={premiumDays}
+                onChange={(e) => setPremiumDays(Number(e.target.value) || 0)}
+              />
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={premiumBusy || !premiumEmail.trim()}
+                onClick={() => setPremiumFor(0)}
+              >
+                Quitar premium
+              </button>
+            </div>
+            {premiumMsg ? (
+              <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{premiumMsg}</p>
+            ) : null}
+          </div>
         </section>
         )}
 
@@ -5749,7 +5853,7 @@ export default function Home({
           <p className="page-sub">{t('miBankrollSub')}</p>
           {!user ? (
             <p className="page-sub">{t('iniciaSesionBankroll')}</p>
-          ) : !isAdmin && !myBankrollTrialActive ? (
+          ) : !isAdmin && !isPremium && !myBankrollTrialActive ? (
             <div className="premium-lock-card">
               <div className="premium-lock-icon">
                 <ProfileIcon name="lock" size={22} />
@@ -5993,7 +6097,7 @@ export default function Home({
               <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
               <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
             </svg>
-            {!isAdmin && !myBankrollTrialActive ? (
+            {!isAdmin && !isPremium && !myBankrollTrialActive ? (
               <span className="nav-lock-badge">
                 <ProfileIcon name="lock" size={9} />
               </span>
@@ -6035,6 +6139,7 @@ export default function Home({
           avatarEmoji={myAvatarEmoji}
           avatarUrl={myAvatarUrl}
           isAdmin={isAdmin}
+          isPremium={isPremium}
           onClose={() => setShowProfileModal(false)}
           onLogout={logout}
           themePref={themePref}
