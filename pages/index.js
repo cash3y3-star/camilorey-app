@@ -2713,6 +2713,36 @@ function RecentFormList({ history }) {
   );
 }
 
+// Lista de H2H — a diferencia de RecentFormList (que arma "vs Fulano"
+// desde el punto de vista de un solo jugador), acá se ven los DOS
+// nombres completos en cada cruce, con el que ganó ESE partido
+// resaltado en verde — pedido explícito: se entiende de un vistazo
+// quién le ganó a quién en cada cruce directo, no solo el acumulado.
+function H2HMatchList({ matches, favoredName, opponentName }) {
+  if (!matches || matches.length === 0) {
+    return <p className="page-sub">Sin enfrentamientos todavía.</p>;
+  }
+  return (
+    <div className="form-list">
+      {matches.map((m, i) => (
+        <div className="form-list-row" key={i}>
+          <div className="form-list-meta">
+            <span className="form-list-date">{shortDate(m.date)}</span>
+            <span className="form-list-ft">FT</span>
+          </div>
+          <div className="h2h-match-names">
+            <span className={`h2h-player-name ${m.win ? 'h2h-winner' : ''}`}>{favoredName}</span>
+            <span className="h2h-match-score num">
+              {m.setsFor}-{m.setsAgainst}
+            </span>
+            <span className={`h2h-player-name ${!m.win ? 'h2h-winner' : ''}`}>{opponentName}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LineChart({ series }) {
   if (!series || series.length < 2) {
     return <p className="page-sub">Todavía no hay suficiente historial para graficar.</p>;
@@ -3022,7 +3052,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
                 <div className="h2h-bar-track">
                   <div className="h2h-bar-fill" style={{ width: `${(hitsH2H / displayH2H.length) * 100}%` }}></div>
                 </div>
-                <RecentFormList history={displayH2H} />
+                <H2HMatchList matches={displayH2H} favoredName={pick.player} opponentName={pick.opponent} />
               </>
             ) : (
               <p className="page-sub">{t('sinEnfrentamientos')}</p>
@@ -8121,6 +8151,11 @@ const CSS = `
   .form-list-ft{font-family:var(--font-mono); font-size:9.5px; color:var(--muted); text-transform:uppercase;}
   .form-list-opp{flex:1; min-width:0; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:8px;}
   .form-list-score{color:var(--muted); font-weight:700;}
+  .h2h-match-names{flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .h2h-player-name{flex:1; min-width:0; font-size:12.5px; font-weight:600; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .h2h-player-name:last-child{text-align:right;}
+  .h2h-winner{color:var(--hit); font-weight:800;}
+  .h2h-match-score{flex:none; font-size:13px; font-weight:800; color:var(--ink); padding:0 4px;}
   .form-list-badge{
     width:22px; height:22px; border-radius:50%; flex:none; font-size:11px; font-weight:800;
     display:flex; align-items:center; justify-content:center;
