@@ -5814,17 +5814,21 @@ export default function Home({
   const featured = visiblePicks.find((p) => p.featured) || visiblePicks[0] || null;
 
   // Estadísticas del modelo (¿la confianza que calculamos de verdad
-  // predice mejor que una moneda al aire?) — solo se consulta cuando
-  // el admin entra a esa pestaña, no en cada carga de página.
+  // predice mejor que una moneda al aire?) — se consulta al entrar a
+  // esa pestaña y se repite cada 20s mientras siga abierta (mismo
+  // patrón que Inicio/Picks/Bankroll más arriba), así un pick que
+  // termina pasa solo de "Pendientes" a "resueltos" sin refrescar.
   const [modelStats, setModelStats] = useState(null);
   const [modelStatsError, setModelStatsError] = useState(null);
   useEffect(() => {
     if (view !== 'modelo' || !isAdmin || !supabaseClient) return undefined;
     let cancelled = false;
-    (async () => {
-      const { data: sessionData } = await supabaseClient.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+
+    async function load() {
+      if (document.visibilityState === 'hidden') return;
       try {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
         const r = await fetch('/api/model-stats', { headers: { Authorization: `Bearer ${accessToken}` } });
         const data = await r.json();
         if (cancelled) return;
@@ -5833,9 +5837,13 @@ export default function Home({
       } catch (e) {
         if (!cancelled) setModelStatsError(e.message);
       }
-    })();
+    }
+
+    load();
+    const interval = setInterval(load, 20000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, [view, isAdmin]);
 
