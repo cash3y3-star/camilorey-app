@@ -81,21 +81,27 @@ async function getRecentStreak(playerId) {
   return streak;
 }
 
+// Ordenado por fecha DESC porque, además del ratio agregado, nos
+// importa quién ganó el cruce MÁS RECIENTE — el H2H de esta liga
+// tiende a alternar (gana uno, gana el otro) en vez de que un
+// jugador domine sostenido; ver lastMeetingWinnerId más abajo.
 async function getH2H(playerAId, playerBId) {
   const { data, error } = await supabase
     .from('matches')
-    .select('winner_id')
+    .select('winner_id, scheduled_at')
     .eq('status', 'finished')
     .or(
       `and(player_a_id.eq.${playerAId},player_b_id.eq.${playerBId}),and(player_a_id.eq.${playerBId},player_b_id.eq.${playerAId})`
     )
+    .order('scheduled_at', { ascending: false })
     .limit(10);
   if (error) throw new Error(`select matches (h2h, ${playerAId} vs ${playerBId}): ${error.message}`);
 
-  if (!data) return { h2hWinsA: 0, h2hTotal: 0 };
+  if (!data || data.length === 0) return { h2hWinsA: 0, h2hTotal: 0, lastMeetingWinnerId: null };
   return {
     h2hWinsA: data.filter((m) => m.winner_id === playerAId).length,
-    h2hTotal: data.length
+    h2hTotal: data.length,
+    lastMeetingWinnerId: data[0].winner_id
   };
 }
 
@@ -152,12 +158,16 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
     getH2H(sideA.player.id, sideB.player.id)
   ]);
 
+  const h2hLastResult =
+    h2h.lastMeetingWinnerId === sideA.player.id ? 'A' : h2h.lastMeetingWinnerId === sideB.player.id ? 'B' : null;
+
   const { confidence: rawConfidence, factors } = computeConfidence({
     ratingDiff: (sideA.rating_before_tournament || 0) - (sideB.rating_before_tournament || 0),
     streakA,
     streakB,
     h2hWinsA: h2h.h2hWinsA,
-    h2hTotal: h2h.h2hTotal
+    h2hTotal: h2h.h2hTotal,
+    h2hLastResult
   });
 
   // computeConfidence devuelve qué tan favorecido está A (70 = parejo,

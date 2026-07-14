@@ -55,7 +55,8 @@ async function run() {
         confidence: p.confidence,
         ratingScore: (p.factors.ratingScore ?? 0) * sign,
         streakScore: (p.factors.streakScore ?? 0) * sign,
-        h2hScore: (p.factors.h2hScore ?? 0) * sign
+        h2hScore: (p.factors.h2hScore ?? 0) * sign,
+        altScore: (p.factors.altScore ?? 0) * sign
       };
     })
     .filter(Boolean);
@@ -86,7 +87,7 @@ async function run() {
   }
 
   console.log('\n=== POR FACTOR (orientado al favorito; positivo = a favor del pick) ===');
-  for (const key of ['ratingScore', 'streakScore', 'h2hScore']) {
+  for (const key of ['ratingScore', 'streakScore', 'h2hScore', 'altScore']) {
     const withHit = rows.filter((r) => r.hit).map((r) => r[key]);
     const withMiss = rows.filter((r) => !r.hit).map((r) => r[key]);
     const avg = (arr) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);

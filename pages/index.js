@@ -1917,6 +1917,7 @@ function buildAnalysis(factors) {
   if (factors.ratingScore) bits.push(`rating (${pct(factors.ratingScore)}%)`);
   if (factors.streakScore) bits.push(`racha reciente (${pct(factors.streakScore)}%)`);
   if (factors.h2hScore) bits.push(`cruce directo (${pct(factors.h2hScore)}%)`);
+  if (factors.altScore) bits.push(`alternancia en el H2H (${pct(factors.altScore)}%)`);
   if (bits.length === 0) return 'Pick generado sin suficiente historial todavía.';
   return `Favorito según ${bits.join(', ')}.`;
 }
@@ -2948,7 +2949,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang }) {
 // muestra tt.league-pro.com dentro de cada torneo: una fila por
 // jugador, una columna por cada rival con el marcador de sets de ese
 // cruce, y el total de sets + puesto a la derecha.
-const MODEL_FACTOR_LABEL = { ratingScore: 'Rating', streakScore: 'Racha', h2hScore: 'H2H' };
+const MODEL_FACTOR_LABEL = { ratingScore: 'Rating', streakScore: 'Racha', h2hScore: 'H2H', altScore: 'Alternancia H2H' };
 
 // Si el intervalo de confianza 95% (Wilson) NO cruza el 50%, el
 // resultado ya es estadísticamente distinguible de una moneda al aire
