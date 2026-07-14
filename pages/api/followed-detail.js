@@ -115,7 +115,8 @@ export default async function handler(req, res) {
         opponent: playersById.get(oppId)?.name || '?',
         setsFor: isA ? m.sets_a : m.sets_b,
         setsAgainst: isA ? m.sets_b : m.sets_a,
-        win: m.winner_id === playerId
+        win: m.winner_id === playerId,
+        viewedWasHome: isA
       };
     });
   }

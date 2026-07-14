@@ -1409,7 +1409,8 @@ export async function getServerSideProps({ query }) {
           opponent: playersById.get(oppId)?.name || '?',
           setsFor: isA ? m.sets_a : m.sets_b,
           setsAgainst: isA ? m.sets_b : m.sets_a,
-          win: m.winner_id === playerId
+          win: m.winner_id === playerId,
+          viewedWasHome: isA
         };
       });
 
@@ -2760,6 +2761,45 @@ function H2HMatchList({ matches, favoredName, opponentName }) {
   );
 }
 
+// Forma reciente de UN jugador (local o visitante del pick actual)
+// contra sus últimos rivales — mismo formato de fila que H2HMatchList
+// (los dos nombres, local primero), pero acá lo que importa es el
+// resultado del jugador que se está mirando: su nombre queda en verde
+// si ganó ESE partido, en rojo si perdió (el rival, que cambia partido
+// a partido, queda siempre neutro).
+function PlayerHistoryMatchList({ matches, playerName }) {
+  if (!matches || matches.length === 0) {
+    return <p className="page-sub">Sin historial reciente todavía.</p>;
+  }
+  return (
+    <div className="form-list">
+      {matches.map((m, i) => {
+        const homeIsPlayer = m.viewedWasHome !== false;
+        const homeName = homeIsPlayer ? playerName : m.opponent;
+        const awayName = homeIsPlayer ? m.opponent : playerName;
+        const homeSets = homeIsPlayer ? m.setsFor : m.setsAgainst;
+        const awaySets = homeIsPlayer ? m.setsAgainst : m.setsFor;
+        const playerResultClass = m.win ? 'h2h-winner' : 'h2h-loser';
+        return (
+          <div className="form-list-row" key={i}>
+            <div className="form-list-meta">
+              <span className="form-list-date">{shortDate(m.date)}</span>
+              <span className="form-list-ft">FT</span>
+            </div>
+            <div className="h2h-match-names">
+              <span className={`h2h-player-name ${homeIsPlayer ? playerResultClass : ''}`}>{homeName}</span>
+              <span className="h2h-match-score num">
+                {homeSets}-{awaySets}
+              </span>
+              <span className={`h2h-player-name ${!homeIsPlayer ? playerResultClass : ''}`}>{awayName}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function LineChart({ series }) {
   if (!series || series.length < 2) {
     return <p className="page-sub">Todavía no hay suficiente historial para graficar.</p>;
@@ -3042,7 +3082,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
                       </p>
                     </div>
                   </div>
-                  <RecentFormList history={displayLeftHistory} />
+                  <PlayerHistoryMatchList matches={displayLeftHistory} playerName={leftPlayer.name} />
                 </>
               ) : (
                 <p className="page-sub">{t('sinHistorial')}</p>
@@ -3061,7 +3101,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
                       </p>
                     </div>
                   </div>
-                  <RecentFormList history={displayRightHistory} />
+                  <PlayerHistoryMatchList matches={displayRightHistory} playerName={rightPlayer.name} />
                 </>
               ) : (
                 <p className="page-sub">{t('sinHistorial')}</p>
@@ -8182,6 +8222,7 @@ const CSS = `
   .h2h-player-name{flex:1; min-width:0; font-size:12.5px; font-weight:600; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .h2h-player-name:last-child{text-align:right;}
   .h2h-winner{color:var(--hit); font-weight:800;}
+  .h2h-loser{color:var(--miss); font-weight:800;}
   .h2h-match-score{flex:none; font-size:13px; font-weight:800; color:var(--ink); padding:0 4px;}
   .form-list-badge{
     width:22px; height:22px; border-radius:50%; flex:none; font-size:11px; font-weight:800;
