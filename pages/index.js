@@ -4,7 +4,18 @@ import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 import { logError } from '../lib/logError';
 
-const VIEWS = ['inicio', 'calendario', 'picks', 'seguidos', 'bankroll', 'grupos', 'modelo', 'errores', 'mibankroll'];
+const VIEWS = [
+  'inicio',
+  'calendario',
+  'picks',
+  'seguidos',
+  'bankroll',
+  'grupos',
+  'modelo',
+  'errores',
+  'mibankroll',
+  'actividad'
+];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 const LANG_KEY = 'camilorey_lang';
@@ -205,7 +216,20 @@ const TRANSLATIONS = {
     analisisRacha: 'Llega con una racha de {streak}.',
     analisisH2H: 'En los enfrentamientos directos contra {opponent}, tiene un récord de {record}.',
     analisisCuotaValor: 'La cuota de Rushbet ({odds}) implica una probabilidad de {implied}% — nuestro modelo le da {confidence}%.',
-    analisisSinCuota: 'Todavía no tenemos la cuota real de Rushbet para este partido.'
+    analisisSinCuota: 'Todavía no tenemos la cuota real de Rushbet para este partido.',
+
+    onboarding1Title: 'Picks basados en datos reales',
+    onboarding1Desc:
+      'Analizamos el rating, la racha reciente y los enfrentamientos directos de cada jugador de la Liga Pro Checa — nada de números inventados.',
+    onboarding2Title: '¿Qué es el Índice IA?',
+    onboarding2Desc:
+      'Es el % de confianza que arma nuestro modelo combinando esos factores. No es una garantía — mirá la pestaña Modelo para ver el acierto real medido, incluso cuando es bajo.',
+    onboarding3Title: 'Mi Bankroll: practicá sin arriesgar',
+    onboarding3Desc:
+      'Simulá cuánto apostarías con el criterio de Kelly en los picks que seguís — no es dinero real, es para practicar el tamaño de tus apuestas antes de arriesgar el tuyo.',
+    onboardingSiguiente: 'Siguiente',
+    onboardingEntendido: 'Entendido',
+    onboardingSaltar: 'Saltar'
   },
   en: {
     navInicio: 'Home',
@@ -392,7 +416,20 @@ const TRANSLATIONS = {
     analisisRacha: 'They come in on a {streak} streak.',
     analisisH2H: 'Head-to-head against {opponent}, the record is {record}.',
     analisisCuotaValor: 'Rushbet odds ({odds}) imply a {implied}% probability — our model gives them {confidence}%.',
-    analisisSinCuota: "We don't have real Rushbet odds for this match yet."
+    analisisSinCuota: "We don't have real Rushbet odds for this match yet.",
+
+    onboarding1Title: 'Picks backed by real data',
+    onboarding1Desc:
+      "We analyze each Czech Liga Pro player's rating, recent streak, and head-to-head record — nothing made up.",
+    onboarding2Title: 'What is the AI Score?',
+    onboarding2Desc:
+      "It's the confidence % our model builds by combining those factors. It's not a guarantee — check the Model tab to see the real measured accuracy, even when it's low.",
+    onboarding3Title: 'My Bankroll: practice without risk',
+    onboarding3Desc:
+      "Simulate how much you'd bet using the Kelly criterion on the picks you follow — not real money, just practice sizing your bets before risking your own.",
+    onboardingSiguiente: 'Next',
+    onboardingEntendido: 'Got it',
+    onboardingSaltar: 'Skip'
   },
   pt: {
     navInicio: 'Início',
@@ -580,7 +617,20 @@ const TRANSLATIONS = {
     analisisRacha: 'Chega com uma sequência de {streak}.',
     analisisH2H: 'No confronto direto contra {opponent}, o retrospecto é {record}.',
     analisisCuotaValor: 'A odd da Rushbet ({odds}) implica uma probabilidade de {implied}% — nosso modelo dá {confidence}%.',
-    analisisSinCuota: 'Ainda não temos a odd real da Rushbet para esta partida.'
+    analisisSinCuota: 'Ainda não temos a odd real da Rushbet para esta partida.',
+
+    onboarding1Title: 'Picks baseados em dados reais',
+    onboarding1Desc:
+      'Analisamos o rating, a sequência recente e os confrontos diretos de cada jogador da Liga Pro Checa — nada inventado.',
+    onboarding2Title: 'O que é o Índice IA?',
+    onboarding2Desc:
+      'É a porcentagem de confiança que nosso modelo calcula combinando esses fatores. Não é garantia — veja a aba Modelo para o acerto real medido, mesmo quando é baixo.',
+    onboarding3Title: 'Minha Banca: pratique sem arriscar',
+    onboarding3Desc:
+      'Simule quanto você apostaria usando o critério de Kelly nos picks que você segue — não é dinheiro real, é para praticar o tamanho das suas apostas antes de arriscar a sua.',
+    onboardingSiguiente: 'Próximo',
+    onboardingEntendido: 'Entendi',
+    onboardingSaltar: 'Pular'
   }
 };
 
@@ -3300,6 +3350,60 @@ function GoogleGIcon({ size = 20 }) {
   );
 }
 
+// Mini-onboarding de 3 pantallas — se muestra UNA vez por navegador
+// en la primera visita (con o sin sesión, a diferencia del aviso de
+// privacidad de abajo), explicando qué es CAMILOREY, qué es el
+// Índice IA y qué es Mi Bankroll, para que alguien nuevo no llegue
+// perdido a esos conceptos.
+const ONBOARDING_SLIDES = [
+  { icon: 'chart', titleKey: 'onboarding1Title', descKey: 'onboarding1Desc' },
+  { icon: 'shield', titleKey: 'onboarding2Title', descKey: 'onboarding2Desc' },
+  { icon: 'dollar', titleKey: 'onboarding3Title', descKey: 'onboarding3Desc' }
+];
+
+function OnboardingModal({ onClose, lang }) {
+  const t = useTranslate(lang);
+  const [slide, setSlide] = useState(0);
+  const current = ONBOARDING_SLIDES[slide];
+  const isLast = slide === ONBOARDING_SLIDES.length - 1;
+
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal login-modal">
+        <button className="modal-close login-modal-close" onClick={onClose}>
+          ✕
+        </button>
+        <div className="login-modal-icon" style={{ color: 'var(--court)' }}>
+          <ProfileIcon name={current.icon} size={28} />
+        </div>
+        <h3 className="login-modal-title">{t(current.titleKey)}</h3>
+        <p className="login-modal-sub">{t(current.descKey)}</p>
+
+        <div className="onboarding-dots">
+          {ONBOARDING_SLIDES.map((_, i) => (
+            <span key={i} className={`onboarding-dot ${i === slide ? 'active' : ''}`}></span>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {slide === 0 ? (
+            <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+              {t('onboardingSaltar')}
+            </button>
+          ) : null}
+          <button
+            className="btn btn-ball"
+            style={{ flex: 1, justifyContent: 'center' }}
+            onClick={() => (isLast ? onClose() : setSlide((s) => s + 1))}
+          >
+            {isLast ? t('onboardingEntendido') : t('onboardingSiguiente')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Aviso de privacidad — se muestra UNA vez por navegador la primera
 // vez que alguien inicia sesión (marcado en localStorage), con el
 // mismo formato de "3 puntos numerados" que se pidió replicar de otra
@@ -4086,6 +4190,19 @@ export default function Home({
     setShowPrivacyConsent(false);
   };
 
+  // Mini-onboarding — una vez por navegador en la PRIMERA visita, con
+  // o sin sesión (a diferencia del aviso de privacidad de arriba, que
+  // espera al login).
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!window.localStorage.getItem('camilorey_onboarding_seen')) setShowOnboarding(true);
+  }, []);
+  const dismissOnboarding = () => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_onboarding_seen', '1');
+    setShowOnboarding(false);
+  };
+
   // Formato de cuotas — solo cambia cómo se MUESTRAN (siempre se
   // guardan en decimal), preferencia por navegador.
   const [oddsFormat, setOddsFormat] = useState('decimal');
@@ -4213,6 +4330,13 @@ export default function Home({
     window.addEventListener('hashchange', fromHash);
     return () => window.removeEventListener('hashchange', fromHash);
   }, []);
+
+  // Analítica: un evento "view" cada vez que alguien cambia de
+  // sección — es lo mínimo para saber qué se usa de verdad.
+  useEffect(() => {
+    track('view', { view });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   // Calendario no se actualizaba solo — había que recargar la página
   // para que un partido pasara de "Próximo" a "En vivo". Mientras esa
@@ -4488,6 +4612,7 @@ export default function Home({
         next.delete(pick.id);
         return next;
       });
+      track('unfollow_pick');
     } else {
       const { error } = await supabaseClient
         .from('followed_picks')
@@ -4501,6 +4626,7 @@ export default function Home({
       playFollowSound();
       vibrateFollow();
       ensurePushSubscription(user);
+      track('follow_pick');
     }
   };
 
@@ -4590,6 +4716,44 @@ export default function Home({
       cancelled = true;
     };
   }, [view, isAdmin]);
+
+  // Analítica propia (qué vistas y acciones se usan de verdad) —
+  // mismo patrón que Modelo/Errores: solo se consulta al entrar a esa
+  // pestaña.
+  const [analyticsSummary, setAnalyticsSummary] = useState(null);
+  const [analyticsError, setAnalyticsError] = useState(null);
+  useEffect(() => {
+    if (view !== 'actividad' || !isAdmin || !supabaseClient) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/analytics-summary', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok) setAnalyticsError(data.error || 'Error cargando la actividad.');
+        else setAnalyticsSummary(data);
+      } catch (e) {
+        if (!cancelled) setAnalyticsError(e.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isAdmin]);
+
+  // track(): registra un evento propio (sin IP, sin cookies de
+  // rastreo, sin terceros) — se dispara y se olvida, nunca bloquea ni
+  // rompe la interfaz si falla (por eso el catch vacío).
+  const track = (eventName, meta = {}) => {
+    if (!supabaseClient) return;
+    supabaseClient
+      .from('analytics_events')
+      .insert({ event_name: eventName, view: meta.view || null, user_id: user?.id || null })
+      .then(() => {})
+      .catch(() => {});
+  };
 
   const tabPicks =
     pickTab === 'pendientes'
@@ -4867,6 +5031,7 @@ export default function Home({
           {isAdmin ? navLink('grupos', t('navGrupos')) : null}
           {isAdmin ? navLink('modelo', t('navModelo')) : null}
           {isAdmin ? navLink('errores', t('navErrores')) : null}
+          {isAdmin ? navLink('actividad', 'Actividad') : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {user ? (
@@ -5387,6 +5552,68 @@ export default function Home({
         </section>
         )}
 
+        {isAdmin && (
+        <section className={`view ${view === 'actividad' ? 'active' : ''}`}>
+          <span className="eyebrow">Solo tú ves esto</span>
+          <h1 className="page-title">Actividad</h1>
+          <p className="page-sub">
+            Qué se usa de verdad en el sitio, últimos 7 días — analítica propia, sin IP ni cookies de rastreo de terceros.
+          </p>
+          {analyticsError ? (
+            <p className="page-sub">Error: {analyticsError}</p>
+          ) : !analyticsSummary ? (
+            <p className="page-sub">Cargando…</p>
+          ) : analyticsSummary.totalEvents === 0 ? (
+            <p className="page-sub">Todavía no hay eventos registrados.</p>
+          ) : (
+            <>
+              <div className="stat-strip stat-strip-3">
+                <div className="stat-card">
+                  <div className="label">Eventos</div>
+                  <div className="value num">{analyticsSummary.totalEvents}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="label">Usuarios distintos</div>
+                  <div className="value num">{analyticsSummary.uniqueLoggedInUsers}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="label">Días</div>
+                  <div className="value num">{analyticsSummary.sinceDays}</div>
+                </div>
+              </div>
+
+              <div className="section-head">
+                <h2>Vistas más usadas</h2>
+              </div>
+              <div className="stat-rows" style={{ gap: 0 }}>
+                {analyticsSummary.byView.map((row) => (
+                  <div className="stat-row" key={row.name}>
+                    <div className="stat-row-top">
+                      <span className="stat-row-label">{row.name}</span>
+                      <span className="stat-row-value num">{row.count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="section-head">
+                <h2>Acciones más usadas</h2>
+              </div>
+              <div className="stat-rows" style={{ gap: 0 }}>
+                {analyticsSummary.byEvent.map((row) => (
+                  <div className="stat-row" key={row.name}>
+                    <div className="stat-row-top">
+                      <span className="stat-row-label">{row.name}</span>
+                      <span className="stat-row-value num">{row.count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+        )}
+
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">{t('seguidosEyebrow')}</span>
           <h1 className="page-title">{t('seguidosTitle')}</h1>
@@ -5714,6 +5941,12 @@ export default function Home({
             {t('navErrores')}
           </a>
         ) : null}
+        {isAdmin ? (
+          <a href="#actividad" className={view === 'actividad' ? 'active' : ''}>
+            <ProfileIcon name="trending-up" size={20} />
+            Actividad
+          </a>
+        ) : null}
       </nav>
 
       {modalPick && (
@@ -5759,6 +5992,7 @@ export default function Home({
       )}
 
       {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} lang={lang} />}
+      {showOnboarding && <OnboardingModal onClose={dismissOnboarding} lang={lang} />}
     </>
   );
 }
@@ -6482,6 +6716,9 @@ const CSS = `
   .login-modal-title{font-family:var(--font-display); font-size:24px; margin:0 0 8px;}
   .login-modal-sub{color:var(--muted); font-size:14px; margin:0 0 24px;}
   .login-modal-sub strong{color:var(--ink);}
+  .onboarding-dots{display:flex; justify-content:center; gap:6px; margin-bottom:22px;}
+  .onboarding-dot{width:6px; height:6px; border-radius:50%; background:var(--line);}
+  .onboarding-dot.active{background:var(--court); width:18px; border-radius:3px;}
   .google-btn{
     width:100%; display:flex; align-items:center; justify-content:center; gap:12px;
     background:var(--bg-alt); border:1px solid var(--line); border-radius:12px;
