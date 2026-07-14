@@ -133,6 +133,12 @@ const TRANSLATIONS = {
     plansCtaNote:
       'El pago se hace fuera del sitio, en un link seguro. Cuando termines, escríbenos al correo o por Telegram con el correo de tu cuenta CAMILOREY y activamos tu acceso premium en minutos.',
     plansSoon: 'Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.',
+    plansToggleMensual: 'Mensual',
+    plansToggleAnual: 'Anual (-50%)',
+    plansPeriodMensual: 'mes',
+    plansPeriodAnual: 'año',
+    plansSavingsAnual: ' — Ahorras US$100.00 (50%)',
+    plansCancelaCuandoQuieras: 'Cancela cuando quieras',
     ajustes: 'AJUSTES',
     filaNombre: 'Nombre',
     filaNotificaciones: 'Notificaciones',
@@ -355,6 +361,12 @@ const TRANSLATIONS = {
     plansCtaNote:
       "Payment happens off-site, through a secure link. Once you're done, write to us by email or Telegram with your CAMILOREY account email and we'll activate your premium access within minutes.",
     plansSoon: "You'll be able to upgrade your plan very soon — there's nothing to pay yet, we're just giving you a heads up before it opens.",
+    plansToggleMensual: 'Monthly',
+    plansToggleAnual: 'Yearly (-50%)',
+    plansPeriodMensual: 'mo',
+    plansPeriodAnual: 'yr',
+    plansSavingsAnual: ' — Save US$100.00 (50%)',
+    plansCancelaCuandoQuieras: 'Cancel anytime',
     ajustes: 'SETTINGS',
     filaNombre: 'Name',
     filaNotificaciones: 'Notifications',
@@ -576,6 +588,12 @@ const TRANSLATIONS = {
     plansCtaNote:
       'O pagamento é feito fora do site, em um link seguro. Quando terminar, escreva para nós por e-mail ou Telegram com o e-mail da sua conta CAMILOREY e ativamos seu acesso premium em minutos.',
     plansSoon: 'Muito em breve você vai poder melhorar seu plano — ainda não há nada para pagar, só estamos avisando antes de abrir.',
+    plansToggleMensual: 'Mensal',
+    plansToggleAnual: 'Anual (-50%)',
+    plansPeriodMensual: 'mês',
+    plansPeriodAnual: 'ano',
+    plansSavingsAnual: ' — Economize US$100.00 (50%)',
+    plansCancelaCuandoQuieras: 'Cancele quando quiser',
     ajustes: 'AJUSTES',
     filaNombre: 'Nome',
     filaNotificaciones: 'Notificações',
@@ -3638,6 +3656,7 @@ function ProfileModal({
   };
   const [oddsScreenOpen, setOddsScreenOpen] = useState(false);
   const [plansScreenOpen, setPlansScreenOpen] = useState(false);
+  const [planCycle, setPlanCycle] = useState('anual');
   const [langScreenOpen, setLangScreenOpen] = useState(false);
   const [helpScreenOpen, setHelpScreenOpen] = useState(false);
   const [openFaqCat, setOpenFaqCat] = useState(0);
@@ -3739,6 +3758,23 @@ function ProfileModal({
             </ul>
           </div>
 
+          <div className="plans-toggle">
+            <button
+              type="button"
+              className={`plans-toggle-btn ${planCycle === 'mensual' ? 'active' : ''}`}
+              onClick={() => setPlanCycle('mensual')}
+            >
+              {t('plansToggleMensual')}
+            </button>
+            <button
+              type="button"
+              className={`plans-toggle-btn ${planCycle === 'anual' ? 'active' : ''}`}
+              onClick={() => setPlanCycle('anual')}
+            >
+              {t('plansToggleAnual')}
+            </button>
+          </div>
+
           <div className="plans-card">
             <span className="plans-card-badge">{t('plansCardBadge')}</span>
             <div className="plans-card-head">
@@ -3750,6 +3786,28 @@ function ProfileModal({
                 <span>{t('plansCardDesc')}</span>
               </div>
             </div>
+
+            <div className="plans-price-block">
+              {planCycle === 'anual' ? (
+                <>
+                  <div className="plans-price-row">
+                    <span className="plans-price-big">US$100.00</span>
+                    <span className="plans-price-period">/{t('plansPeriodAnual')}</span>
+                  </div>
+                  <div className="plans-price-savings">
+                    <span className="plans-price-original">US$200.00</span>
+                    {t('plansSavingsAnual')}
+                  </div>
+                </>
+              ) : (
+                <div className="plans-price-row">
+                  <span className="plans-price-big">US$25.00</span>
+                  <span className="plans-price-period">/{t('plansPeriodMensual')}</span>
+                </div>
+              )}
+              <div className="plans-price-cancel">{t('plansCancelaCuandoQuieras')}</div>
+            </div>
+
             <div className="plans-feature-list">
               {PLAN_FEATURES.map((key) => (
                 <div className="plans-feature-row" key={key}>
@@ -6941,6 +6999,21 @@ const CSS = `
   .plans-bullet-list{ list-style:none; margin:6px 0 0; padding:0; display:flex; flex-direction:column; gap:10px; }
   .plans-bullet-list li{ display:flex; align-items:center; gap:10px; font-size:13.5px; color:rgba(255,255,255,.92); }
   .plans-bullet-list li svg{ flex:none; color:#FFC845; }
+  .plans-toggle{
+    display:flex; background:var(--bg-alt); border:1px solid var(--line); border-radius:999px; padding:4px; gap:4px; margin-bottom:16px;
+  }
+  .plans-toggle-btn{
+    flex:1; border:none; background:transparent; color:var(--muted); font-size:13px; font-weight:700;
+    padding:9px 10px; border-radius:999px; cursor:pointer;
+  }
+  .plans-toggle-btn.active{ background:var(--ink); color:var(--card); }
+  .plans-price-block{ padding-bottom:14px; margin-bottom:14px; border-bottom:1px solid var(--line); }
+  .plans-price-row{ display:flex; align-items:baseline; gap:4px; }
+  .plans-price-big{ font-family:var(--font-display); font-size:30px; color:var(--ink); }
+  .plans-price-period{ font-size:13px; color:var(--muted); }
+  .plans-price-savings{ font-size:12.5px; color:var(--hit); margin-top:2px; }
+  .plans-price-original{ text-decoration:line-through; color:var(--muted); margin-right:4px; }
+  .plans-price-cancel{ font-size:12px; color:var(--muted); margin-top:4px; }
   .plans-card{ position:relative; border:1px solid var(--line); border-radius:16px; padding:18px; background:var(--bg-alt); }
   .plans-card-badge{
     position:absolute; top:-11px; right:16px; font-family:var(--font-mono); font-size:10px; font-weight:700;
