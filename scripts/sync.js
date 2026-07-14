@@ -82,9 +82,15 @@ async function getRecentStreak(playerId) {
 }
 
 // Ordenado por fecha DESC porque, además del ratio agregado, nos
-// importa quién ganó el cruce MÁS RECIENTE — el H2H de esta liga
-// tiende a alternar (gana uno, gana el otro) en vez de que un
-// jugador domine sostenido; ver lastMeetingWinnerId más abajo.
+// importa quién ganó el cruce MÁS RECIENTE — en algunas parejas el
+// H2H tiende a alternar (gana uno, gana el otro) en vez de que un
+// jugador domine sostenido, pero NO en todas: hay parejas donde un
+// jugador sí encadena varias victorias seguidas. Por eso, además de
+// lastMeetingWinnerId, medimos alternationRate: de las transiciones
+// entre cruces consecutivos de ESTA pareja, qué fracción cambió de
+// ganador. 1.0 = siempre alternan, 0.0 = siempre repite el mismo
+// ganador — así el factor de alternancia en confidence.js solo pesa
+// fuerte cuando el patrón real de esta pareja lo respalda.
 async function getH2H(playerAId, playerBId) {
   const { data, error } = await supabase
     .from('matches')
@@ -97,11 +103,21 @@ async function getH2H(playerAId, playerBId) {
     .limit(10);
   if (error) throw new Error(`select matches (h2h, ${playerAId} vs ${playerBId}): ${error.message}`);
 
-  if (!data || data.length === 0) return { h2hWinsA: 0, h2hTotal: 0, lastMeetingWinnerId: null };
+  if (!data || data.length === 0) {
+    return { h2hWinsA: 0, h2hTotal: 0, lastMeetingWinnerId: null, alternationRate: 0 };
+  }
+
+  const chronological = [...data].reverse(); // data viene DESC (más nuevo primero); acá lo damos vuelta
+  let flips = 0;
+  for (let i = 1; i < chronological.length; i++) {
+    if (chronological[i].winner_id !== chronological[i - 1].winner_id) flips++;
+  }
+
   return {
     h2hWinsA: data.filter((m) => m.winner_id === playerAId).length,
     h2hTotal: data.length,
-    lastMeetingWinnerId: data[0].winner_id
+    lastMeetingWinnerId: data[0].winner_id,
+    alternationRate: chronological.length >= 2 ? flips / (chronological.length - 1) : 0
   };
 }
 
@@ -167,7 +183,8 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
     streakB,
     h2hWinsA: h2h.h2hWinsA,
     h2hTotal: h2h.h2hTotal,
-    h2hLastResult
+    h2hLastResult,
+    h2hAlternationRate: h2h.alternationRate
   });
 
   // computeConfidence devuelve qué tan favorecido está A (70 = parejo,
