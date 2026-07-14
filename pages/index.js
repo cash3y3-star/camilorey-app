@@ -139,6 +139,36 @@ const TRANSLATIONS = {
     plansPeriodAnual: 'año',
     plansSavingsAnual: ' — Ahorras US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancela cuando quieras',
+    cuentaTitle: 'Cuenta',
+    cuentaCambiarFoto: 'Cambiar Foto',
+    cuentaFotoSoon: 'Muy pronto vas a poder cambiar tu foto de perfil.',
+    cuentaNombreCompleto: 'Nombre Completo',
+    cuentaEmail: 'Email',
+    cuentaMiembroDesde: 'Miembro Desde',
+    cuentaIdUsuario: 'ID de Usuario',
+    editar: 'Editar',
+    cuentaEliminarBtn: 'Eliminar Cuenta',
+    cuentaEmailEditNota: 'Te vamos a mandar un correo de confirmación a la dirección nueva antes de hacer el cambio.',
+    delEyebrow: 'CAMILOREY · ZONA DE PELIGRO',
+    delTitle: 'Esto no se puede deshacer',
+    delDesc: 'Una vez que elimines tu cuenta, todos tus datos se eliminan permanentemente y no se pueden recuperar.',
+    delQueSeElimina: 'QUÉ SE ELIMINARÁ',
+    delItem1Title: 'Todos tus picks seguidos',
+    delItem1Desc: 'Tu bankroll, tus picks seguidos y todo tu historial se eliminarán permanentemente.',
+    delItem2Title: 'Notificaciones canceladas',
+    delItem2Desc: 'Todas las alertas y notificaciones programadas se detendrán inmediatamente.',
+    delItem3Title: 'Suscripción cancelada',
+    delItem3Desc: 'Cualquier suscripción activa será cancelada sin reembolso por el tiempo restante.',
+    delItem4Title: 'Cuenta bloqueada',
+    delItem4Desc: 'Se cerrará tu sesión inmediatamente y no podrás recuperar la cuenta.',
+    delConfirmarEliminacion: 'CONFIRMAR ELIMINACIÓN',
+    delCheckboxLabel: 'Entiendo que esta acción es permanente y no se puede revertir',
+    delEscribePara: 'Escribe {word} para confirmar',
+    delPlaceholder: 'Escribe {word} aquí',
+    delBoton: 'Eliminar Mi Cuenta',
+    delEliminando: 'Eliminando...',
+    delPalabraConfirmacion: 'ELIMINAR',
+    delErrorGenerico: 'No se pudo eliminar la cuenta, intenta de nuevo.',
     ajustes: 'AJUSTES',
     filaNombre: 'Nombre',
     filaNotificaciones: 'Notificaciones',
@@ -367,6 +397,36 @@ const TRANSLATIONS = {
     plansPeriodAnual: 'yr',
     plansSavingsAnual: ' — Save US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancel anytime',
+    cuentaTitle: 'Account',
+    cuentaCambiarFoto: 'Change Photo',
+    cuentaFotoSoon: "You'll be able to change your profile photo very soon.",
+    cuentaNombreCompleto: 'Full Name',
+    cuentaEmail: 'Email',
+    cuentaMiembroDesde: 'Member Since',
+    cuentaIdUsuario: 'User ID',
+    editar: 'Edit',
+    cuentaEliminarBtn: 'Delete Account',
+    cuentaEmailEditNota: "We'll send a confirmation email to your new address before making the change.",
+    delEyebrow: 'CAMILOREY · DANGER ZONE',
+    delTitle: "This can't be undone",
+    delDesc: 'Once you delete your account, all your data is permanently erased and cannot be recovered.',
+    delQueSeElimina: "WHAT WILL BE DELETED",
+    delItem1Title: 'All your followed picks',
+    delItem1Desc: 'Your bankroll, followed picks, and entire history will be permanently deleted.',
+    delItem2Title: 'Notifications canceled',
+    delItem2Desc: 'All scheduled alerts and notifications will stop immediately.',
+    delItem3Title: 'Subscription canceled',
+    delItem3Desc: 'Any active subscription will be canceled with no refund for remaining time.',
+    delItem4Title: 'Account locked',
+    delItem4Desc: "You'll be signed out immediately and the account cannot be recovered.",
+    delConfirmarEliminacion: 'CONFIRM DELETION',
+    delCheckboxLabel: 'I understand this action is permanent and cannot be reversed',
+    delEscribePara: 'Type {word} to confirm',
+    delPlaceholder: 'Type {word} here',
+    delBoton: 'Delete My Account',
+    delEliminando: 'Deleting...',
+    delPalabraConfirmacion: 'DELETE',
+    delErrorGenerico: "Couldn't delete the account, try again.",
     ajustes: 'SETTINGS',
     filaNombre: 'Name',
     filaNotificaciones: 'Notifications',
@@ -594,6 +654,36 @@ const TRANSLATIONS = {
     plansPeriodAnual: 'ano',
     plansSavingsAnual: ' — Economize US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancele quando quiser',
+    cuentaTitle: 'Conta',
+    cuentaCambiarFoto: 'Trocar Foto',
+    cuentaFotoSoon: 'Muito em breve você vai poder trocar sua foto de perfil.',
+    cuentaNombreCompleto: 'Nome Completo',
+    cuentaEmail: 'Email',
+    cuentaMiembroDesde: 'Membro Desde',
+    cuentaIdUsuario: 'ID de Usuário',
+    editar: 'Editar',
+    cuentaEliminarBtn: 'Excluir Conta',
+    cuentaEmailEditNota: 'Vamos enviar um e-mail de confirmação para o novo endereço antes de fazer a mudança.',
+    delEyebrow: 'CAMILOREY · ZONA DE PERIGO',
+    delTitle: 'Isso não pode ser desfeito',
+    delDesc: 'Depois que você excluir sua conta, todos os seus dados são apagados permanentemente e não podem ser recuperados.',
+    delQueSeElimina: 'O QUE SERÁ EXCLUÍDO',
+    delItem1Title: 'Todos os seus picks seguidos',
+    delItem1Desc: 'Sua banca, seus picks seguidos e todo o seu histórico serão excluídos permanentemente.',
+    delItem2Title: 'Notificações canceladas',
+    delItem2Desc: 'Todos os alertas e notificações programadas serão interrompidos imediatamente.',
+    delItem3Title: 'Assinatura cancelada',
+    delItem3Desc: 'Qualquer assinatura ativa será cancelada sem reembolso pelo tempo restante.',
+    delItem4Title: 'Conta bloqueada',
+    delItem4Desc: 'Sua sessão será encerrada imediatamente e a conta não poderá ser recuperada.',
+    delConfirmarEliminacion: 'CONFIRMAR EXCLUSÃO',
+    delCheckboxLabel: 'Entendo que essa ação é permanente e não pode ser revertida',
+    delEscribePara: 'Digite {word} para confirmar',
+    delPlaceholder: 'Digite {word} aqui',
+    delBoton: 'Excluir Minha Conta',
+    delEliminando: 'Excluindo...',
+    delPalabraConfirmacion: 'EXCLUIR',
+    delErrorGenerico: 'Não foi possível excluir a conta, tente de novo.',
     ajustes: 'AJUSTES',
     filaNombre: 'Nome',
     filaNotificaciones: 'Notificações',
@@ -3434,6 +3524,24 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'camera') {
+    return (
+      <svg {...common}>
+        <path d="M14.5 4h-5L7.5 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3.5Z" />
+        <circle cx="12" cy="13" r="3.5" />
+      </svg>
+    );
+  }
+  if (name === 'trash') {
+    return (
+      <svg {...common}>
+        <path d="M3 6h18" />
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
+        <line x1="10" y1="11" x2="10" y2="17" />
+        <line x1="14" y1="11" x2="14" y2="17" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -3658,6 +3766,15 @@ function ProfileModal({
   const [plansScreenOpen, setPlansScreenOpen] = useState(false);
   const [planCycle, setPlanCycle] = useState('anual');
   const [langScreenOpen, setLangScreenOpen] = useState(false);
+  const [accountScreenOpen, setAccountScreenOpen] = useState(false);
+  const [nameEditOpen, setNameEditOpen] = useState(false);
+  const [emailEditOpen, setEmailEditOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState(user.email || '');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [deleteAccountScreenOpen, setDeleteAccountScreenOpen] = useState(false);
+  const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [helpScreenOpen, setHelpScreenOpen] = useState(false);
   const [openFaqCat, setOpenFaqCat] = useState(0);
   const [openFaqItem, setOpenFaqItem] = useState(null);
@@ -3712,11 +3829,305 @@ function ProfileModal({
       return;
     }
     onProfileUpdated({ display_name: trimmed });
+    setNameEditOpen(false);
+  };
+
+  const saveEmail = async () => {
+    const trimmed = emailInput.trim();
+    if (!trimmed || trimmed === user.email || !supabaseClient) return;
+    setSavingEmail(true);
+    const { error } = await supabaseClient.auth.updateUser({ email: trimmed });
+    setSavingEmail(false);
+    if (error) {
+      alert('No se pudo actualizar el correo: ' + error.message);
+      return;
+    }
+    setEmailEditOpen(false);
+    alert(
+      lang === 'en'
+        ? 'Check your new email inbox to confirm the change.'
+        : 'Revisa la bandeja de tu correo nuevo para confirmar el cambio.'
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!supabaseClient || deletingAccount) return;
+    setDeletingAccount(true);
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.error || t('delErrorGenerico'));
+      onClose();
+      onLogout();
+    } catch (e) {
+      alert(e.message || t('delErrorGenerico'));
+      setDeletingAccount(false);
+    }
   };
 
   const memberSince = user.created_at
     ? new Intl.DateTimeFormat('es', { month: 'short', year: 'numeric' }).format(new Date(user.created_at))
     : null;
+  const memberSinceFull = user.created_at
+    ? new Intl.DateTimeFormat(lang === 'en' ? 'en' : lang === 'pt' ? 'pt' : 'es', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      }).format(new Date(user.created_at))
+    : null;
+  const delConfirmWord = t('delPalabraConfirmacion');
+
+  if (deleteAccountScreenOpen) {
+    const DEL_ITEMS = [
+      ['trash', 'delItem1Title', 'delItem1Desc'],
+      ['bell', 'delItem2Title', 'delItem2Desc'],
+      ['card', 'delItem3Title', 'delItem3Desc'],
+      ['lock', 'delItem4Title', 'delItem4Desc']
+    ];
+    const canDelete = deleteConfirmChecked && deleteConfirmText.trim() === delConfirmWord;
+    return (
+      <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+        <div className="modal">
+          <div className="risk-modal-banner">
+            <div className="subscreen-head" style={{ marginBottom: '10px' }}>
+              <button className="subscreen-back" onClick={() => setDeleteAccountScreenOpen(false)}>
+                <ProfileIcon name="arrow-left" size={18} />
+              </button>
+            </div>
+            <div className="risk-modal-banner-row">
+              <div className="risk-modal-icon">
+                <ProfileIcon name="alert" size={22} />
+              </div>
+              <div>
+                <div className="risk-modal-eyebrow">{t('delEyebrow')}</div>
+                <h3>{t('delTitle')}</h3>
+              </div>
+            </div>
+            <p style={{ color: 'rgba(255,255,255,.85)', fontSize: '13.5px', lineHeight: 1.5, margin: '14px 0 0' }}>
+              {t('delDesc')}
+            </p>
+          </div>
+
+          <div className="profile-section-label" style={{ marginTop: 0 }}>
+            {t('delQueSeElimina')}
+          </div>
+          <div className="del-item-list">
+            {DEL_ITEMS.map(([icon, titleKey, descKey]) => (
+              <div className="del-item" key={titleKey}>
+                <span className="del-item-icon">
+                  <ProfileIcon name={icon} size={18} />
+                </span>
+                <div>
+                  <strong>{t(titleKey)}</strong>
+                  <p>{t(descKey)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="profile-section-label">{t('delConfirmarEliminacion')}</div>
+          <label className="del-checkbox-row">
+            <input
+              type="checkbox"
+              checked={deleteConfirmChecked}
+              onChange={(e) => setDeleteConfirmChecked(e.target.checked)}
+            />
+            <span>{t('delCheckboxLabel')}</span>
+          </label>
+
+          <div className="del-type-block">
+            <label>{t('delEscribePara', { word: delConfirmWord })}</label>
+            <input
+              type="text"
+              className="profile-name-input"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={t('delPlaceholder', { word: delConfirmWord })}
+            />
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-danger risk-modal-btn"
+            disabled={!canDelete || deletingAccount}
+            onClick={handleDeleteAccount}
+          >
+            <ProfileIcon name="trash" size={16} />
+            {deletingAccount ? t('delEliminando') : t('delBoton')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (accountScreenOpen) {
+    return (
+      <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+        <div className="modal">
+          <div className="subscreen-head">
+            <button className="subscreen-back" onClick={() => setAccountScreenOpen(false)}>
+              <ProfileIcon name="arrow-left" size={18} />
+            </button>
+            <h3>{t('cuentaTitle')}</h3>
+          </div>
+
+          <div className="account-avatar-block">
+            <div className="account-avatar-wrap">
+              <UserAvatar
+                emoji={avatarEmoji}
+                url={avatarUrl}
+                initials={(displayName || user.email || '?')[0].toUpperCase()}
+              />
+              <button
+                type="button"
+                className="account-avatar-camera"
+                onClick={() => alert(t('cuentaFotoSoon'))}
+                aria-label={t('cuentaCambiarFoto')}
+              >
+                <ProfileIcon name="camera" size={14} />
+              </button>
+            </div>
+            <span>{t('cuentaCambiarFoto')}</span>
+          </div>
+
+          <div className="account-info-card">
+            <div className="account-info-row">
+              <span className="profile-row-icon">
+                <ProfileIcon name="user" size={18} />
+              </span>
+              <div className="profile-row-body">
+                <p style={{ margin: '0 0 2px' }}>{t('cuentaNombreCompleto')}</p>
+                {nameEditOpen ? (
+                  <div className="profile-edit-inline" style={{ marginTop: '6px' }}>
+                    <input
+                      type="text"
+                      className="profile-name-input"
+                      value={nameInput}
+                      maxLength={40}
+                      placeholder={t('tuNombre')}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ball"
+                      disabled={savingName || !nameInput.trim() || nameInput.trim() === displayName}
+                      onClick={saveName}
+                    >
+                      {savingName ? '...' : t('guardar')}
+                    </button>
+                  </div>
+                ) : (
+                  <strong>{displayName || '—'}</strong>
+                )}
+              </div>
+              {!nameEditOpen && (
+                <button type="button" className="account-edit-btn" onClick={() => setNameEditOpen(true)}>
+                  {t('editar')}
+                </button>
+              )}
+            </div>
+
+            <div className="account-info-row">
+              <span className="profile-row-icon">
+                <ProfileIcon name="mail" size={18} />
+              </span>
+              <div className="profile-row-body">
+                <p style={{ margin: '0 0 2px' }}>{t('cuentaEmail')}</p>
+                {emailEditOpen ? (
+                  <div className="profile-edit-inline" style={{ marginTop: '6px' }}>
+                    <input
+                      type="email"
+                      className="profile-name-input"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ball"
+                      disabled={savingEmail || !emailInput.trim() || emailInput.trim() === user.email}
+                      onClick={saveEmail}
+                    >
+                      {savingEmail ? '...' : t('guardar')}
+                    </button>
+                  </div>
+                ) : (
+                  <strong>{user.email}</strong>
+                )}
+              </div>
+              {!emailEditOpen && (
+                <button type="button" className="account-edit-btn" onClick={() => setEmailEditOpen(true)}>
+                  {t('editar')}
+                </button>
+              )}
+            </div>
+            {emailEditOpen && <p className="plans-cta-note" style={{ margin: '0 0 10px' }}>{t('cuentaEmailEditNota')}</p>}
+
+            <div className="account-info-row">
+              <span className="profile-row-icon">
+                <ProfileIcon name="moon" size={18} />
+              </span>
+              <div className="profile-row-body">
+                <p style={{ margin: '0 0 2px' }}>{t('cuentaMiembroDesde')}</p>
+                <strong>{memberSinceFull || '—'}</strong>
+              </div>
+            </div>
+
+            <div className="account-info-row">
+              <span className="profile-row-icon">
+                <ProfileIcon name="shield" size={18} />
+              </span>
+              <div className="profile-row-body">
+                <p style={{ margin: '0 0 2px' }}>{t('cuentaIdUsuario')}</p>
+                <strong className="account-id-value">{user.id}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="profile-section-label">{t('filaSuscripcion')}</div>
+          <div
+            className="profile-row"
+            onClick={() => {
+              if (!isAdmin && !isPremium) {
+                setAccountScreenOpen(false);
+                setPlansScreenOpen(true);
+              } else if (isPremium) {
+                alert(
+                  lang === 'en'
+                    ? 'Your premium plan is active. Write to us if you want to cancel or have questions about your subscription.'
+                    : 'Tu plan premium está activo. Escribinos si querés cancelarlo o tenés dudas de tu suscripción.'
+                );
+              }
+            }}
+          >
+            <span className="profile-row-icon">
+              <ProfileIcon name="crown" size={18} />
+            </span>
+            <div className="profile-row-body">
+              <strong>{isAdmin || isPremium ? t('perfilPlanPremium') : t('perfilPlanGratuito')}</strong>
+              <p>{t('filaSuscripcionDesc')}</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-ghost del-account-trigger-btn"
+            onClick={() => setDeleteAccountScreenOpen(true)}
+          >
+            <ProfileIcon name="trash" size={16} />
+            {t('cuentaEliminarBtn')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (plansScreenOpen) {
     const paymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK;
@@ -4082,7 +4493,11 @@ function ProfileModal({
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
         <div className="modal-head">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            className="profile-head-clickable"
+            style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+            onClick={() => setAccountScreenOpen(true)}
+          >
             <div className="featured-avatar">
               <UserAvatar
                 emoji={avatarEmoji}
@@ -4098,6 +4513,7 @@ function ProfileModal({
                 {memberSince ? ` · ${t('perfilMiembroDesde')} ${memberSince}` : ''}
               </div>
             </div>
+            <ProfileIcon name="chevron-right" size={16} />
           </div>
           <button className="modal-close" onClick={onClose}>
             ✕
@@ -7036,6 +7452,60 @@ const CSS = `
   .plans-feature-row svg{ color:var(--hit); flex:none; }
   .plans-cta-btn{ width:100%; justify-content:center; margin-top:18px; padding:14px; font-size:14.5px; }
   .plans-cta-note{ font-size:11.5px; color:var(--muted); text-align:center; line-height:1.5; margin:10px 0 0; }
+
+  .profile-head-clickable{ flex:1; min-width:0; margin-right:10px; }
+  .profile-head-clickable svg{ flex:none; color:var(--muted); margin-left:auto; }
+
+  .account-avatar-block{ display:flex; flex-direction:column; align-items:center; gap:8px; margin:6px 0 20px; }
+  .account-avatar-wrap{ position:relative; width:72px; height:72px; }
+  .account-avatar-wrap > div{
+    width:72px; height:72px; border-radius:50%; background:var(--court); color:#fff;
+    font-weight:800; font-size:24px;
+  }
+  .account-avatar-camera{
+    position:absolute; bottom:-2px; right:-2px; width:26px; height:26px; border-radius:50%;
+    background:var(--ink); color:var(--card); border:2px solid var(--card);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .account-avatar-block span{ font-size:12.5px; font-weight:700; color:var(--muted); }
+
+  .account-info-card{ border:1px solid var(--line); border-radius:16px; padding:0 14px; margin-bottom:18px; }
+  .account-info-row{ display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-top:1px solid var(--line); }
+  .account-info-row:first-child{ border-top:none; }
+  .account-info-row .profile-row-body p{ font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; }
+  .account-info-row .profile-row-body strong{ font-size:14px; color:var(--ink); word-break:break-word; }
+  .account-id-value{ font-family:var(--font-mono); font-size:12px !important; }
+  .account-edit-btn{
+    flex:none; align-self:center; font-size:12px; font-weight:700; color:var(--ink);
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:999px; padding:7px 12px; cursor:pointer;
+  }
+
+  .del-account-trigger-btn{ width:100%; justify-content:center; margin-top:8px; color:#B3261E; border-color:rgba(179,38,30,.35); }
+
+  .del-item-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+  .del-item{
+    display:flex; gap:12px; padding:14px; border-radius:14px;
+    background:var(--court-soft); border:1px solid rgba(226,68,74,.25);
+  }
+  .del-item-icon{
+    flex:none; width:36px; height:36px; border-radius:10px; color:#B3261E;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(226,68,74,.14); border:1px solid rgba(226,68,74,.3);
+  }
+  .del-item strong{ display:block; font-size:13.5px; color:#B3261E; margin-bottom:3px; }
+  .del-item p{ margin:0; font-size:12.5px; color:var(--muted); line-height:1.45; }
+
+  .del-checkbox-row{
+    display:flex; align-items:flex-start; gap:10px; padding:14px; border:1px solid var(--line);
+    border-radius:14px; cursor:pointer; margin-bottom:14px; font-size:13px; color:var(--ink); line-height:1.45;
+  }
+  .del-checkbox-row input{ margin-top:2px; flex:none; width:16px; height:16px; }
+
+  .del-type-block{ margin-bottom:18px; }
+  .del-type-block label{ display:block; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:8px; }
+
+  .btn-danger{ background:#B3261E; color:#fff; }
+  .btn-danger:disabled{ opacity:.4; cursor:not-allowed; transform:none !important; }
 
   .profile-row-icon{
     width:40px; height:40px; border-radius:50%; flex:none;
