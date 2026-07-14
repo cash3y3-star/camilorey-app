@@ -14,8 +14,12 @@ const VIEWS = [
   'modelo',
   'errores',
   'mibankroll',
-  'actividad'
+  'actividad',
+  'admin'
 ];
+// Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
+// bajo un solo botón "Admin" (ver la sección admin más abajo).
+const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 const LANG_KEY = 'camilorey_lang';
@@ -3324,6 +3328,24 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'alert') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 8v5M12 16h.01" />
+      </svg>
+    );
+  }
+  if (name === 'grid') {
+    return (
+      <svg {...common}>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -5027,11 +5049,11 @@ export default function Home({
           <a href="#mibankroll" data-view="mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
             {t('navMiBankroll')} {!isAdmin && !myBankrollTrialActive ? <ProfileIcon name="lock" size={11} /> : null}
           </a>
-          {isAdmin ? navLink('bankroll', t('navBankroll')) : null}
-          {isAdmin ? navLink('grupos', t('navGrupos')) : null}
-          {isAdmin ? navLink('modelo', t('navModelo')) : null}
-          {isAdmin ? navLink('errores', t('navErrores')) : null}
-          {isAdmin ? navLink('actividad', 'Actividad') : null}
+          {isAdmin ? (
+            <a href="#admin" className={ADMIN_VIEWS.includes(view) || view === 'admin' ? 'active' : ''}>
+              Admin
+            </a>
+          ) : null}
         </nav>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {user ? (
@@ -5274,7 +5296,72 @@ export default function Home({
         </section>
 
         {isAdmin && (
+        <section className={`view ${view === 'admin' ? 'active' : ''}`}>
+          <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <ProfileIcon name="shield" size={13} /> Solo tú ves esto
+          </span>
+          <h1 className="page-title">Admin</h1>
+          <p className="page-sub">Todo lo que solo vos administrás, agrupado en un solo lugar.</p>
+
+          <div className="profile-section-label">PANELES</div>
+          <a className="profile-row" href="#bankroll">
+            <span className="profile-row-icon">
+              <ProfileIcon name="dollar" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('navBankroll')}</strong>
+              <p>Planificación con Kelly, log de apuestas y evolución del banco</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
+          <a className="profile-row" href="#grupos">
+            <span className="profile-row-icon">
+              <ProfileIcon name="grid" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('navGrupos')}</strong>
+              <p>Tablas de posiciones de los torneos en vivo</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
+          <a className="profile-row" href="#modelo">
+            <span className="profile-row-icon">
+              <ProfileIcon name="chart" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('navModelo')}</strong>
+              <p>Estadísticas reales de acierto de la fórmula de confianza</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
+          <a className="profile-row" href="#errores">
+            <span className="profile-row-icon">
+              <ProfileIcon name="alert" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('navErrores')}</strong>
+              <p>Últimos errores registrados de la app</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
+          <a className="profile-row" href="#actividad">
+            <span className="profile-row-icon">
+              <ProfileIcon name="trending-up" />
+            </span>
+            <div className="profile-row-body">
+              <strong>Actividad</strong>
+              <p>Qué vistas y acciones se usan más en el sitio</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
+        </section>
+        )}
+
+        {isAdmin && (
         <section className={`view ${view === 'bankroll' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
           <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <ProfileIcon name="shield" size={13} /> Planificación con Kelly
           </span>
@@ -5488,6 +5575,9 @@ export default function Home({
 
         {isAdmin && (
         <section className={`view ${view === 'grupos' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
           <span className="eyebrow">Solo tú ves esto</span>
           <h1 className="page-title">Grupos</h1>
           <p className="page-sub">Tablas de los torneos que están en vivo ahora mismo.</p>
@@ -5501,6 +5591,9 @@ export default function Home({
 
         {isAdmin && (
         <section className={`view ${view === 'modelo' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
           <span className="eyebrow">Solo tú ves esto</span>
           <h1 className="page-title">Modelo</h1>
           <p className="page-sub">¿La confianza que calculamos de verdad predice mejor que una moneda al aire?</p>
@@ -5518,6 +5611,9 @@ export default function Home({
 
         {isAdmin && (
         <section className={`view ${view === 'errores' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
           <span className="eyebrow">Solo tú ves esto</span>
           <h1 className="page-title">Errores</h1>
           <p className="page-sub">Últimos 50 errores de la app (no de los cronjobs — esos avisan por su cuenta).</p>
@@ -5554,6 +5650,9 @@ export default function Home({
 
         {isAdmin && (
         <section className={`view ${view === 'actividad' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
           <span className="eyebrow">Solo tú ves esto</span>
           <h1 className="page-title">Actividad</h1>
           <p className="page-sub">
@@ -5903,48 +6002,9 @@ export default function Home({
           {t('navMiBankroll')}
         </a>
         {isAdmin ? (
-          <a href="#bankroll" className={view === 'bankroll' ? 'active' : ''}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-              <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-              <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-            </svg>
-            {t('navBankroll')}
-          </a>
-        ) : null}
-        {isAdmin ? (
-          <a href="#grupos" className={view === 'grupos' ? 'active' : ''}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
-            </svg>
-            {t('navGrupos')}
-          </a>
-        ) : null}
-        {isAdmin ? (
-          <a href="#modelo" className={view === 'modelo' ? 'active' : ''}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 3v18h18" />
-              <path d="M7 14l4-5 4 3 5-7" />
-            </svg>
-            {t('navModelo')}
-          </a>
-        ) : null}
-        {isAdmin ? (
-          <a href="#errores" className={view === 'errores' ? 'active' : ''}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 8v5M12 16h.01" />
-            </svg>
-            {t('navErrores')}
-          </a>
-        ) : null}
-        {isAdmin ? (
-          <a href="#actividad" className={view === 'actividad' ? 'active' : ''}>
-            <ProfileIcon name="trending-up" size={20} />
-            Actividad
+          <a href="#admin" className={ADMIN_VIEWS.includes(view) || view === 'admin' ? 'active' : ''}>
+            <ProfileIcon name="shield" size={20} />
+            Admin
           </a>
         ) : null}
       </nav>
@@ -6112,6 +6172,11 @@ const CSS = `
     width:100%; height:100%; display:flex; align-items:center; justify-content:center;
     background:var(--court); color:#fff; font-weight:800; font-size:13px;
   }
+  .admin-back-link{
+    display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;
+    color:var(--muted); text-decoration:none; margin-bottom:12px;
+  }
+  .admin-back-link:hover{color:var(--ink);}
   .user-count-strip{
     text-align:center; font-family:var(--font-mono); font-size:11px; color:var(--muted);
     padding:6px; border-bottom:1px solid var(--line);
