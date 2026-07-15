@@ -3193,7 +3193,9 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             <div className="stat-rows">
               <div className="stat-row">
                 <div className="stat-row-top">
-                  <span className="stat-row-label">📊 {t('indiceIA')}</span>
+                  <span className="stat-row-label">
+                    <ProfileIcon name="chart" size={14} /> {t('indiceIA')}
+                  </span>
                   <span className="stat-row-value num">{pick.confidence}%</span>
                 </div>
                 <div className="stat-row-bar">
@@ -3202,20 +3204,26 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
               </div>
               <div className="stat-row">
                 <div className="stat-row-top">
-                  <span className="stat-row-label">🎯 {t('cuotaRushbet')}</span>
+                  <span className="stat-row-label">
+                    <ProfileIcon name="target" size={14} /> {t('cuotaRushbet')}
+                  </span>
                   <span className="stat-row-value num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : t('noDisponible')}</span>
                 </div>
               </div>
               <div className="stat-row">
                 <div className="stat-row-top">
-                  <span className="stat-row-label">🔥 {t('racha')}</span>
+                  <span className="stat-row-label">
+                    <ProfileIcon name="trending-up" size={14} /> {t('racha')}
+                  </span>
                   <span className="stat-row-value num">{pick.streakLabel || '—'}</span>
                 </div>
               </div>
               {resumenH2HMatches.length > 0 ? (
                 <div className="stat-row">
                   <div className="stat-row-top">
-                    <span className="stat-row-label">⚔️ H2H</span>
+                    <span className="stat-row-label">
+                      <ProfileIcon name="swords" size={14} /> H2H
+                    </span>
                     <span className="stat-row-value num">
                       {resumenH2HWins}-{resumenH2HMatches.length - resumenH2HWins}
                     </span>
@@ -4082,6 +4090,18 @@ function ProfileIcon({ name, size = 20 }) {
         <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
         <line x1="10" y1="11" x2="10" y2="17" />
         <line x1="14" y1="11" x2="14" y2="17" />
+      </svg>
+    );
+  }
+  if (name === 'swords') {
+    return (
+      <svg {...common}>
+        <path d="m14.5 17.5 3 3L21 17l-3-3" />
+        <path d="M3 21l7-7" />
+        <path d="M13 6l6-3 2 2-3 6-3-1-2-2Z" />
+        <path d="m9.5 17.5-3 3L3 17l3-3" />
+        <path d="M21 21l-7-7" />
+        <path d="M11 6L5 3 3 5l3 6 3-1 2-2Z" />
       </svg>
     );
   }
@@ -8872,7 +8892,8 @@ const CSS = `
 
   .stat-rows{display:flex; flex-direction:column; gap:14px; background:var(--bg-alt); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
   .stat-row-top{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px;}
-  .stat-row-label{color:var(--muted); font-weight:600;}
+  .stat-row-label{color:var(--muted); font-weight:600; display:inline-flex; align-items:center; gap:6px;}
+  .stat-row-label svg{flex:none; color:var(--court);}
   .stat-row-value{color:var(--ink); font-weight:800; font-size:14px;}
   .stat-row-bar{height:6px; border-radius:999px; background:var(--line); overflow:hidden; margin-top:6px;}
   .stat-row-bar-fill{height:100%; border-radius:999px; background:var(--court);}
