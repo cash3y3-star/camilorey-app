@@ -5325,7 +5325,7 @@ function playTapSound() {
     osc.type = 'sine';
     osc.frequency.setValueAtTime(420, now);
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.06, now + 0.005);
+    gain.gain.linearRampToValueAtTime(0.035, now + 0.005);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -5339,7 +5339,7 @@ function playTapSound() {
 // Vibración suave al presionar — bien cortita (10ms) para que se
 // sienta como feedback táctil de un botón, no como una alerta.
 function vibrateTap() {
-  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(20);
 }
 
 // Delegación global: un solo listener en el documento en vez de
