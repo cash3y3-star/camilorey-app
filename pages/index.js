@@ -2736,7 +2736,7 @@ function LiveChat({ matchSourceId, user, profile }) {
                   {msg.user_name || 'Anónimo'}
                   {msg.sender_is_premium ? (
                     <span className="chat-premium-badge" title="Usuario Premium">
-                      <ProfileIcon name="crown" size={14} />
+                      <ProfileIcon name="check" size={12} />
                     </span>
                   ) : null}
                   {msg.sender_level ? (
@@ -5441,7 +5441,7 @@ function ProfileModal({
                   {displayName || user.email}
                   {isAdmin || isPremium ? (
                     <span className="chat-premium-badge" title={t('perfilPlanPremium')}>
-                      <ProfileIcon name="crown" size={14} />
+                      <ProfileIcon name="check" size={12} />
                     </span>
                   ) : null}
                 </span>
