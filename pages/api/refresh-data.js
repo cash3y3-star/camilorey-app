@@ -89,6 +89,59 @@ export default async function handler(req, res) {
 
   const playersById = new Map((players || []).map((p) => [p.id, p]));
 
+  // Mismo cálculo que getServerSideProps para el Top 10 de la pestaña
+  // "Calientes" — acá vive aparte para que el poller del cliente (cada
+  // 20s mientras esa vista está abierta) lo traiga sin recargar la
+  // página.
+  const { data: hotMatches } = await supabase
+    .from('matches')
+    .select('player_a_id, player_b_id, winner_id, scheduled_at')
+    .eq('status', 'finished')
+    .not('winner_id', 'is', null)
+    .order('scheduled_at', { ascending: false })
+    .limit(400);
+  const formByPlayerId = new Map();
+  for (const m of hotMatches || []) {
+    if (!m.player_a_id || !m.player_b_id) continue;
+    if (!formByPlayerId.has(m.player_a_id)) formByPlayerId.set(m.player_a_id, []);
+    if (!formByPlayerId.has(m.player_b_id)) formByPlayerId.set(m.player_b_id, []);
+    formByPlayerId.get(m.player_a_id).push({ win: m.winner_id === m.player_a_id, date: m.scheduled_at });
+    formByPlayerId.get(m.player_b_id).push({ win: m.winner_id === m.player_b_id, date: m.scheduled_at });
+  }
+  const HOT_MIN_MATCHES = 3;
+  const HOT_MIN_STREAK = 2;
+  const hotPlayers = [...formByPlayerId.entries()]
+    .map(([pid, formDesc]) => {
+      const player = playersById.get(pid);
+      if (!player) return null;
+      const recent = formDesc.slice(0, 10);
+      if (recent.length < HOT_MIN_MATCHES) return null;
+      let streak = 0;
+      for (const m of recent) {
+        if (m.win) streak++;
+        else break;
+      }
+      if (streak < HOT_MIN_STREAK) return null;
+      const wins = recent.filter((m) => m.win).length;
+      return {
+        playerId: pid,
+        name: player.name,
+        initials: initialsOf(player.name),
+        avatarUrl: player.avatar_cutout_url || player.avatar_url || null,
+        hasCutout: Boolean(player.avatar_cutout_url),
+        streak,
+        winRate: Math.round((wins / recent.length) * 100),
+        matchesPlayed: recent.length,
+        lastPlayedAt: recent[0]?.date || null
+      };
+    })
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        b.streak - a.streak || b.winRate - a.winRate || new Date(b.lastPlayedAt) - new Date(a.lastPlayedAt)
+    )
+    .slice(0, 10);
+
   const pendingMatchIds = (pendingPicks || []).map((p) => p.match_id);
   const { data: pendingMatches } = pendingMatchIds.length
     ? await supabase.from('matches').select('*').in('id', pendingMatchIds)
@@ -596,6 +649,7 @@ export default async function handler(req, res) {
     stats: { efectividad, racha, cuotaProm, roi, unidades },
     picks: publicPicks,
     resolvedPicks: publicResolvedPicks,
-    tournamentGroups
+    tournamentGroups,
+    hotPlayers
   });
 }

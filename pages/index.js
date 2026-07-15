@@ -5790,7 +5790,7 @@ export default function Home({
   resolvedPicks: initialResolvedPicks,
   tournamentGroups: initialTournamentGroups,
   recentChampions = [],
-  hotPlayers = [],
+  hotPlayers: initialHotPlayers = [],
   matches: initialMatches,
   currentDateStr,
   userCount
@@ -5802,6 +5802,7 @@ export default function Home({
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
   const [tournamentGroups, setTournamentGroups] = useState(initialTournamentGroups);
   const [matches, setMatches] = useState(initialMatches);
+  const [hotPlayers, setHotPlayers] = useState(initialHotPlayers);
   // bankrollLog/bankrollSeries (apuesta por apuesta) ya no llegan por
   // props ni por el poller público — se piden aparte a
   // /api/bankroll-log con el login verificado, ver el useEffect más
@@ -6052,7 +6053,7 @@ export default function Home({
   // refrescar. Se repite cada 20s mientras cualquiera de esas vistas
   // esté abierta.
   useEffect(() => {
-    if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll') return undefined;
+    if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll' && view !== 'calientes') return undefined;
     let cancelled = false;
 
     async function load() {
@@ -6065,8 +6066,9 @@ export default function Home({
         if (data.picks) setPicks(data.picks);
         if (data.resolvedPicks) setResolvedPicks(data.resolvedPicks);
         if (data.tournamentGroups) setTournamentGroups(data.tournamentGroups);
+        if (data.hotPlayers) setHotPlayers(data.hotPlayers);
       } catch (e) {
-        console.error('Error actualizando Inicio/Picks/Bankroll:', e);
+        console.error('Error actualizando Inicio/Picks/Bankroll/Calientes:', e);
       }
 
       // El detalle de bankroll (apuesta por apuesta) sale de un
