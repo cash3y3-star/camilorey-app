@@ -18,7 +18,6 @@ const VIEWS = [
   'destacados',
   'historialvip',
   'picksvip',
-  'calientes',
   'admin'
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
@@ -50,7 +49,6 @@ const TRANSLATIONS = {
     navErrores: 'Errores',
     navDestacados: 'Destacados',
     navHistorialVip: 'Historial VIP',
-    navCalientes: 'Calientes',
     entrar: 'Entrar',
     cerrarSesion: 'Cerrar sesión',
     cargando: 'Cargando…',
@@ -83,11 +81,9 @@ const TRANSLATIONS = {
     noHayPicksActivos: 'No hay picks activos en este momento.',
     verTodosPicks: 'Ver todos los picks →',
 
-    calientesEyebrow: 'Liga Pro Checa · Tenis de mesa',
     calientesTitle: 'Jugadores en racha',
     calientesSub: 'Los 10 jugadores con más victorias seguidas ahora mismo — se recalcula con cada partido que termina.',
     calientesVacio: 'Todavía no hay nadie con una racha activa de 2 o más victorias.',
-    calientesRachaLabel: 'Racha',
     calientesAciertoLabel: 'Acierto (últ. {n})',
 
     picksEyebrow: 'Todos los picks',
@@ -337,7 +333,6 @@ const TRANSLATIONS = {
     navErrores: 'Errors',
     navDestacados: 'Featured',
     navHistorialVip: 'VIP History',
-    navCalientes: 'Hot',
     entrar: 'Sign in',
     cerrarSesion: 'Sign out',
     cargando: 'Loading…',
@@ -370,11 +365,9 @@ const TRANSLATIONS = {
     noHayPicksActivos: 'No active picks right now.',
     verTodosPicks: 'See all picks →',
 
-    calientesEyebrow: 'Czech Liga Pro · Table tennis',
     calientesTitle: 'Players on fire',
     calientesSub: 'The 10 players with the longest current win streaks — recalculated with every finished match.',
     calientesVacio: 'No one has an active streak of 2+ wins yet.',
-    calientesRachaLabel: 'Streak',
     calientesAciertoLabel: 'Win rate (last {n})',
 
     picksEyebrow: 'All picks',
@@ -622,7 +615,6 @@ const TRANSLATIONS = {
     navErrores: 'Erros',
     navDestacados: 'Destaques',
     navHistorialVip: 'Histórico VIP',
-    navCalientes: 'Em alta',
     entrar: 'Entrar',
     cerrarSesion: 'Sair',
     cargando: 'Carregando…',
@@ -655,11 +647,9 @@ const TRANSLATIONS = {
     noHayPicksActivos: 'Não há picks ativos no momento.',
     verTodosPicks: 'Ver todos os picks →',
 
-    calientesEyebrow: 'Liga Pro Checa · Tênis de mesa',
     calientesTitle: 'Jogadores em alta',
     calientesSub: 'Os 10 jogadores com mais vitórias seguidas agora — recalculado a cada partida finalizada.',
     calientesVacio: 'Ainda ninguém tem uma sequência ativa de 2 ou mais vitórias.',
-    calientesRachaLabel: 'Sequência',
     calientesAciertoLabel: 'Acerto (últ. {n})',
 
     picksEyebrow: 'Todos os picks',
@@ -4476,6 +4466,7 @@ function PicksVipView({
   exclusivePicksError,
   exclusiveBalance,
   exclusiveBalanceError,
+  hotPlayers,
   followedPickIds,
   toggleFollow,
   liveScores,
@@ -4615,47 +4606,35 @@ function PicksVipView({
                 ))
               )}
             </div>
+
+            <div className="section-head">
+              <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <ProfileIcon name="zap" size={15} /> {t('calientesTitle')}
+              </h2>
+            </div>
+            <p className="page-sub">{t('calientesSub')}</p>
+            {hotPlayers.length === 0 ? (
+              <p className="page-sub">{t('calientesVacio')}</p>
+            ) : (
+              <div className="hot-list">
+                {hotPlayers.map((p, i) => (
+                  <div className="hot-row" key={p.playerId}>
+                    <span className={`hot-rank ${i < 3 ? 'hot-rank-top' : ''}`}>{i + 1}</span>
+                    <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} initials={p.initials} className="hot-avatar" />
+                    <div className="hot-info">
+                      <strong className="hot-name">{p.name}</strong>
+                      <span className="hot-sub">{t('calientesAciertoLabel', { n: p.matchesPlayed })}: {p.winRate}%</span>
+                    </div>
+                    <span className="hot-streak">
+                      <ProfileIcon name="zap" size={12} />
+                      {p.streak}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
-    </section>
-  );
-}
-
-// Top 10 de jugadores en racha — hotPlayers ya viene ordenado y
-// recortado a 10 desde getServerSideProps, acá solo se pinta.
-function HotPlayersView({ view, lang, hotPlayers }) {
-  const t = useTranslate(lang);
-  return (
-    <section className={`view ${view === 'calientes' ? 'active' : ''}`}>
-      <a href="#inicio" className="admin-back-link">
-        <ProfileIcon name="arrow-left" size={14} /> {t('navInicio')}
-      </a>
-      <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-        <ProfileIcon name="zap" size={13} /> {t('calientesEyebrow')}
-      </span>
-      <h1 className="page-title">{t('calientesTitle')}</h1>
-      <p className="page-sub">{t('calientesSub')}</p>
-
-      {hotPlayers.length === 0 ? (
-        <p className="page-sub">{t('calientesVacio')}</p>
-      ) : (
-        <div className="hot-list">
-          {hotPlayers.map((p, i) => (
-            <div className="hot-row" key={p.playerId}>
-              <span className={`hot-rank ${i < 3 ? 'hot-rank-top' : ''}`}>{i + 1}</span>
-              <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} initials={p.initials} className="hot-avatar" />
-              <div className="hot-info">
-                <strong className="hot-name">{p.name}</strong>
-                <span className="hot-sub">{t('calientesAciertoLabel', { n: p.matchesPlayed })}: {p.winRate}%</span>
-              </div>
-              <span className="hot-streak">
-                <ProfileIcon name="zap" size={12} />
-                {p.streak}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
@@ -6053,7 +6032,7 @@ export default function Home({
   // refrescar. Se repite cada 20s mientras cualquiera de esas vistas
   // esté abierta.
   useEffect(() => {
-    if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll' && view !== 'calientes') return undefined;
+    if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll' && view !== 'picksvip') return undefined;
     let cancelled = false;
 
     async function load() {
@@ -6912,7 +6891,6 @@ export default function Home({
           <a href="#mibankroll" data-view="mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
             {t('navMiBankroll')} {!isAdmin && !isPremium && !myBankrollTrialActive ? <ProfileIcon name="lock" size={11} /> : null}
           </a>
-          {navLink('calientes', t('navCalientes'))}
           {isAdmin ? (
             <a href="#admin" className={ADMIN_VIEWS.includes(view) || view === 'admin' ? 'active' : ''}>
               Admin
@@ -7723,13 +7701,12 @@ export default function Home({
           exclusivePicksError={exclusivePicksError}
           exclusiveBalance={exclusiveBalance}
           exclusiveBalanceError={exclusiveBalanceError}
+          hotPlayers={hotPlayers}
           followedPickIds={followedPickIds}
           toggleFollow={toggleFollow}
           liveScores={liveScores}
           onPickClick={(p) => setModalPick(p)}
         />
-
-        <HotPlayersView view={view} lang={lang} hotPlayers={hotPlayers} />
 
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">{t('seguidosEyebrow')}</span>
@@ -8018,12 +7995,6 @@ export default function Home({
             ) : null}
           </span>
           {t('navMiBankroll')}
-        </a>
-        <a href="#calientes" className={view === 'calientes' ? 'active' : ''}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M13 2 3 14h8l-1 8 10-12h-8l1-8Z" />
-          </svg>
-          {t('navCalientes')}
         </a>
         {isAdmin ? (
           <a href="#admin" className={ADMIN_VIEWS.includes(view) || view === 'admin' ? 'active' : ''}>
