@@ -292,7 +292,6 @@ const TRANSLATIONS = {
     buscandoMarcador: 'Buscando marcador…',
     resultadoFinal: 'Resultado final:',
     partidoNoEmpieza: 'Este partido todavía no empieza.',
-    formaReciente: 'Forma reciente ·',
     partidoDetallado: 'Partido detallado',
     partidoTerminadoRecarga: 'Partido terminado — recarga la página para ver el resultado final.',
     corriendo: 'corriendo',
@@ -577,7 +576,6 @@ const TRANSLATIONS = {
     buscandoMarcador: 'Looking for the score…',
     resultadoFinal: 'Final result:',
     partidoNoEmpieza: "This match hasn't started yet.",
-    formaReciente: 'Recent form ·',
     partidoDetallado: 'Match details',
     partidoTerminadoRecarga: 'Match finished — reload the page to see the final result.',
     corriendo: 'running',
@@ -863,7 +861,6 @@ const TRANSLATIONS = {
     buscandoMarcador: 'Buscando placar…',
     resultadoFinal: 'Resultado final:',
     partidoNoEmpieza: 'Esta partida ainda não começou.',
-    formaReciente: 'Forma recente ·',
     partidoDetallado: 'Partida detalhada',
     partidoTerminadoRecarga: 'Partida encerrada — recarregue a página para ver o resultado final.',
     corriendo: 'em andamento',
@@ -2913,16 +2910,6 @@ function MatchDetailModal({ m, onClose, user, profile, lang }) {
 
         {form ? (
           <>
-            <div className="hist-title">
-              <span>{t('formaReciente')} {m.playerA}</span>
-            </div>
-            <RecentFormList history={form.historyA.slice(0, 5)} />
-
-            <div className="hist-title">
-              <span>{t('formaReciente')} {m.playerB}</span>
-            </div>
-            <RecentFormList history={form.historyB.slice(0, 5)} />
-
             {form.h2hTotal > 0 ? (
               <>
                 <div className="hist-title">
@@ -2980,39 +2967,9 @@ function DonutChart({ wins, total }) {
   );
 }
 
-// Lista de "últimos partidos" estilo Sofascore/AiScore: una fila por
-// partido real, con fecha, contra quién, el marcador de sets de ESE
-// cruce, y un círculo verde/rojo de victoria o derrota — no puntos ni
-// barras abstractas.
-function RecentFormList({ history }) {
-  if (!history || history.length === 0) {
-    return <p className="page-sub">Sin historial reciente todavía.</p>;
-  }
-  return (
-    <div className="form-list">
-      {history.map((m, i) => (
-        <div className="form-list-row" key={i}>
-          <div className="form-list-meta">
-            <span className="form-list-date">{shortDate(m.date)}</span>
-            <span className="form-list-ft">FT</span>
-          </div>
-          <div className="form-list-opp">
-            vs {m.opponent}
-            <span className="form-list-score num">
-              {m.setsFor}-{m.setsAgainst}
-            </span>
-          </div>
-          <span className={`form-list-badge ${m.win ? 'win' : 'loss'}`}>{m.win ? 'W' : 'L'}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Lista de H2H — a diferencia de RecentFormList (que arma "vs Fulano"
-// desde el punto de vista de un solo jugador), acá se ven los DOS
-// nombres completos en cada cruce, con el que ganó ESE partido
-// resaltado en verde. El orden es local primero (como Sofascore), no
+// Lista de H2H — muestra los DOS nombres completos en cada cruce, con
+// el que ganó ESE partido resaltado en verde. El orden es local
+// primero (como Sofascore), no
 // "favorito siempre primero" — favoredWasHome dice si el favorito
 // jugó de local EN ESE partido puntual, así que el orden puede
 // cambiar de una fila a otra según a quién le tocó local esa vez.
@@ -4722,15 +4679,18 @@ function ProfileModal({
     // la misma URL después de subir una nueva.
     const { data: urlData } = supabaseClient.storage.from('user-avatars').getPublicUrl(path);
     const bustedUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+    // Si la cuenta tenía un emoji de avatar guardado, UserAvatar le da
+    // prioridad sobre la foto (emoji ? emoji : url ? foto : iniciales)
+    // — sin borrarlo acá, la foto se sube bien pero nunca se ve.
     const { error: dbError } = await supabaseClient
       .from('profiles')
-      .upsert({ id: user.id, custom_avatar_url: bustedUrl });
+      .upsert({ id: user.id, custom_avatar_url: bustedUrl, avatar_emoji: null });
     setUploadingAvatar(false);
     if (dbError) {
       alert(t('cuentaFotoError', { error: dbError.message }));
       return;
     }
-    onProfileUpdated({ custom_avatar_url: bustedUrl });
+    onProfileUpdated({ custom_avatar_url: bustedUrl, avatar_emoji: null });
   };
 
   const [deleteAccountScreenOpen, setDeleteAccountScreenOpen] = useState(false);
