@@ -18,6 +18,7 @@ const VIEWS = [
   'destacados',
   'historialvip',
   'picksvip',
+  'calientes',
   'admin'
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
@@ -49,6 +50,7 @@ const TRANSLATIONS = {
     navErrores: 'Errores',
     navDestacados: 'Destacados',
     navHistorialVip: 'Historial VIP',
+    navCalientes: 'Calientes',
     entrar: 'Entrar',
     cerrarSesion: 'Cerrar sesión',
     cargando: 'Cargando…',
@@ -80,6 +82,13 @@ const TRANSLATIONS = {
     picksVipSub: 'El destacado del día y los picks exclusivos (alta confianza + cuota 1.60+), en un solo lugar.',
     noHayPicksActivos: 'No hay picks activos en este momento.',
     verTodosPicks: 'Ver todos los picks →',
+
+    calientesEyebrow: 'Liga Pro Checa · Tenis de mesa',
+    calientesTitle: 'Jugadores en racha',
+    calientesSub: 'Los 10 jugadores con más victorias seguidas ahora mismo — se recalcula con cada partido que termina.',
+    calientesVacio: 'Todavía no hay nadie con una racha activa de 2 o más victorias.',
+    calientesRachaLabel: 'Racha',
+    calientesAciertoLabel: 'Acierto (últ. {n})',
 
     picksEyebrow: 'Todos los picks',
     picksTitle: 'Picks',
@@ -328,6 +337,7 @@ const TRANSLATIONS = {
     navErrores: 'Errors',
     navDestacados: 'Featured',
     navHistorialVip: 'VIP History',
+    navCalientes: 'Hot',
     entrar: 'Sign in',
     cerrarSesion: 'Sign out',
     cargando: 'Loading…',
@@ -359,6 +369,13 @@ const TRANSLATIONS = {
     picksVipSub: "Today's featured pick and the exclusive picks (high confidence + 1.60+ odds), all in one place.",
     noHayPicksActivos: 'No active picks right now.',
     verTodosPicks: 'See all picks →',
+
+    calientesEyebrow: 'Czech Liga Pro · Table tennis',
+    calientesTitle: 'Players on fire',
+    calientesSub: 'The 10 players with the longest current win streaks — recalculated with every finished match.',
+    calientesVacio: 'No one has an active streak of 2+ wins yet.',
+    calientesRachaLabel: 'Streak',
+    calientesAciertoLabel: 'Win rate (last {n})',
 
     picksEyebrow: 'All picks',
     picksTitle: 'Picks',
@@ -605,6 +622,7 @@ const TRANSLATIONS = {
     navErrores: 'Erros',
     navDestacados: 'Destaques',
     navHistorialVip: 'Histórico VIP',
+    navCalientes: 'Em alta',
     entrar: 'Entrar',
     cerrarSesion: 'Sair',
     cargando: 'Carregando…',
@@ -636,6 +654,13 @@ const TRANSLATIONS = {
     picksVipSub: 'O destaque do dia e os picks exclusivos (alta confiança + odds 1.60+), tudo num só lugar.',
     noHayPicksActivos: 'Não há picks ativos no momento.',
     verTodosPicks: 'Ver todos os picks →',
+
+    calientesEyebrow: 'Liga Pro Checa · Tênis de mesa',
+    calientesTitle: 'Jogadores em alta',
+    calientesSub: 'Os 10 jogadores com mais vitórias seguidas agora — recalculado a cada partida finalizada.',
+    calientesVacio: 'Ainda ninguém tem uma sequência ativa de 2 ou mais vitórias.',
+    calientesRachaLabel: 'Sequência',
+    calientesAciertoLabel: 'Acerto (últ. {n})',
 
     picksEyebrow: 'Todos os picks',
     picksTitle: 'Picks',
@@ -1283,12 +1308,74 @@ export async function getServerSideProps({ query }) {
     .order('created_at', { ascending: false })
     .limit(60);
 
+  // Para el Top 10 de jugadores en racha (pestaña "Calientes") — se
+  // recalcula en cada carga de página (nada se guarda en la base),
+  // así que siempre refleja los partidos más recientes ya jugados.
+  // 400 partidos alcanza para varios días de actividad sin escanear
+  // toda la tabla.
+  const hotMatchesPromise = supabase
+    .from('matches')
+    .select('player_a_id, player_b_id, winner_id, scheduled_at')
+    .eq('status', 'finished')
+    .not('winner_id', 'is', null)
+    .order('scheduled_at', { ascending: false })
+    .limit(400);
+
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
     supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
     supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false })
   ]);
 
   const playersById = new Map((players || []).map((p) => [p.id, p]));
+
+  // Top 10 "en racha" — racha actual (victorias seguidas contando
+  // desde el partido más reciente hacia atrás) sobre los últimos 10
+  // cruces de cada jugador; solo entran los que tengan al menos 3
+  // partidos recientes (para no rankear a alguien por 1 solo partido)
+  // y una racha activa de 2+ victorias. Empate se rompe por % de
+  // acierto en esos últimos 10, y de ahí por quién jugó más reciente.
+  const { data: hotMatches } = await hotMatchesPromise;
+  const formByPlayerId = new Map();
+  for (const m of hotMatches || []) {
+    if (!m.player_a_id || !m.player_b_id) continue;
+    if (!formByPlayerId.has(m.player_a_id)) formByPlayerId.set(m.player_a_id, []);
+    if (!formByPlayerId.has(m.player_b_id)) formByPlayerId.set(m.player_b_id, []);
+    formByPlayerId.get(m.player_a_id).push({ win: m.winner_id === m.player_a_id, date: m.scheduled_at });
+    formByPlayerId.get(m.player_b_id).push({ win: m.winner_id === m.player_b_id, date: m.scheduled_at });
+  }
+  const HOT_MIN_MATCHES = 3;
+  const HOT_MIN_STREAK = 2;
+  const hotPlayers = [...formByPlayerId.entries()]
+    .map(([pid, formDesc]) => {
+      const player = playersById.get(pid);
+      if (!player) return null;
+      const recent = formDesc.slice(0, 10);
+      if (recent.length < HOT_MIN_MATCHES) return null;
+      let streak = 0;
+      for (const m of recent) {
+        if (m.win) streak++;
+        else break;
+      }
+      if (streak < HOT_MIN_STREAK) return null;
+      const wins = recent.filter((m) => m.win).length;
+      return {
+        playerId: pid,
+        name: player.name,
+        initials: initialsOf(player.name),
+        avatarUrl: player.avatar_cutout_url || player.avatar_url || null,
+        hasCutout: Boolean(player.avatar_cutout_url),
+        streak,
+        winRate: Math.round((wins / recent.length) * 100),
+        matchesPlayed: recent.length,
+        lastPlayedAt: recent[0]?.date || null
+      };
+    })
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        b.streak - a.streak || b.winRate - a.winRate || new Date(b.lastPlayedAt) - new Date(a.lastPlayedAt)
+    )
+    .slice(0, 10);
 
   const pendingMatchIds = (pendingPicks || []).map((p) => p.match_id);
   const { data: pendingMatches } = pendingMatchIds.length
@@ -1960,6 +2047,7 @@ export async function getServerSideProps({ query }) {
       resolvedPicks: publicResolvedPicks,
       tournamentGroups,
       recentChampions,
+      hotPlayers,
       matches,
       currentDateStr,
       prevDateStr,
@@ -1988,6 +2076,7 @@ export async function getServerSideProps({ query }) {
         resolvedPicks: [],
         tournamentGroups: [],
         recentChampions: [],
+        hotPlayers: [],
         matches: [],
         currentDateStr: fallbackDate,
         prevDateStr: fallbackDate,
@@ -4532,6 +4621,45 @@ function PicksVipView({
   );
 }
 
+// Top 10 de jugadores en racha — hotPlayers ya viene ordenado y
+// recortado a 10 desde getServerSideProps, acá solo se pinta.
+function HotPlayersView({ view, lang, hotPlayers }) {
+  const t = useTranslate(lang);
+  return (
+    <section className={`view ${view === 'calientes' ? 'active' : ''}`}>
+      <a href="#inicio" className="admin-back-link">
+        <ProfileIcon name="arrow-left" size={14} /> {t('navInicio')}
+      </a>
+      <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <ProfileIcon name="zap" size={13} /> {t('calientesEyebrow')}
+      </span>
+      <h1 className="page-title">{t('calientesTitle')}</h1>
+      <p className="page-sub">{t('calientesSub')}</p>
+
+      {hotPlayers.length === 0 ? (
+        <p className="page-sub">{t('calientesVacio')}</p>
+      ) : (
+        <div className="hot-list">
+          {hotPlayers.map((p, i) => (
+            <div className="hot-row" key={p.playerId}>
+              <span className={`hot-rank ${i < 3 ? 'hot-rank-top' : ''}`}>{i + 1}</span>
+              <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} initials={p.initials} className="hot-avatar" />
+              <div className="hot-info">
+                <strong className="hot-name">{p.name}</strong>
+                <span className="hot-sub">{t('calientesAciertoLabel', { n: p.matchesPlayed })}: {p.winRate}%</span>
+              </div>
+              <span className="hot-streak">
+                <ProfileIcon name="zap" size={12} />
+                {p.streak}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ProfileModal({
   user,
   profile,
@@ -5662,6 +5790,7 @@ export default function Home({
   resolvedPicks: initialResolvedPicks,
   tournamentGroups: initialTournamentGroups,
   recentChampions = [],
+  hotPlayers = [],
   matches: initialMatches,
   currentDateStr,
   userCount
@@ -6781,6 +6910,7 @@ export default function Home({
           <a href="#mibankroll" data-view="mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
             {t('navMiBankroll')} {!isAdmin && !isPremium && !myBankrollTrialActive ? <ProfileIcon name="lock" size={11} /> : null}
           </a>
+          {navLink('calientes', t('navCalientes'))}
           {isAdmin ? (
             <a href="#admin" className={ADMIN_VIEWS.includes(view) || view === 'admin' ? 'active' : ''}>
               Admin
@@ -7597,6 +7727,8 @@ export default function Home({
           onPickClick={(p) => setModalPick(p)}
         />
 
+        <HotPlayersView view={view} lang={lang} hotPlayers={hotPlayers} />
+
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">{t('seguidosEyebrow')}</span>
           <h1 className="page-title">{t('seguidosTitle')}</h1>
@@ -7884,6 +8016,12 @@ export default function Home({
             ) : null}
           </span>
           {t('navMiBankroll')}
+        </a>
+        <a href="#calientes" className={view === 'calientes' ? 'active' : ''}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M13 2 3 14h8l-1 8 10-12h-8l1-8Z" />
+          </svg>
+          {t('navCalientes')}
         </a>
         {isAdmin ? (
           <a href="#admin" className={ADMIN_VIEWS.includes(view) || view === 'admin' ? 'active' : ''}>
@@ -8503,6 +8641,27 @@ const CSS = `
   .champion-set.won{border-color:rgba(255,193,7,.5); background:rgba(255,193,7,.1);}
   .champion-set-label{font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px;}
   .champion-set .num{font-size:13px; font-weight:800; color:var(--ink);}
+
+  .hot-list{display:flex; flex-direction:column; gap:8px;}
+  .hot-row{
+    display:flex; align-items:center; gap:12px;
+    padding:10px 12px; border-radius:14px; background:var(--bg-alt); border:1px solid var(--line);
+  }
+  .hot-rank{
+    width:24px; flex:none; text-align:center;
+    font-family:var(--font-display); font-size:15px; color:var(--muted);
+  }
+  .hot-rank-top{color:var(--ball);}
+  .hot-avatar{width:44px; height:44px; flex:none;}
+  .hot-info{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;}
+  .hot-name{font-size:13.5px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .hot-sub{font-size:11px; color:var(--muted);}
+  .hot-streak{
+    display:inline-flex; align-items:center; gap:3px; flex:none;
+    font-family:var(--font-mono); font-weight:800; font-size:13px; color:var(--hit);
+    background:rgba(93,202,165,.14); padding:5px 10px; border-radius:999px;
+  }
+  .hot-streak svg{flex:none;}
 
   .live-clock{
     font-family:var(--font-mono); font-size:13px; color:var(--ball); font-weight:700;
