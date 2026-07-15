@@ -565,6 +565,7 @@ export default async function handler(req, res) {
             name: p?.name || '—',
             initials: initialsOf(p?.name),
             avatarUrl: p?.avatar_cutout_url || p?.avatar_url || null,
+            hasCutout: Boolean(p?.avatar_cutout_url),
             rating: p?.rating != null ? Math.round(Number(p.rating)) : null,
             wins,
             setsFor,

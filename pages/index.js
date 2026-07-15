@@ -1815,6 +1815,7 @@ export async function getServerSideProps({ query }) {
             name: p?.name || '—',
             initials: initialsOf(p?.name),
             avatarUrl: p?.avatar_cutout_url || p?.avatar_url || null,
+            hasCutout: Boolean(p?.avatar_cutout_url),
             rating: p?.rating != null ? Math.round(Number(p.rating)) : null,
             wins,
             setsFor,
@@ -2225,12 +2226,22 @@ function UserAvatar({ emoji, url, initials, className = '' }) {
   );
 }
 
-function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = '' }) {
+function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = '', hasCutout = false }) {
   return (
     <div className={`avatar ${className}`} style={{ '--tone': SIDE_TONE[side] }}>
       {avatarUrl ? (
+        // Los recortes (cutout, fondo transparente) van con "contain"
+        // para que se vea el color de camiseta (--tone) alrededor de
+        // la figura — con "cover" (foto normal) tapa el círculo entero
+        // y el color de local/visitante queda invisible.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatarUrl} alt="" referrerPolicy="no-referrer" loading="lazy" />
+        <img
+          src={avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          style={hasCutout ? { objectFit: 'contain' } : undefined}
+        />
       ) : (
         initials
       )}
@@ -2250,11 +2261,11 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
   // (mismo criterio que MatchRow), sin importar a quién le apostamos.
   const leftIsFavored = pick.favoredIsA !== false;
   const leftPlayer = leftIsFavored
-    ? { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials }
-    : { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials };
+    ? { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials, hasCutout: pick.hasCutout }
+    : { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials, hasCutout: pick.opponentHasCutout };
   const rightPlayer = leftIsFavored
-    ? { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials }
-    : { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials };
+    ? { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials, hasCutout: pick.opponentHasCutout }
+    : { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials, hasCutout: pick.hasCutout };
 
   // El chip de H2H de la tarjeta respeta el mismo tope que el modal de
   // detalle (5 gratis, 20 premium) — si no, alguien gratis vería un
@@ -2319,7 +2330,7 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
       </div>
       <div className="pc-vs">
         <div className="pc-player">
-          <PlayerAvatar name={leftPlayer.name} avatarUrl={leftPlayer.avatarUrl} initials={leftPlayer.initials} side="left" />
+          <PlayerAvatar name={leftPlayer.name} avatarUrl={leftPlayer.avatarUrl} initials={leftPlayer.initials} side="left" hasCutout={leftPlayer.hasCutout} />
           <span className="pc-player-name">{leftPlayer.name}</span>
         </div>
         {liveSetsWonA != null ? (
@@ -2339,7 +2350,7 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           <span className="pc-vs-badge">VS</span>
         )}
         <div className="pc-player">
-          <PlayerAvatar name={rightPlayer.name} avatarUrl={rightPlayer.avatarUrl} initials={rightPlayer.initials} side="right" />
+          <PlayerAvatar name={rightPlayer.name} avatarUrl={rightPlayer.avatarUrl} initials={rightPlayer.initials} side="right" hasCutout={rightPlayer.hasCutout} />
           <span className="pc-player-name">{rightPlayer.name}</span>
         </div>
       </div>
@@ -2503,6 +2514,7 @@ function ChampionCard({ champ }) {
               initials={champ.winnerInitials}
               side={champ.winnerWasHome ? 'left' : 'right'}
               className="champion-avatar"
+              hasCutout={champ.winnerHasCutout}
             />
             <span className="champion-crown-badge">
               <ProfileIcon name="crown" size={12} />
@@ -2526,6 +2538,7 @@ function ChampionCard({ champ }) {
             initials={champ.rivalInitials}
             side={champ.winnerWasHome ? 'right' : 'left'}
             className="champion-avatar champion-avatar-rival"
+            hasCutout={champ.rivalHasCutout}
           />
           <span className="champion-name champion-rival-name">{champ.rivalName}</span>
         </div>
@@ -2587,7 +2600,7 @@ function MatchRow({ m, onClick, followed, onToggleFollow, live }) {
       </div>
       <div className="pc-vs">
         <div className="pc-player">
-          <PlayerAvatar name={m.playerA} avatarUrl={m.playerAAvatar} initials={m.playerAInitials} side="left" />
+          <PlayerAvatar name={m.playerA} avatarUrl={m.playerAAvatar} initials={m.playerAInitials} side="left" hasCutout={m.playerAHasCutout} />
           <span className="pc-player-name">
             <span className="flag">🇨🇿</span> {m.playerA}
           </span>
@@ -2609,7 +2622,7 @@ function MatchRow({ m, onClick, followed, onToggleFollow, live }) {
           <span className="pc-vs-badge">VS</span>
         )}
         <div className="pc-player">
-          <PlayerAvatar name={m.playerB} avatarUrl={m.playerBAvatar} initials={m.playerBInitials} side="right" />
+          <PlayerAvatar name={m.playerB} avatarUrl={m.playerBAvatar} initials={m.playerBInitials} side="right" hasCutout={m.playerBHasCutout} />
           <span className="pc-player-name">
             <span className="flag">🇨🇿</span> {m.playerB}
           </span>
@@ -3125,11 +3138,11 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
   // favorito/rival, no por local/visitante, así que se reordena acá.
   const leftIsFavored = pick.favoredIsA !== false;
   const leftPlayer = leftIsFavored
-    ? { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials }
-    : { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials };
+    ? { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials, hasCutout: pick.hasCutout }
+    : { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials, hasCutout: pick.opponentHasCutout };
   const rightPlayer = leftIsFavored
-    ? { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials }
-    : { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials };
+    ? { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials, hasCutout: pick.opponentHasCutout }
+    : { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials, hasCutout: pick.hasCutout };
 
   // Forma reciente de CADA jugador (antes solo se guardaba/mostraba
   // la del favorito) — se arma acá la del local y la del visitante
@@ -3174,7 +3187,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
 
         <div className="match-hero">
           <div className="match-hero-side">
-            <PlayerAvatar name={leftPlayer.name} avatarUrl={leftPlayer.avatarUrl} initials={leftPlayer.initials} side="left" className="match-hero-avatar" />
+            <PlayerAvatar name={leftPlayer.name} avatarUrl={leftPlayer.avatarUrl} initials={leftPlayer.initials} side="left" className="match-hero-avatar" hasCutout={leftPlayer.hasCutout} />
             <span className="match-hero-name">
               <span className="flag">🇨🇿</span> {leftPlayer.name}
             </span>
@@ -3203,6 +3216,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
               initials={rightPlayer.initials}
               side="right"
               className="match-hero-avatar"
+              hasCutout={rightPlayer.hasCutout}
             />
             <span className="match-hero-name">
               <span className="flag">🇨🇿</span> {rightPlayer.name}
@@ -4581,7 +4595,7 @@ function PicksVipView({
                 {hotPlayers.map((p, i) => (
                   <div className="hot-row" key={p.playerId}>
                     <span className={`hot-rank ${i < 3 ? 'hot-rank-top' : ''}`}>{i + 1}</span>
-                    <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} initials={p.initials} className="hot-avatar" />
+                    <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} initials={p.initials} className="hot-avatar" hasCutout={p.hasCutout} />
                     <div className="hot-info">
                       <strong className="hot-name">{p.name}</strong>
                       <span className="hot-sub">{t('calientesAciertoLabel', { n: p.matchesPlayed })}: {p.winRate}%</span>
