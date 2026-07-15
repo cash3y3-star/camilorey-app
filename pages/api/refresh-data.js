@@ -140,6 +140,12 @@ export default async function handler(req, res) {
       const match = matchesById.get(pick.match_id);
       if (!match) return null;
       if (match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS) return null;
+      // El partido ya terminó pero el pick sigue "pending" — hueco
+      // entre que el partido cierra y que el próximo sync corre
+      // resolvePick(). No se muestra como pendiente mientras tanto
+      // (saldría sin resultado real); en el próximo sync pasa a
+      // resueltos directamente.
+      if (match.status === 'finished') return null;
       const playerA = playersById.get(match.player_a_id);
       const playerB = playersById.get(match.player_b_id);
       const favored = playersById.get(pick.predicted_winner_id);
@@ -148,8 +154,7 @@ export default async function handler(req, res) {
       if (!favored || !opponent) return null;
 
       let matchStatus = 'soon';
-      if (match.status === 'finished') matchStatus = 'done';
-      else if (match.status === 'live') matchStatus = 'live';
+      if (match.status === 'live') matchStatus = 'live';
       else if (match.scheduled_at && new Date(match.scheduled_at) <= new Date()) matchStatus = 'live';
 
       return { pick, match, favored, opponent, favoredIsA, tournament: tournamentsById.get(match.tournament_id), matchStatus };

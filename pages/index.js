@@ -1331,6 +1331,12 @@ export async function getServerSideProps({ query }) {
       const match = matchesById.get(pick.match_id);
       if (!match) return null;
       if (match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS) return null;
+      // El partido ya terminó pero el pick sigue "pending" — hay un
+      // hueco entre que el partido cierra y que el próximo sync corre
+      // resolvePick(). Mientras tanto no se muestra como pendiente
+      // (se vería sin marcador/resultado real, confuso) — en el
+      // próximo sync pasa solo a resueltos.
+      if (match.status === 'finished') return null;
       const playerA = playersById.get(match.player_a_id);
       const playerB = playersById.get(match.player_b_id);
       const favored = playersById.get(pick.predicted_winner_id);
