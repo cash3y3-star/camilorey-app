@@ -142,11 +142,13 @@ export default async function handler(req, res) {
     factorAvg[key] = { avgOnHit: avg(withHit), avgOnMiss: avg(withMiss) };
   }
 
-  // Últimos 20 resueltos, más reciente primero (mismo orden que el
-  // resto del sitio usa para "forma reciente").
-  const recent = rows
-    .slice(-20)
-    .reverse()
+  // Últimos 30 resueltos, ordenados por fecha del partido (no por
+  // cuándo se creó el pick) de más reciente a más antiguo — antes se
+  // sacaban por posición en el array (slice(-20).reverse()), que
+  // coincide con created_at pero no necesariamente con scheduledAt.
+  const recent = [...rows]
+    .sort((a, b) => new Date(b.scheduledAt || b.createdAt) - new Date(a.scheduledAt || a.createdAt))
+    .slice(0, 30)
     .map((r) => ({
       id: r.id,
       win: r.hit,
