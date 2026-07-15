@@ -230,5 +230,10 @@ export default async function handler(req, res) {
     )
   ).filter(Boolean);
 
+  // Más reciente primero — antes salía en el orden que Postgres
+  // devolviera (básicamente por id, sin relación real con la fecha
+  // del partido), pedido explícito: de más reciente a más antiguo.
+  result.sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0));
+
   return res.status(200).json({ picks: result });
 }
