@@ -73,6 +73,8 @@ const TRANSLATIONS = {
     pickDestacado: 'Pick destacado del día',
     picksVipBtn: 'PICKS VIP',
     picksVipTitle: 'Picks VIP',
+    controlSerioTitle: 'Control Serio',
+    controlSerioVacio: 'Todavía no hay picks exclusivos resueltos para medir.',
     picksVipSub: 'El destacado del día y los picks exclusivos (alta confianza + cuota 1.60+), en un solo lugar.',
     noHayPicksActivos: 'No hay picks activos en este momento.',
     verTodosPicks: 'Ver todos los picks →',
@@ -349,6 +351,8 @@ const TRANSLATIONS = {
     pickDestacado: "Today's featured pick",
     picksVipBtn: 'VIP PICKS',
     picksVipTitle: 'VIP Picks',
+    controlSerioTitle: 'Serious Control',
+    controlSerioVacio: 'No resolved exclusive picks to measure yet.',
     picksVipSub: "Today's featured pick and the exclusive picks (high confidence + 1.60+ odds), all in one place.",
     noHayPicksActivos: 'No active picks right now.',
     verTodosPicks: 'See all picks →',
@@ -623,6 +627,8 @@ const TRANSLATIONS = {
     pickDestacado: 'Pick em destaque do dia',
     picksVipBtn: 'PICKS VIP',
     picksVipTitle: 'Picks VIP',
+    controlSerioTitle: 'Controle Sério',
+    controlSerioVacio: 'Ainda não há picks exclusivos resolvidos para medir.',
     picksVipSub: 'O destaque do dia e os picks exclusivos (alta confiança + odds 1.60+), tudo num só lugar.',
     noHayPicksActivos: 'Não há picks ativos no momento.',
     verTodosPicks: 'Ver todos os picks →',
@@ -4200,6 +4206,40 @@ function VipPicksModal({
           </button>
           <h3>{t('picksVipTitle')}</h3>
         </div>
+
+        <div className="section-head" style={{ marginTop: 0 }}>
+          <h2>{t('controlSerioTitle')}</h2>
+        </div>
+        {exclusiveBalanceError ? (
+          <p className="page-sub">Error: {exclusiveBalanceError}</p>
+        ) : !exclusiveBalance ? (
+          <p className="page-sub">{t('cargando')}</p>
+        ) : exclusiveBalance.n === 0 ? (
+          <p className="page-sub">{t('controlSerioVacio')}</p>
+        ) : (
+          <div className="stat-strip stat-strip-3">
+            <div className="stat-card">
+              <div className="label">{t('statEfectividad')}</div>
+              <div className="value hit num">{Math.round(exclusiveBalance.hitRate * 100)}%</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statRachaActual')}</div>
+              <div className="value num">
+                {exclusiveBalance.racha === 0
+                  ? '—'
+                  : `${Math.abs(exclusiveBalance.racha)}${exclusiveBalance.racha > 0 ? 'W' : 'L'}`}
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statROI')}</div>
+              <div className={`value num ${exclusiveBalance.roi >= 0 ? 'hit' : 'miss'}`}>
+                {exclusiveBalance.roi >= 0 ? '+' : ''}
+                {exclusiveBalance.roi}%
+              </div>
+            </div>
+          </div>
+        )}
+
         <p className="page-sub">{t('picksVipSub')}</p>
 
         {!canSeeExclusive ? (
@@ -5970,17 +6010,21 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
-  // Balance de los picks exclusivos — solo se consulta cuando alguien
-  // con acceso abre el modal "Picks VIP".
+  // Balance/Control Serio de los picks exclusivos — se consulta al
+  // abrir el modal "Picks VIP" y se repite cada 20s mientras siga
+  // abierto (mismo patrón que Modelo), así Efectividad/Racha/ROI se
+  // actualizan solos apenas se resuelve un partido, sin refrescar.
   const [exclusiveBalance, setExclusiveBalance] = useState(null);
   const [exclusiveBalanceError, setExclusiveBalanceError] = useState(null);
   useEffect(() => {
     if (!showVipModal || !canSeeExclusive || !supabaseClient) return undefined;
     let cancelled = false;
-    (async () => {
-      const { data: sessionData } = await supabaseClient.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+
+    async function load() {
+      if (document.visibilityState === 'hidden') return;
       try {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
         const r = await fetch('/api/exclusive-balance', { headers: { Authorization: `Bearer ${accessToken}` } });
         const data = await r.json();
         if (cancelled) return;
@@ -5989,9 +6033,13 @@ export default function Home({
       } catch (e) {
         if (!cancelled) setExclusiveBalanceError(e.message);
       }
-    })();
+    }
+
+    load();
+    const interval = setInterval(load, 20000);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, [showVipModal, canSeeExclusive]);
 

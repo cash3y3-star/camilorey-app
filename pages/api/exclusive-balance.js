@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
   if (!bankrollRows || bankrollRows.length === 0) {
-    return res.status(200).json({ n: 0, hits: 0, misses: 0, hitRate: null, balance: 0, racha: 0, recent: [] });
+    return res.status(200).json({ n: 0, hits: 0, misses: 0, hitRate: null, balance: 0, racha: 0, roi: 0, recent: [] });
   }
 
   const pickIds = [...new Set(bankrollRows.map((r) => r.pick_id).filter(Boolean))];
@@ -74,6 +74,22 @@ export default async function handler(req, res) {
     else break;
   }
 
+  // ROI = ganancia neta / total apostado — mismo cálculo que el
+  // Bankroll general (ver getServerSideProps), pero solo con las
+  // filas exclusivas de arriba. Si units < 0 la apuesta perdida
+  // completa fue el stake; si ganó, se despeja el stake de la cuota
+  // real (units = stake * (odds-1)).
+  function stakeOf(r) {
+    const units = Number(r.units);
+    if (units < 0) return -units;
+    const pick = picksById.get(r.pickId);
+    const odds = pick?.odds ? Number(pick.odds) : null;
+    return odds && odds > 1 ? units / (odds - 1) : units;
+  }
+  const totalStake = withBalance.reduce((sum, r) => sum + stakeOf(r), 0);
+  const totalProfit = withBalance.reduce((sum, r) => sum + r.units, 0);
+  const roi = totalStake > 0 ? Math.round((totalProfit / totalStake) * 1000) / 10 : 0;
+
   return res.status(200).json({
     n,
     hits,
@@ -81,6 +97,7 @@ export default async function handler(req, res) {
     hitRate: n > 0 ? hits / n : null,
     balance,
     racha,
+    roi,
     recent: withBalance.slice(-20).reverse()
   });
 }
