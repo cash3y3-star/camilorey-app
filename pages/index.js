@@ -1626,6 +1626,11 @@ export async function getServerSideProps({ query }) {
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
+  // Mismo motivo que publicPicks arriba: getServerSideProps manda TODO
+  // esto como props públicos, visibles sin login (hasta con "ver
+  // código fuente") — un pick exclusivo NUNCA puede viajar acá, ni
+  // resuelto. Solo sale por /api/vip-picks, con el JWT verificado.
+  const publicResolvedPicks = resolvedPicks.filter((p) => !p.exclusive);
 
   // Tabla de grupo por torneo — igual a como tt.league-pro.com la
   // muestra dentro de cada torneo: los jugadores de ESE grupo se
@@ -1854,7 +1859,7 @@ export async function getServerSideProps({ query }) {
   const roi = totalStake > 0 ? Math.round((totalProfit / totalStake) * 1000) / 10 : 0;
   const unidades = bankrollRows && bankrollRows.length ? Number(bankrollRows[0].balance) : 0;
 
-  const picksWithOdds = picks.filter((p) => p.odds);
+  const picksWithOdds = publicPicks.filter((p) => p.odds);
   const cuotaProm = picksWithOdds.length
     ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
     : null;
@@ -1864,8 +1869,8 @@ export async function getServerSideProps({ query }) {
   return {
     props: {
       stats: { efectividad, racha, cuotaProm, roi, unidades },
-      picks,
-      resolvedPicks,
+      picks: publicPicks,
+      resolvedPicks: publicResolvedPicks,
       tournamentGroups,
       matches,
       currentDateStr,
@@ -4188,6 +4193,7 @@ function PicksVipView({
   featured,
   exclusivePicks,
   exclusiveResolvedPicks,
+  exclusivePicksError,
   exclusiveBalance,
   exclusiveBalanceError,
   followedPickIds,
@@ -4307,6 +4313,7 @@ function PicksVipView({
             <div className="section-head">
               <h2>{t('tabExclusivos')}</h2>
             </div>
+            {exclusivePicksError ? <p className="page-sub">Error: {exclusivePicksError}</p> : null}
             <div className="pick-grid">
               {vipPicks.length === 0 ? (
                 <p className="page-sub">{t('exclusivosVacio')}</p>
@@ -5969,8 +5976,9 @@ export default function Home({
     () => (canSeeExclusive ? resolvedPicks : resolvedPicks.filter((p) => !p.exclusive)),
     [resolvedPicks, canSeeExclusive]
   );
-  const exclusivePicks = useMemo(() => picks.filter((p) => p.exclusive), [picks]);
-  const exclusiveResolvedPicks = useMemo(() => resolvedPicks.filter((p) => p.exclusive), [resolvedPicks]);
+  // Los picks exclusivos YA NO viajan en picks/resolvedPicks (esos son
+  // props/JSON públicos, sin login) — se piden aparte acá abajo con el
+  // token de sesión, a /api/vip-picks (mismo patrón que exclusiveBalance).
 
   // Pantalla de bienvenida premium — se muestra una sola vez por cada
   // vez que el admin activa/renueva el premium de esta cuenta. Se
@@ -6128,6 +6136,44 @@ export default function Home({
         else setExclusiveBalance(data);
       } catch (e) {
         if (!cancelled) setExclusiveBalanceError(e.message);
+      }
+    }
+
+    load();
+    const interval = setInterval(load, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [view, canSeeExclusive]);
+
+  // Picks exclusivos completos (con nombre/avatar/historial/H2H) para
+  // la vista Picks VIP — vienen de /api/vip-picks, autenticado, NUNCA
+  // de picks/resolvedPicks públicos. Mismo patrón de consulta+poll de
+  // 20s que exclusiveBalance justo arriba.
+  const [exclusivePicks, setExclusivePicks] = useState([]);
+  const [exclusiveResolvedPicks, setExclusiveResolvedPicks] = useState([]);
+  const [exclusivePicksError, setExclusivePicksError] = useState(null);
+  useEffect(() => {
+    if (view !== 'picksvip' || !canSeeExclusive || !supabaseClient) return undefined;
+    let cancelled = false;
+
+    async function load() {
+      if (document.visibilityState === 'hidden') return;
+      try {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        const r = await fetch('/api/vip-picks', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok) {
+          setExclusivePicksError(data.error || 'Error cargando los picks VIP.');
+        } else {
+          setExclusivePicks(data.picks || []);
+          setExclusiveResolvedPicks(data.resolvedPicks || []);
+        }
+      } catch (e) {
+        if (!cancelled) setExclusivePicksError(e.message);
       }
     }
 
@@ -7305,6 +7351,7 @@ export default function Home({
           featured={featured}
           exclusivePicks={exclusivePicks}
           exclusiveResolvedPicks={exclusiveResolvedPicks}
+          exclusivePicksError={exclusivePicksError}
           exclusiveBalance={exclusiveBalance}
           exclusiveBalanceError={exclusiveBalanceError}
           followedPickIds={followedPickIds}

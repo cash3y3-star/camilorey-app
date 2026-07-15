@@ -371,8 +371,15 @@ async function updateFeaturedPick() {
   if (error) throw new Error(`select picks (featured): ${error.message}`);
   if (!pending || pending.length === 0) return;
 
-  const withGoodOdds = pending.filter((p) => p.odds && p.odds > 1.6);
-  const pool = withGoodOdds.length ? withGoodOdds : pending;
+  // Un pick "exclusivo" (confianza>=85 + cuota>=1.60, ver isExclusivePick
+  // en pages/index.js) NUNCA puede quedar destacado en Inicio — Inicio
+  // lo ve cualquiera sin login, y ese pick es beneficio pago de Picks
+  // VIP. Se sacan del todo del pool antes de elegir destacado.
+  const nonExclusive = pending.filter((p) => !(p.confidence >= 85 && p.odds && p.odds >= 1.6));
+  if (nonExclusive.length === 0) return;
+
+  const withGoodOdds = nonExclusive.filter((p) => p.odds && p.odds > 1.6);
+  const pool = withGoodOdds.length ? withGoodOdds : nonExclusive;
   const winner = pool.slice().sort((a, b) => b.confidence - a.confidence)[0];
   if (!winner) return;
 
