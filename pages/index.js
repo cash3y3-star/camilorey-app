@@ -172,7 +172,10 @@ const TRANSLATIONS = {
     premiumWelcomeCta: 'Comenzar a Explorar',
     cuentaTitle: 'Cuenta',
     cuentaCambiarFoto: 'Cambiar Foto',
-    cuentaFotoSoon: 'Muy pronto vas a poder cambiar tu foto de perfil.',
+    cuentaFotoSubiendo: 'Subiendo…',
+    cuentaFotoTipoInvalido: 'El archivo tiene que ser una imagen.',
+    cuentaFotoMuyPesada: 'La imagen no puede pesar más de 5MB.',
+    cuentaFotoError: 'No se pudo subir la foto: {error}',
     cuentaNombreCompleto: 'Nombre Completo',
     cuentaEmail: 'Email',
     cuentaMiembroDesde: 'Miembro Desde',
@@ -455,7 +458,10 @@ const TRANSLATIONS = {
     premiumWelcomeCta: 'Start Exploring',
     cuentaTitle: 'Account',
     cuentaCambiarFoto: 'Change Photo',
-    cuentaFotoSoon: "You'll be able to change your profile photo very soon.",
+    cuentaFotoSubiendo: 'Uploading…',
+    cuentaFotoTipoInvalido: 'The file has to be an image.',
+    cuentaFotoMuyPesada: 'The image can\'t be larger than 5MB.',
+    cuentaFotoError: "Couldn't upload the photo: {error}",
     cuentaNombreCompleto: 'Full Name',
     cuentaEmail: 'Email',
     cuentaMiembroDesde: 'Member Since',
@@ -737,7 +743,10 @@ const TRANSLATIONS = {
     premiumWelcomeCta: 'Começar a Explorar',
     cuentaTitle: 'Conta',
     cuentaCambiarFoto: 'Trocar Foto',
-    cuentaFotoSoon: 'Muito em breve você vai poder trocar sua foto de perfil.',
+    cuentaFotoSubiendo: 'Enviando…',
+    cuentaFotoTipoInvalido: 'O arquivo precisa ser uma imagem.',
+    cuentaFotoMuyPesada: 'A imagem não pode ter mais de 5MB.',
+    cuentaFotoError: 'Não foi possível enviar a foto: {error}',
     cuentaNombreCompleto: 'Nome Completo',
     cuentaEmail: 'Email',
     cuentaMiembroDesde: 'Membro Desde',
@@ -4682,6 +4691,48 @@ function ProfileModal({
   const [emailEditOpen, setEmailEditOpen] = useState(false);
   const [emailInput, setEmailInput] = useState(user.email || '');
   const [savingEmail, setSavingEmail] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarFileInputRef = useRef(null);
+
+  const handleAvatarFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !supabaseClient) return;
+    if (!file.type.startsWith('image/')) {
+      alert(t('cuentaFotoTipoInvalido'));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert(t('cuentaFotoMuyPesada'));
+      return;
+    }
+    setUploadingAvatar(true);
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${user.id}/avatar.${ext}`;
+    const { error: uploadError } = await supabaseClient.storage
+      .from('user-avatars')
+      .upload(path, file, { upsert: true, cacheControl: '3600' });
+    if (uploadError) {
+      setUploadingAvatar(false);
+      alert(t('cuentaFotoError', { error: uploadError.message }));
+      return;
+    }
+    // Cache-bust: la ruta es siempre la misma (user.id/avatar.ext), así
+    // que sin esto el navegador seguiría mostrando la foto vieja con
+    // la misma URL después de subir una nueva.
+    const { data: urlData } = supabaseClient.storage.from('user-avatars').getPublicUrl(path);
+    const bustedUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+    const { error: dbError } = await supabaseClient
+      .from('profiles')
+      .upsert({ id: user.id, custom_avatar_url: bustedUrl });
+    setUploadingAvatar(false);
+    if (dbError) {
+      alert(t('cuentaFotoError', { error: dbError.message }));
+      return;
+    }
+    onProfileUpdated({ custom_avatar_url: bustedUrl });
+  };
+
   const [deleteAccountScreenOpen, setDeleteAccountScreenOpen] = useState(false);
   const [deleteConfirmChecked, setDeleteConfirmChecked] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -4894,16 +4945,24 @@ function ProfileModal({
                 url={avatarUrl}
                 initials={(displayName || user.email || '?')[0].toUpperCase()}
               />
+              <input
+                type="file"
+                accept="image/*"
+                ref={avatarFileInputRef}
+                onChange={handleAvatarFileChange}
+                style={{ display: 'none' }}
+              />
               <button
                 type="button"
                 className="account-avatar-camera"
-                onClick={() => alert(t('cuentaFotoSoon'))}
+                onClick={() => avatarFileInputRef.current?.click()}
                 aria-label={t('cuentaCambiarFoto')}
+                disabled={uploadingAvatar}
               >
                 <ProfileIcon name="camera" size={14} />
               </button>
             </div>
-            <span>{t('cuentaCambiarFoto')}</span>
+            <span>{uploadingAvatar ? t('cuentaFotoSubiendo') : t('cuentaCambiarFoto')}</span>
           </div>
 
           <div className="account-info-card">
