@@ -1816,6 +1816,10 @@ export async function getServerSideProps({ query }) {
         winnerInitials: initialsOf(winner.name),
         winnerAvatarUrl: winner.avatar_cutout_url || winner.avatar_url || null,
         winnerHasCutout: Boolean(winner.avatar_cutout_url),
+        // Con qué camiseta ganó ESE partido (local=roja, visitante=azul,
+        // mismo criterio que PickCard/PickDetailModal) — no es un color
+        // fijo del campeón, cambia según de qué lado jugó su último cruce.
+        winnerWasHome: winnerIsA,
         rivalName: rival?.name || '—',
         rivalInitials: initialsOf(rival?.name),
         rivalAvatarUrl: rival?.avatar_cutout_url || rival?.avatar_url || null,
@@ -2412,7 +2416,7 @@ function ChampionCard({ champ }) {
               name={champ.winnerName}
               avatarUrl={champ.winnerAvatarUrl}
               initials={champ.winnerInitials}
-              side="left"
+              side={champ.winnerWasHome ? 'left' : 'right'}
               className="champion-avatar"
             />
             <span className="champion-crown-badge">
@@ -2435,7 +2439,7 @@ function ChampionCard({ champ }) {
             name={champ.rivalName}
             avatarUrl={champ.rivalAvatarUrl}
             initials={champ.rivalInitials}
-            side="right"
+            side={champ.winnerWasHome ? 'right' : 'left'}
             className="champion-avatar champion-avatar-rival"
           />
           <span className="champion-name champion-rival-name">{champ.rivalName}</span>
