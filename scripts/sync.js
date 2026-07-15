@@ -22,6 +22,7 @@ const { computeStake } = require('../lib/staking');
 const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 const { ensureAvatarCutout } = require('../lib/avatarCutout');
 const { fetchNuxtData } = require('../lib/tt');
+const { trainLogisticRegression, predictProbability, MIN_TRAINING_SAMPLES } = require('../lib/ml-exclusive');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -192,7 +193,41 @@ async function resolvePick(matchRow) {
   return hit ? 'hit' : 'miss';
 }
 
-async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
+// Reentrena desde cero el modelo de ML de Exclusivo (ver
+// lib/ml-exclusive.js) con TODOS los picks ya resueltos hasta este
+// momento — se llama una sola vez por corrida, no por partido.
+async function trainExclusiveModel() {
+  const { data: resolvedPicks, error } = await supabase
+    .from('picks')
+    .select('factors, predicted_winner_id, result, match_id')
+    .in('result', ['hit', 'miss']);
+  if (error) throw new Error(`select picks (entrenamiento ML): ${error.message}`);
+  if (!resolvedPicks || resolvedPicks.length === 0) return { weights: null, trainingCount: 0 };
+
+  const matchIds = [...new Set(resolvedPicks.map((p) => p.match_id))];
+  const { data: matches, error: mErr } = await supabase.from('matches').select('id, player_a_id').in('id', matchIds);
+  if (mErr) throw new Error(`select matches (entrenamiento ML): ${mErr.message}`);
+  const matchById = new Map((matches || []).map((m) => [m.id, m]));
+
+  const rows = resolvedPicks
+    .map((p) => {
+      const match = matchById.get(p.match_id);
+      if (!match || !p.factors) return null;
+      const sign = p.predicted_winner_id === match.player_a_id ? 1 : -1;
+      return {
+        hit: p.result === 'hit',
+        ratingScore: (p.factors.ratingScore ?? 0) * sign,
+        streakScore: (p.factors.streakScore ?? 0) * sign,
+        h2hScore: (p.factors.h2hScore ?? 0) * sign,
+        altScore: (p.factors.altScore ?? 0) * sign
+      };
+    })
+    .filter(Boolean);
+
+  return { weights: trainLogisticRegression(rows), trainingCount: rows.length };
+}
+
+async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel) {
   const [streakA, streakB, h2h] = await Promise.all([
     getRecentStreak(sideA.player.id),
     getRecentStreak(sideB.player.id),
@@ -241,16 +276,39 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
   const favoredOdds = odds ? (favored.id === sideA.player.id ? odds.oddsA : odds.oddsB) : null;
 
   // Tope de picks VIP por día — pedido 2026-07-14: máximo 6 picks
-  // "exclusivos" (confianza>=85 + cuota>=1.60) por día. El 7mo en
-  // adelante NO se publica (mismo trato que uno de confianza baja),
-  // aunque individualmente sí califique — es a propósito, para que
-  // "VIP" siga significando algo selecto y no se diluya en un día con
-  // muchos partidos parejos.
+  // "exclusivos" por día. El 7mo en adelante NO se publica (mismo
+  // trato que uno de confianza baja), aunque individualmente sí
+  // califique — es a propósito, para que "VIP" siga significando algo
+  // selecto y no se diluya en un día con muchos partidos parejos.
   const EXCLUSIVE_MIN_CONFIDENCE = 85;
   const EXCLUSIVE_MIN_ODDS = 1.6;
   const MAX_EXCLUSIVE_PER_DAY = 6;
+
+  // Qué entra a Exclusivo ya NO lo decide directamente la confianza de
+  // arriba — lo decide el modelo de ML (lib/ml-exclusive.js),
+  // reentrenado desde cero en esta misma corrida con los picks ya
+  // resueltos, usando las mismas 4 señales (rating/racha/H2H/alternancia)
+  // pero con pesos aprendidos en vez de fijados a mano. Mientras la
+  // muestra de resueltos sea chica (< MIN_TRAINING_SAMPLES) no hay
+  // confianza suficiente en esos pesos, así que se cae al criterio
+  // viejo (confianza>=85) mientras tanto.
+  const sign = favored.id === sideA.player.id ? 1 : -1;
+  const mlFeatures = {
+    ratingScore: factors.ratingScore * sign,
+    streakScore: factors.streakScore * sign,
+    h2hScore: factors.h2hScore * sign,
+    altScore: factors.altScore * sign
+  };
+  const hasTrainedModel = mlModel?.weights && mlModel.trainingCount >= MIN_TRAINING_SAMPLES;
+  const mlProbability = mlModel?.weights ? predictProbability(mlModel.weights, mlFeatures) : null;
+  const mlConfidence = mlProbability != null ? Math.round(mlProbability * 100) : null;
+  const ML_EXCLUSIVE_THRESHOLD = 0.75;
+
   const isExclusiveCandidate =
-    published && pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE && favoredOdds && favoredOdds >= EXCLUSIVE_MIN_ODDS;
+    published &&
+    favoredOdds &&
+    favoredOdds >= EXCLUSIVE_MIN_ODDS &&
+    (hasTrainedModel ? mlProbability >= ML_EXCLUSIVE_THRESHOLD : pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE);
   if (isExclusiveCandidate) {
     const countToday = await countExclusivePublishedOnDay(matchRow.scheduled_at);
     if (countToday >= MAX_EXCLUSIVE_PER_DAY) published = false;
@@ -264,7 +322,9 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
     predicted_winner_id: favored.id,
     odds: favoredOdds,
     result: 'pending',
-    published
+    published,
+    ml_confidence: mlConfidence,
+    is_exclusive: isExclusiveCandidate
   });
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
   return published;
@@ -291,8 +351,7 @@ async function countExclusivePublishedOnDay(scheduledAt) {
     .from('picks')
     .select('id', { count: 'exact', head: true })
     .eq('published', true)
-    .gte('confidence', 85)
-    .gte('odds', 1.6)
+    .eq('is_exclusive', true)
     .in('match_id', matchIds);
   if (error) throw new Error(`count picks exclusivos del día: ${error.message}`);
   return count || 0;
@@ -365,17 +424,18 @@ async function updateFeaturedPick() {
   // buena — no es "nuestro pick" real.
   const { data: pending, error } = await supabase
     .from('picks')
-    .select('id, confidence, odds, featured')
+    .select('id, confidence, odds, featured, is_exclusive')
     .eq('result', 'pending')
     .eq('published', true);
   if (error) throw new Error(`select picks (featured): ${error.message}`);
   if (!pending || pending.length === 0) return;
 
-  // Un pick "exclusivo" (confianza>=85 + cuota>=1.60, ver isExclusivePick
-  // en pages/index.js) NUNCA puede quedar destacado en Inicio — Inicio
-  // lo ve cualquiera sin login, y ese pick es beneficio pago de Picks
-  // VIP. Se sacan del todo del pool antes de elegir destacado.
-  const nonExclusive = pending.filter((p) => !(p.confidence >= 85 && p.odds && p.odds >= 1.6));
+  // Un pick "exclusivo" (is_exclusive, decidido por el modelo de ML al
+  // generarse — ver generatePick/lib/ml-exclusive.js) NUNCA puede
+  // quedar destacado en Inicio — Inicio lo ve cualquiera sin login, y
+  // ese pick es beneficio pago de Picks VIP. Se sacan del todo del
+  // pool antes de elegir destacado.
+  const nonExclusive = pending.filter((p) => !p.is_exclusive);
   if (nonExclusive.length === 0) return;
 
   const withGoodOdds = nonExclusive.filter((p) => p.odds && p.odds > 1.6);
@@ -394,7 +454,7 @@ async function updateFeaturedPick() {
   }
 }
 
-async function syncTournamentMatches(t, widgets, rushbetEvents) {
+async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
   const sidesById = new Map(widgets.sides.map((s) => [s.id, s]));
   let matchesProcessed = 0;
   let picksGenerated = 0;
@@ -461,7 +521,7 @@ async function syncTournamentMatches(t, widgets, rushbetEvents) {
     if (pErr) throw new Error(`select picks(match_id=${matchRow.id}): ${pErr.message}`);
     if (existingPick) continue;
 
-    const created = await generatePick(matchRow, sideA, sideB, rushbetEvents);
+    const created = await generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel);
     if (created) picksGenerated++;
   }
 
@@ -534,6 +594,16 @@ async function run() {
     console.error(`No se pudieron leer las cuotas de Rushbet: ${e.message}`);
   }
 
+  // Reentrena el modelo de ML de Exclusivo desde cero, con lo que haya
+  // resuelto hasta ESTE momento — así el modelo "entrena solo" en cada
+  // corrida sin que nadie tenga que tocar pesos a mano.
+  const mlModel = await trainExclusiveModel();
+  console.log(
+    mlModel.trainingCount >= MIN_TRAINING_SAMPLES
+      ? `Modelo ML de Exclusivo: reentrenado con ${mlModel.trainingCount} picks resueltos.`
+      : `Modelo ML de Exclusivo: solo ${mlModel.trainingCount} picks resueltos (mínimo ${MIN_TRAINING_SAMPLES}) — usando el criterio viejo (confianza>=85) mientras tanto.`
+  );
+
   const totals = { matchesProcessed: 0, picksGenerated: 0, picksResolved: 0, tournamentsUpdated: 0 };
 
   for (const id of tournamentIds) {
@@ -570,7 +640,7 @@ async function run() {
       if (tErr) throw new Error(`upsert tournaments(${t.id}): ${tErr.message}`);
       totals.tournamentsUpdated++;
 
-      const result = await syncTournamentMatches(t, pageData.widgets, rushbetEvents);
+      const result = await syncTournamentMatches(t, pageData.widgets, rushbetEvents, mlModel);
       totals.matchesProcessed += result.matchesProcessed;
       totals.picksGenerated += result.picksGenerated;
       totals.picksResolved += result.picksResolved;

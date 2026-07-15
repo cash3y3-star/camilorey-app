@@ -2,8 +2,9 @@
 // CAMILOREY — picks "exclusivos" completos para Picks VIP (solo
 // admin/premium, con el JWT verificado en el servidor). A diferencia
 // de getServerSideProps y /api/refresh-data (públicos, sin login), acá
-// SÍ pueden viajar los picks con confidence>=85 y odds>=1.60 — nunca
-// en ningún endpoint público, porque esos props/JSON son visibles sin
+// SÍ pueden viajar los picks con is_exclusive=true (decidido por el
+// modelo de ML al generarse, ver lib/ml-exclusive.js) — nunca en
+// ningún endpoint público, porque esos props/JSON son visibles sin
 // autenticación (hasta con "ver código fuente").
 //
 // Mismo cálculo de forma reciente + H2H que refresh-data.js, adaptado
@@ -12,9 +13,6 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
-
-const EXCLUSIVE_MIN_CONFIDENCE = 85;
-const EXCLUSIVE_MIN_ODDS = 1.6;
 
 function initialsOf(name) {
   if (!name) return '??';
@@ -102,8 +100,7 @@ export default async function handler(req, res) {
       .select('*')
       .eq('result', 'pending')
       .eq('published', true)
-      .gte('confidence', EXCLUSIVE_MIN_CONFIDENCE)
-      .gte('odds', EXCLUSIVE_MIN_ODDS)
+      .eq('is_exclusive', true)
       .order('confidence', { ascending: false })
   ]);
 
@@ -126,8 +123,7 @@ export default async function handler(req, res) {
     .select('*')
     .neq('result', 'pending')
     .eq('published', true)
-    .gte('confidence', EXCLUSIVE_MIN_CONFIDENCE)
-    .gte('odds', EXCLUSIVE_MIN_ODDS)
+    .eq('is_exclusive', true)
     .order('created_at', { ascending: false })
     .limit(30);
 

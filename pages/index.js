@@ -1216,16 +1216,9 @@ function confidenceTier(confidence) {
   return 'baja';
 }
 
-// Pick "exclusivo" (solo premium/admin, ver 2026-07-14) = confianza
-// alta (mismo umbral que confidenceTier) + cuota real de valor. No es
-// una columna aparte en la base: se calcula siempre igual a partir de
-// confidence/odds, tanto acá (SSR) como en cualquier otro lugar que
-// necesite saber si un pick es exclusivo.
-const EXCLUSIVE_MIN_CONFIDENCE = 85;
-const EXCLUSIVE_MIN_ODDS = 1.6;
-function isExclusivePick(confidence, odds) {
-  return confidence >= EXCLUSIVE_MIN_CONFIDENCE && Boolean(odds) && Number(odds) >= EXCLUSIVE_MIN_ODDS;
-}
+// Pick "exclusivo" (solo premium/admin, ver 2026-07-14) = picks.is_exclusive,
+// decidido una sola vez al generarse por el modelo de ML (ver
+// lib/ml-exclusive.js y sync.js) — ya no se recalcula acá.
 
 // history viene del más reciente al más viejo (index 0 = último
 // partido jugado) — la racha se cuenta desde el principio del array.
@@ -1657,7 +1650,7 @@ export async function getServerSideProps({ query }) {
       confidence,
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
-      exclusive: isExclusivePick(confidence, pick.odds),
+      exclusive: Boolean(pick.is_exclusive),
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
@@ -1709,7 +1702,7 @@ export async function getServerSideProps({ query }) {
       confidence,
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
-      exclusive: isExclusivePick(confidence, pick.odds),
+      exclusive: Boolean(pick.is_exclusive),
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
@@ -6325,8 +6318,8 @@ export default function Home({
   // el correo de quien pagó. premium_until vencida o null = gratuito.
   const isPremium = Boolean(myProfile?.premium_until && new Date(myProfile.premium_until) > new Date());
 
-  // Picks "exclusivos" (alta confianza + cuota de valor, ver
-  // isExclusivePick en getServerSideProps/refresh-data.js) son
+  // Picks "exclusivos" (pick.is_exclusive, decidido por el modelo de
+  // ML al generarse — ver lib/ml-exclusive.js) son
   // beneficio premium — no se muestran en ninguna lista pública para
   // quien no sea admin/premium. Se filtran acá, en un solo lugar, en
   // vez de en cada sitio que use "picks"/"resolvedPicks" para pintar
@@ -7705,7 +7698,7 @@ export default function Home({
           <span className="eyebrow">Solo tú ves esto</span>
           <h1 className="page-title">{t('navHistorialVip')}</h1>
           <p className="page-sub">
-            Todo lo que salió alguna vez en Picks VIP (confianza≥85 + cuota≥1.60), pendiente o resuelto.
+            Todo lo que salió alguna vez en Picks VIP (elegido por el modelo de ML + cuota≥1.60), pendiente o resuelto.
           </p>
           {vipHistoryError ? (
             <p className="page-sub">Error: {vipHistoryError}</p>

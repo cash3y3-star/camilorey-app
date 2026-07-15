@@ -1,20 +1,14 @@
 // ============================================================
 // CAMILOREY — balance de los picks EXCLUSIVOS (solo premium/admin)
-// Un pick es "exclusivo" si confidence >= 85 (tier alta) y odds >= 1.60
-// — mismo criterio que isExclusivePick en pages/index.js y
-// pages/api/refresh-data.js. bankroll_log.balance es el acumulado
-// GENERAL (todos los picks juntos), así que acá no lo reusamos: se
-// recalcula un balance aparte, solo con las filas de bankroll_log
-// cuyo pick es exclusivo, en orden cronológico desde 0.
+// Un pick es "exclusivo" si picks.is_exclusive es true — decidido una
+// sola vez al generarse por el modelo de ML (ver lib/ml-exclusive.js
+// y sync.js), no recalculado acá. bankroll_log.balance es el
+// acumulado GENERAL (todos los picks juntos), así que acá no lo
+// reusamos: se recalcula un balance aparte, solo con las filas de
+// bankroll_log cuyo pick es exclusivo, en orden cronológico desde 0.
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
-
-const EXCLUSIVE_MIN_CONFIDENCE = 85;
-const EXCLUSIVE_MIN_ODDS = 1.6;
-function isExclusivePick(confidence, odds) {
-  return confidence >= EXCLUSIVE_MIN_CONFIDENCE && Boolean(odds) && Number(odds) >= EXCLUSIVE_MIN_ODDS;
-}
 
 // Pedido 2026-07-14: el "Control Premium" no debe arrancar mostrando
 // el acierto de picks exclusivos VIEJOS (de antes del piso de
@@ -57,13 +51,10 @@ export default async function handler(req, res) {
   }
 
   const pickIds = [...new Set(bankrollRows.map((r) => r.pick_id).filter(Boolean))];
-  const { data: picks } = await supabase.from('picks').select('id, confidence, odds, market').in('id', pickIds);
+  const { data: picks } = await supabase.from('picks').select('id, confidence, odds, market, is_exclusive').in('id', pickIds);
   const picksById = new Map((picks || []).map((p) => [p.id, p]));
 
-  const exclusiveRows = bankrollRows.filter((r) => {
-    const pick = picksById.get(r.pick_id);
-    return pick && isExclusivePick(Number(pick.confidence), pick.odds ? Number(pick.odds) : null);
-  });
+  const exclusiveRows = bankrollRows.filter((r) => Boolean(picksById.get(r.pick_id)?.is_exclusive));
 
   let balance = 0;
   const withBalance = exclusiveRows.map((r) => {

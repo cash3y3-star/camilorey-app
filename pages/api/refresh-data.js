@@ -44,15 +44,9 @@ function confidenceTier(confidence) {
   return 'baja';
 }
 
-// Pick "exclusivo" (solo premium/admin, ver 2026-07-14) = confianza
-// alta + cuota real de valor — mismo criterio que en getServerSideProps
-// (pages/index.js), duplicado acá porque este endpoint arma su propio
-// picks/resolvedPicks para el refresco en vivo sin recargar la página.
-const EXCLUSIVE_MIN_CONFIDENCE = 85;
-const EXCLUSIVE_MIN_ODDS = 1.6;
-function isExclusivePick(confidence, odds) {
-  return confidence >= EXCLUSIVE_MIN_CONFIDENCE && Boolean(odds) && Number(odds) >= EXCLUSIVE_MIN_ODDS;
-}
+// Pick "exclusivo" (solo premium/admin, ver 2026-07-14) = picks.is_exclusive,
+// decidido una sola vez al generarse por el modelo de ML (ver
+// lib/ml-exclusive.js y sync.js) — ya no se recalcula acá.
 
 // history viene del más reciente al más viejo (index 0 = último
 // partido jugado) — la racha se cuenta desde el principio del array.
@@ -421,7 +415,7 @@ export default async function handler(req, res) {
       confidence,
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
-      exclusive: isExclusivePick(confidence, pick.odds),
+      exclusive: Boolean(pick.is_exclusive),
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
@@ -475,7 +469,7 @@ export default async function handler(req, res) {
       confidence,
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
-      exclusive: isExclusivePick(confidence, pick.odds),
+      exclusive: Boolean(pick.is_exclusive),
       analysis: buildAnalysis(pick.factors),
       history: form.history,
       streakLabel: form.streakLabel,
