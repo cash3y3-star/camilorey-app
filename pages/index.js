@@ -65,7 +65,6 @@ const TRANSLATIONS = {
     statRachaActual: 'Racha actual',
     statROI: 'ROI',
     statBalance: 'Balance',
-    statCuotaProm: 'Cuota promedio',
     enVivoAhora: 'En vivo ahora',
     pickDestacado: 'Pick destacado del día',
     picksVipBtn: 'PICKS VIP',
@@ -339,7 +338,6 @@ const TRANSLATIONS = {
     statRachaActual: 'Current streak',
     statROI: 'ROI',
     statBalance: 'Balance',
-    statCuotaProm: 'Average odds',
     enVivoAhora: 'Live now',
     pickDestacado: "Today's featured pick",
     picksVipBtn: 'VIP PICKS',
@@ -611,7 +609,6 @@ const TRANSLATIONS = {
     statRachaActual: 'Sequência atual',
     statROI: 'ROI',
     statBalance: 'Saldo',
-    statCuotaProm: 'Odd média',
     enVivoAhora: 'Ao vivo agora',
     pickDestacado: 'Pick em destaque do dia',
     picksVipBtn: 'PICKS VIP',
@@ -6440,8 +6437,11 @@ export default function Home({
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">{t('statCuotaProm')}</div>
-              <div className="value num">{stats.cuotaProm ? stats.cuotaProm.toFixed(2) : '—'}</div>
+              <div className="label">{t('statROI')}</div>
+              <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
+                {stats.roi >= 0 ? '+' : ''}
+                {stats.roi}%
+              </div>
             </div>
           </div>
 
