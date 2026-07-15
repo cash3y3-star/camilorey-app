@@ -1267,6 +1267,19 @@ export async function getServerSideProps({ query }) {
 
   const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
 
+  // Igual que windowMatchesPromise/bankrollPromise arriba: no depende
+  // de nada de la cadena de pendingPicks/players/tournaments de abajo,
+  // así que se dispara ya (sin esperar) en vez de recién después de
+  // esa cadena — se resuelve más abajo, en el mismo lugar donde ya se
+  // usaba, solo que el round-trip corrió en paralelo con todo lo demás.
+  const resolvedPicksPromise = supabase
+    .from('picks')
+    .select('*')
+    .neq('result', 'pending')
+    .eq('published', true)
+    .order('created_at', { ascending: false })
+    .limit(60);
+
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
     supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
     supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false })
@@ -1289,13 +1302,7 @@ export async function getServerSideProps({ query }) {
   // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
   // sección Picks). Se trae antes de armar "picks"/"resolvedPicks"
   // porque ambos comparten UNA sola consulta de forma/H2H más abajo.
-  const { data: resolvedPicksRaw } = await supabase
-    .from('picks')
-    .select('*')
-    .neq('result', 'pending')
-    .eq('published', true)
-    .order('created_at', { ascending: false })
-    .limit(60);
+  const { data: resolvedPicksRaw } = await resolvedPicksPromise;
 
   const resolvedMatchIds = [...new Set((resolvedPicksRaw || []).map((p) => p.match_id))];
   const { data: resolvedMatchesRaw } = resolvedMatchIds.length

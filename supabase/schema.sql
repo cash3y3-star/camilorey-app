@@ -61,3 +61,16 @@ create table if not exists bankroll_log (
 create index if not exists idx_matches_scheduled on matches(scheduled_at);
 create index if not exists idx_picks_match on picks(match_id);
 create index if not exists idx_tournaments_scheduled on tournaments(scheduled_at);
+
+-- Agregados 2026-07-15 (optimización) — picks.result/published es el
+-- filtro que corre en CADA carga de página y cada poll de 20s
+-- (getServerSideProps, /api/refresh-data, /api/vip-picks); sin este
+-- índice, esas consultas escanean toda la tabla picks cada vez.
+-- matches.status lo usa sync.js (tope VIP diario, resolvePick) y las
+-- 3 rutas que ahora ocultan picks pendientes de partidos ya
+-- terminados. bankroll_log.created_at es el order-by de casi todas
+-- las consultas a esa tabla (stats públicas, Bankroll, balance
+-- exclusivo).
+create index if not exists idx_picks_result_published on picks(result, published);
+create index if not exists idx_matches_status on matches(status);
+create index if not exists idx_bankroll_log_created on bankroll_log(created_at desc);
