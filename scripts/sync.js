@@ -232,13 +232,29 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
   // real sigue siendo chica), pero saca del medio, para el usuario
   // final, los picks con menos razón de ser "nuestro pick".
   const MIN_CONFIDENCE_TO_PUBLISH = 60;
-  const published = pickConfidence >= MIN_CONFIDENCE_TO_PUBLISH;
+  let published = pickConfidence >= MIN_CONFIDENCE_TO_PUBLISH;
 
   // Cuota real de Rushbet si logramos cruzar el partido por nombre+hora
   // en su feed de "Liga Pro checa" — queda null si no hay match (no
   // bloquea la generación del pick).
   const odds = findOdds(rushbetEvents, playerName(sideA.player), playerName(sideB.player), matchRow.scheduled_at);
   const favoredOdds = odds ? (favored.id === sideA.player.id ? odds.oddsA : odds.oddsB) : null;
+
+  // Tope de picks VIP por día — pedido 2026-07-14: máximo 6 picks
+  // "exclusivos" (confianza>=85 + cuota>=1.60) por día. El 7mo en
+  // adelante NO se publica (mismo trato que uno de confianza baja),
+  // aunque individualmente sí califique — es a propósito, para que
+  // "VIP" siga significando algo selecto y no se diluya en un día con
+  // muchos partidos parejos.
+  const EXCLUSIVE_MIN_CONFIDENCE = 85;
+  const EXCLUSIVE_MIN_ODDS = 1.6;
+  const MAX_EXCLUSIVE_PER_DAY = 6;
+  const isExclusiveCandidate =
+    published && pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE && favoredOdds && favoredOdds >= EXCLUSIVE_MIN_ODDS;
+  if (isExclusiveCandidate) {
+    const countToday = await countExclusivePublishedOnDay(matchRow.scheduled_at);
+    if (countToday >= MAX_EXCLUSIVE_PER_DAY) published = false;
+  }
 
   const { error } = await supabase.from('picks').insert({
     match_id: matchRow.id,
@@ -252,6 +268,34 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
   });
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
   return published;
+}
+
+// Cuenta cuántos picks "exclusivos" (mismo criterio de arriba) ya
+// quedaron publicados para el mismo día calendario (huso de Bogotá)
+// del partido que se está por generar — para el tope de 6/día.
+async function countExclusivePublishedOnDay(scheduledAt) {
+  const dayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(scheduledAt));
+  const dayStart = new Date(`${dayStr}T00:00:00-05:00`).toISOString();
+  const dayEnd = new Date(`${dayStr}T23:59:59-05:00`).toISOString();
+
+  const { data: dayMatches, error: mErr } = await supabase
+    .from('matches')
+    .select('id')
+    .gte('scheduled_at', dayStart)
+    .lte('scheduled_at', dayEnd);
+  if (mErr) throw new Error(`select matches (tope VIP diario): ${mErr.message}`);
+  const matchIds = (dayMatches || []).map((m) => m.id);
+  if (!matchIds.length) return 0;
+
+  const { count, error } = await supabase
+    .from('picks')
+    .select('id', { count: 'exact', head: true })
+    .eq('published', true)
+    .gte('confidence', 85)
+    .gte('odds', 1.6)
+    .in('match_id', matchIds);
+  if (error) throw new Error(`count picks exclusivos del día: ${error.message}`);
+  return count || 0;
 }
 
 // El cruce con Rushbet en generatePick es "una sola oportunidad": si

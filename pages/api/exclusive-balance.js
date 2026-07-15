@@ -16,6 +16,14 @@ function isExclusivePick(confidence, odds) {
   return confidence >= EXCLUSIVE_MIN_CONFIDENCE && Boolean(odds) && Number(odds) >= EXCLUSIVE_MIN_ODDS;
 }
 
+// Pedido 2026-07-14: el "Control Premium" no debe arrancar mostrando
+// el acierto de picks exclusivos VIEJOS (de antes del piso de
+// confianza, el tope de 6/día y el factor de alternancia) — esos
+// números no representan al sistema actual. Se cuenta desde acá en
+// adelante; antes de esta fecha, el front pinta el estado "recién
+// arrancando" en vez de estos números.
+const STATS_RESET_AT = new Date('2026-07-15T03:00:00-05:00').getTime();
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
@@ -37,12 +45,14 @@ export default async function handler(req, res) {
     if (!isPremium) return res.status(403).json({ error: 'función exclusiva para cuentas premium' });
   }
 
-  const { data: bankrollRows, error } = await supabase
+  const { data: bankrollRowsRaw, error } = await supabase
     .from('bankroll_log')
     .select('pick_id, units, created_at')
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
-  if (!bankrollRows || bankrollRows.length === 0) {
+
+  const bankrollRows = (bankrollRowsRaw || []).filter((r) => new Date(r.created_at).getTime() >= STATS_RESET_AT);
+  if (bankrollRows.length === 0) {
     return res.status(200).json({ n: 0, hits: 0, misses: 0, hitRate: null, balance: 0, racha: 0, roi: 0, recent: [] });
   }
 

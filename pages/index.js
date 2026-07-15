@@ -4214,30 +4214,32 @@ function VipPicksModal({
           <p className="page-sub">Error: {exclusiveBalanceError}</p>
         ) : !exclusiveBalance ? (
           <p className="page-sub">{t('cargando')}</p>
-        ) : exclusiveBalance.n === 0 ? (
-          <p className="page-sub">{t('controlSerioVacio')}</p>
         ) : (
-          <div className="stat-strip stat-strip-3">
-            <div className="stat-card">
-              <div className="label">{t('statEfectividad')}</div>
-              <div className="value hit num">{Math.round(exclusiveBalance.hitRate * 100)}%</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">{t('statRachaActual')}</div>
-              <div className="value num">
-                {exclusiveBalance.racha === 0
-                  ? '—'
-                  : `${Math.abs(exclusiveBalance.racha)}${exclusiveBalance.racha > 0 ? 'W' : 'L'}`}
+          <>
+            {exclusiveBalance.n === 0 ? <p className="page-sub">{t('controlSerioVacio')}</p> : null}
+            <div className="stat-strip stat-strip-3">
+              <div className="stat-card">
+                <div className="label">{t('statEfectividad')}</div>
+                <div className="value hit num">
+                  {exclusiveBalance.n === 0 ? 100 : Math.round(exclusiveBalance.hitRate * 100)}%
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="label">{t('statRachaActual')}</div>
+                <div className="value num">
+                  {exclusiveBalance.n === 0 || exclusiveBalance.racha === 0
+                    ? '0'
+                    : `${Math.abs(exclusiveBalance.racha)}${exclusiveBalance.racha > 0 ? 'W' : 'L'}`}
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="label">{t('statROI')}</div>
+                <div className="value num hit">
+                  {exclusiveBalance.n === 0 ? '+0%' : `${exclusiveBalance.roi >= 0 ? '+' : ''}${exclusiveBalance.roi}%`}
+                </div>
               </div>
             </div>
-            <div className="stat-card">
-              <div className="label">{t('statROI')}</div>
-              <div className={`value num ${exclusiveBalance.roi >= 0 ? 'hit' : 'miss'}`}>
-                {exclusiveBalance.roi >= 0 ? '+' : ''}
-                {exclusiveBalance.roi}%
-              </div>
-            </div>
-          </div>
+          </>
         )}
 
         <p className="page-sub">{t('picksVipSub')}</p>
