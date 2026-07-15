@@ -5437,11 +5437,11 @@ function ProfileModal({
             </div>
             <div>
               <h3 style={{ fontSize: '18px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                   {displayName || user.email}
                   {isAdmin || isPremium ? (
                     <span className="chat-premium-badge" title={t('perfilPlanPremium')}>
-                      <ProfileIcon name="check" size={12} />
+                      <ProfileIcon name="check" size={11} />
                     </span>
                   ) : null}
                 </span>
