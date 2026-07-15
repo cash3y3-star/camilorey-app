@@ -5300,6 +5300,95 @@ function vibrateFollow() {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(40);
 }
 
+// Un solo AudioContext reusado para el "toc" global (crear uno nuevo
+// por click, como hace playFollowSound, satura rápido con clicks
+// seguidos) — se crea recién al primer click real, nunca antes,
+// porque los navegadores bloquean audio hasta que hay una interacción
+// del usuario.
+let tapAudioCtx = null;
+
+// "Toc" suave y corto al presionar cualquier botón/enlace/tarjeta del
+// sitio — mismo mecanismo que playFollowSound (sintetizado, sin
+// archivo de audio) pero más discreto: más corto, más grave y con
+// mucho menos volumen, para que se sienta como un click de verdad y
+// no compita con el "ding" de seguir un pick.
+function playTapSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!tapAudioCtx || tapAudioCtx.state === 'closed') tapAudioCtx = new AudioCtx();
+    if (tapAudioCtx.state === 'suspended') tapAudioCtx.resume();
+    const ctx = tapAudioCtx;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(420, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.06, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.06);
+  } catch (e) {
+    // silencioso — si el navegador bloquea audio, simplemente no suena
+  }
+}
+
+// Vibración suave al presionar — bien cortita (10ms) para que se
+// sienta como feedback táctil de un botón, no como una alerta.
+function vibrateTap() {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
+}
+
+// Delegación global: un solo listener en el documento en vez de
+// instrumentar cada botón/tarjeta/tab del sitio uno por uno (hay
+// decenas, muchos son <div onClick> con estilos propios, no <button>).
+// Se considera "algo presionable" si es button/a/[role=button] o si
+// tiene cursor:pointer calculado — que es justo el estilo que ya
+// llevan .tab/.pick-card/.profile-row/.form-list-row-clickable/etc,
+// así que cubre todo lo clickeable real sin listar cada clase a mano.
+function isPressableElement(el) {
+  if (!el || el.nodeType !== 1) return false;
+  const tag = el.tagName;
+  if (tag === 'BUTTON' || tag === 'A' || tag === 'SELECT') return true;
+  if (tag === 'INPUT') {
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    return type === 'checkbox' || type === 'radio' || type === 'button' || type === 'submit';
+  }
+  if (el.getAttribute && el.getAttribute('role') === 'button') return true;
+  try {
+    return window.getComputedStyle(el).cursor === 'pointer';
+  } catch (e) {
+    return false;
+  }
+}
+
+function useGlobalTapFeedback() {
+  useEffect(() => {
+    function onClick(e) {
+      // El botón de seguir un pick ya tiene su propio sonido/vibración
+      // (playFollowSound/vibrateFollow, más festivo) — evita que se
+      // dupliquen los dos a la vez.
+      if (e.target.closest && e.target.closest('.follow-btn')) return;
+      let el = e.target;
+      let depth = 0;
+      while (el && depth < 6) {
+        if (isPressableElement(el)) {
+          playTapSound();
+          vibrateTap();
+          return;
+        }
+        el = el.parentElement;
+        depth++;
+      }
+    }
+    document.addEventListener('click', onClick, { passive: true });
+    return () => document.removeEventListener('click', onClick);
+  }, []);
+}
+
 // Kelly: fracción óptima del banco a arriesgar dado el edge real
 // (confianza como probabilidad, cuota real de Rushbet) — f* = (b·p - q) / b,
 // b = cuota-1, p = confianza/100, q = 1-p. Si f* <= 0 el modelo no ve
@@ -5360,6 +5449,10 @@ export default function Home({
   const [modalMatch, setModalMatch] = useState(null);
   const [showVipModal, setShowVipModal] = useState(false);
   const [user, setUser] = useState(null);
+
+  // Vibración + "toc" suave en cualquier botón/enlace/tarjeta del
+  // sitio entero — ver useGlobalTapFeedback más arriba.
+  useGlobalTapFeedback();
 
   // Perfil editable (nombre/emoji/foto propia) — Google solo da el
   // nombre/foto de cuando iniciaste sesión, esto es lo que la persona
