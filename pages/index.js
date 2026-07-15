@@ -5476,13 +5476,15 @@ function ProfileModal({
               />
             </div>
             <div>
-              <h3 style={{ fontSize: '18px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                {displayName || user.email}
-                {isAdmin || isPremium ? (
-                  <span className="chat-premium-badge" title={t('perfilPlanPremium')}>
-                    <ProfileIcon name="crown" size={11} />
-                  </span>
-                ) : null}
+              <h3 style={{ fontSize: '18px' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  {displayName || user.email}
+                  {isAdmin || isPremium ? (
+                    <span className="chat-premium-badge" title={t('perfilPlanPremium')}>
+                      <ProfileIcon name="crown" size={11} />
+                    </span>
+                  ) : null}
+                </span>
               </h3>
               <div className="sub">{user.email}</div>
               <div className="profile-plan-line">
