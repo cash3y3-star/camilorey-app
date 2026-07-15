@@ -61,6 +61,7 @@ const TRANSLATIONS = {
     inicioTitle: 'Picks del día',
     inicioSub: 'Análisis propio sobre partidos de la Liga Pro Checa, contrastado con nuestro propio historial.',
     holaSaludo: 'Hola',
+    statsSistemaTitle: 'Estadísticas del Sistema',
     statEfectividad: 'Efectividad',
     statRachaActual: 'Racha actual',
     statROI: 'ROI',
@@ -334,6 +335,7 @@ const TRANSLATIONS = {
     inicioTitle: "Today's picks",
     inicioSub: 'Our own analysis of Czech Liga Pro matches, checked against our own track record.',
     holaSaludo: 'Hi',
+    statsSistemaTitle: 'System Stats',
     statEfectividad: 'Accuracy',
     statRachaActual: 'Current streak',
     statROI: 'ROI',
@@ -605,6 +607,7 @@ const TRANSLATIONS = {
     inicioTitle: 'Picks do dia',
     inicioSub: 'Nossa própria análise dos jogos da Liga Pro Checa, comparada com nosso histórico real.',
     holaSaludo: 'Olá',
+    statsSistemaTitle: 'Estatísticas do Sistema',
     statEfectividad: 'Efetividade',
     statRachaActual: 'Sequência atual',
     statROI: 'ROI',
@@ -6425,6 +6428,9 @@ export default function Home({
             <span className="tg-banner-cta">Entrar →</span>
           </a>
 
+          <div className="section-head">
+            <h2>{t('statsSistemaTitle')}</h2>
+          </div>
           <div className="stat-strip stat-strip-3">
             <div className="stat-card">
               <div className="label">{t('statEfectividad')}</div>
