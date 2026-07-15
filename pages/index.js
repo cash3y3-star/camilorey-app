@@ -4384,7 +4384,6 @@ function PicksVipView({
   canSeeExclusive,
   featured,
   exclusivePicks,
-  exclusiveResolvedPicks,
   exclusivePicksError,
   exclusiveBalance,
   exclusiveBalanceError,
@@ -4394,7 +4393,10 @@ function PicksVipView({
   onPickClick
 }) {
   const t = useTranslate(lang);
-  const vipPicks = [...exclusivePicks, ...exclusiveResolvedPicks].slice(0, 15);
+  // Solo pendientes — los resultados de picks exclusivos ya jugados no
+  // se muestran acá (pedido explícito), esta ventana es para lo que
+  // está por venir, no un historial.
+  const vipPicks = exclusivePicks.slice(0, 15);
   const vipOdds = vipPicks.map((p) => p.odds).filter(Boolean);
   const minOdds = vipOdds.length ? Math.min(...vipOdds) : null;
 
@@ -6377,7 +6379,6 @@ export default function Home({
   // de picks/resolvedPicks públicos. Mismo patrón de consulta+poll de
   // 20s que exclusiveBalance justo arriba.
   const [exclusivePicks, setExclusivePicks] = useState([]);
-  const [exclusiveResolvedPicks, setExclusiveResolvedPicks] = useState([]);
   const [exclusivePicksError, setExclusivePicksError] = useState(null);
   useEffect(() => {
     if (view !== 'picksvip' || !canSeeExclusive || !supabaseClient) return undefined;
@@ -6395,7 +6396,6 @@ export default function Home({
           setExclusivePicksError(data.error || 'Error cargando los picks VIP.');
         } else {
           setExclusivePicks(data.picks || []);
-          setExclusiveResolvedPicks(data.resolvedPicks || []);
         }
       } catch (e) {
         if (!cancelled) setExclusivePicksError(e.message);
@@ -7588,7 +7588,6 @@ export default function Home({
           canSeeExclusive={canSeeExclusive}
           featured={featured}
           exclusivePicks={exclusivePicks}
-          exclusiveResolvedPicks={exclusiveResolvedPicks}
           exclusivePicksError={exclusivePicksError}
           exclusiveBalance={exclusiveBalance}
           exclusiveBalanceError={exclusiveBalanceError}
