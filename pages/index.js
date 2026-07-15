@@ -5497,6 +5497,37 @@ function vibrateFollow() {
   if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(40);
 }
 
+// Jingle cortito de 3 notas ascendentes al mostrar la pantalla de
+// bienvenida premium — mismo mecanismo sintetizado que playFollowSound
+// pero más festivo (arpegio en vez de una sola nota) porque es un
+// momento de celebración, no un simple ack de click.
+function playPremiumSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99]; // Do-Mi-Sol
+    notes.forEach((freq, i) => {
+      const start = now + i * 0.09;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.22, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.32);
+    });
+    setTimeout(() => ctx.close(), 500);
+  } catch (e) {
+    // silencioso — si el navegador bloquea audio, simplemente no suena
+  }
+}
+
 // Un solo AudioContext reusado para el "toc" global (crear uno nuevo
 // por click, como hace playFollowSound, satura rápido con clicks
 // seguidos) — se crea recién al primer click real, nunca antes,
@@ -6182,6 +6213,7 @@ export default function Home({
     if (seen === myProfile.premium_until) return;
     window.localStorage.setItem(key, myProfile.premium_until);
     setShowPremiumWelcome(true);
+    playPremiumSound();
   }, [user, isPremium, myProfile?.premium_until]);
 
   // Prueba cerrada: mientras estemos antes de BETA_GATE_END, cualquier
