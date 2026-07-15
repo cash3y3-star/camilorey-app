@@ -1231,9 +1231,14 @@ export async function getServerSideProps({ query }) {
     .limit(1000);
 
   const bankrollPromise = (async () => {
+    // !inner + eq('picks.published', true) para que el balance/racha/
+    // efectividad público (Inicio, todos lo ven) nunca cuente picks
+    // descartados por el piso de confianza — esos no fueron "nuestro
+    // pick" real, no deberían mover el track record que se muestra.
     const { data: bankrollRows } = await supabase
       .from('bankroll_log')
-      .select('*')
+      .select('*, picks!inner(published)')
+      .eq('picks.published', true)
       .order('created_at', { ascending: false })
       .limit(30);
     const bkPickIds = [...new Set((bankrollRows || []).map((r) => r.pick_id).filter(Boolean))];
@@ -1247,7 +1252,7 @@ export async function getServerSideProps({ query }) {
 
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
     supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
-    supabase.from('picks').select('*').eq('result', 'pending').order('confidence', { ascending: false })
+    supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false })
   ]);
 
   const playersById = new Map((players || []).map((p) => [p.id, p]));
@@ -1271,6 +1276,7 @@ export async function getServerSideProps({ query }) {
     .from('picks')
     .select('*')
     .neq('result', 'pending')
+    .eq('published', true)
     .order('created_at', { ascending: false })
     .limit(60);
 
@@ -3148,8 +3154,41 @@ const MODEL_FACTOR_LABEL = { ratingScore: 'Rating', streakScore: 'Racha', h2hSco
 // resultado ya es estadísticamente distinguible de una moneda al aire
 // (para bien o para mal). Si lo cruza, todavía no hay muestra
 // suficiente para saberlo — no es lo mismo que "no funciona".
+// Fila reusable para una lista de picks pendientes (publicados o
+// descartados) — fecha+hora, mercado, confianza y cuota, clickeable
+// para abrir el detalle completo.
+function ModelPendingRow({ p, onPickClick, clickable = true }) {
+  return (
+    <div
+      className={`form-list-row ${clickable ? 'form-list-row-clickable' : ''}`}
+      onClick={clickable ? () => onPickClick && onPickClick(p.id) : undefined}
+    >
+      <div className="form-list-meta">
+        <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
+        <span className="form-list-ft">
+          {p.scheduledAt
+            ? new Intl.DateTimeFormat('es-CO', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+                timeZone: 'America/Bogota'
+              }).format(new Date(p.scheduledAt))
+            : ''}
+        </span>
+      </div>
+      <div className="form-list-opp">
+        {p.market || 'Pick'}
+        <span className="form-list-score num">{Math.round(p.confidence)}%</span>
+      </div>
+      <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
+    </div>
+  );
+}
+
 function ModelStatsView({ stats, onPickClick }) {
   const pending = stats.pending || [];
+  const discardedPending = stats.discardedPending || [];
+  const discardedResolved = stats.discardedResolved || [];
 
   return (
     <>
@@ -3162,32 +3201,55 @@ function ModelStatsView({ stats, onPickClick }) {
       ) : (
         <div className="form-list">
           {pending.map((p, i) => (
-            <div
-              className="form-list-row form-list-row-clickable"
-              key={i}
-              onClick={() => onPickClick && onPickClick(p.id)}
-            >
-              <div className="form-list-meta">
-                <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
-                <span className="form-list-ft">
-                  {p.scheduledAt
-                    ? new Intl.DateTimeFormat('es-CO', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false,
-                        timeZone: 'America/Bogota'
-                      }).format(new Date(p.scheduledAt))
-                    : ''}
-                </span>
-              </div>
-              <div className="form-list-opp">
-                {p.market || 'Pick'}
-                <span className="form-list-score num">{Math.round(p.confidence)}%</span>
-              </div>
-              <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
-            </div>
+            <ModelPendingRow p={p} onPickClick={onPickClick} key={i} />
           ))}
         </div>
+      )}
+
+      <div className="section-head">
+        <h2>Descartados ({discardedPending.length + discardedResolved.length})</h2>
+      </div>
+      <p className="page-sub">
+        Partidos que el modelo evaluó pero no llegaron al piso de 60% — nunca se muestran en el sitio, solo acá.
+      </p>
+      {discardedPending.length === 0 && discardedResolved.length === 0 ? (
+        <p className="page-sub">No hay descartados ahora mismo.</p>
+      ) : (
+        <>
+          {discardedPending.length > 0 ? (
+            <div className="form-list">
+              {discardedPending.map((p, i) => (
+                <ModelPendingRow p={p} clickable={false} key={i} />
+              ))}
+            </div>
+          ) : null}
+          {discardedResolved.length > 0 ? (
+            <div className="form-list" style={{ marginTop: discardedPending.length > 0 ? '8px' : 0 }}>
+              {discardedResolved.map((r, i) => (
+                <div className="form-list-row" key={i}>
+                  <div className="form-list-meta">
+                    <span className="form-list-date">{shortDate(r.scheduledAt)}</span>
+                    <span className="form-list-ft">
+                      {r.scheduledAt
+                        ? new Intl.DateTimeFormat('es-CO', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                            timeZone: 'America/Bogota'
+                          }).format(new Date(r.scheduledAt))
+                        : ''}
+                    </span>
+                  </div>
+                  <div className="form-list-opp">
+                    {r.market || 'Pick'}
+                    <span className="form-list-score num">{r.confidence}%</span>
+                  </div>
+                  <span className={`form-list-badge ${r.win ? 'win' : 'loss'}`}>{r.win ? 'W' : 'L'}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </>
       )}
 
       {stats.n > 0 ? <ModelResolvedStats stats={stats} onPickClick={onPickClick} /> : null}

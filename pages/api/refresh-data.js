@@ -84,7 +84,7 @@ export default async function handler(req, res) {
 
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
     supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
-    supabase.from('picks').select('*').eq('result', 'pending').order('confidence', { ascending: false })
+    supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false })
   ]);
 
   const playersById = new Map((players || []).map((p) => [p.id, p]));
@@ -105,6 +105,7 @@ export default async function handler(req, res) {
     .from('picks')
     .select('*')
     .neq('result', 'pending')
+    .eq('published', true)
     .order('created_at', { ascending: false })
     .limit(60);
 
@@ -531,9 +532,13 @@ export default async function handler(req, res) {
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
+  // !inner + eq('picks.published', true): mismo criterio que
+  // getServerSideProps — el balance/racha/efectividad público nunca
+  // cuenta picks descartados por el piso de confianza.
   const { data: bankrollRows } = await supabase
     .from('bankroll_log')
-    .select('*')
+    .select('*, picks!inner(published)')
+    .eq('picks.published', true)
     .order('created_at', { ascending: false })
     .limit(30);
 

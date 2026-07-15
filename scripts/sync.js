@@ -225,13 +225,14 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
   // Piso de publicación — agregado 2026-07-14 después de una racha
   // floja (4/14). Antes CUALQUIER partido generaba un pick, hasta con
   // confianza pegada al mínimo de 50 (básicamente un empate técnico
-  // del modelo). Ahora, si no llega a 60, no se publica pick para ese
-  // partido — mejor no dar un pick que dar uno que el propio modelo ve
-  // casi parejo. No es una garantía de que suba el acierto (la muestra
-  // real sigue siendo chica), pero saca del medio los picks con menos
-  // razón de ser "nuestro pick".
+  // del modelo). Ahora, si no llega a 60, el pick se guarda igual
+  // (published=false) para no perder el seguimiento/calibración, pero
+  // NO se muestra en ningún lado público — solo en "Descartados" del
+  // panel admin. No es una garantía de que suba el acierto (la muestra
+  // real sigue siendo chica), pero saca del medio, para el usuario
+  // final, los picks con menos razón de ser "nuestro pick".
   const MIN_CONFIDENCE_TO_PUBLISH = 60;
-  if (pickConfidence < MIN_CONFIDENCE_TO_PUBLISH) return false;
+  const published = pickConfidence >= MIN_CONFIDENCE_TO_PUBLISH;
 
   // Cuota real de Rushbet si logramos cruzar el partido por nombre+hora
   // en su feed de "Liga Pro checa" — queda null si no hay match (no
@@ -246,10 +247,11 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents) {
     factors,
     predicted_winner_id: favored.id,
     odds: favoredOdds,
-    result: 'pending'
+    result: 'pending',
+    published
   });
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
-  return true;
+  return published;
 }
 
 // El cruce con Rushbet en generatePick es "una sola oportunidad": si
@@ -314,7 +316,14 @@ async function backfillMissingOdds(rushbetEvents) {
 // conserva el featured que tenía en ese momento, así queda como
 // historial real en vez de recalcularse para siempre.
 async function updateFeaturedPick() {
-  const { data: pending, error } = await supabase.from('picks').select('id, confidence, odds, featured').eq('result', 'pending');
+  // published=true a propósito: un pick descartado (confianza < piso)
+  // nunca puede terminar destacado en Inicio, aunque tenga cuota
+  // buena — no es "nuestro pick" real.
+  const { data: pending, error } = await supabase
+    .from('picks')
+    .select('id, confidence, odds, featured')
+    .eq('result', 'pending')
+    .eq('published', true);
   if (error) throw new Error(`select picks (featured): ${error.message}`);
   if (!pending || pending.length === 0) return;
 

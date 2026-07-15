@@ -44,6 +44,7 @@ create table if not exists picks (
   confidence    numeric,                    -- 0-100
   factors       jsonb,                      -- desglose: h2h, racha, rating_diff...
   featured      boolean default false,
+  published     boolean not null default true, -- false = confianza < piso (60), no se muestra en público, solo en "Descartados" del admin
   result        text,                       -- 'pending' | 'hit' | 'miss'
   created_at    timestamptz default now()
 );

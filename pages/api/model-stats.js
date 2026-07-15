@@ -37,9 +37,13 @@ export default async function handler(req, res) {
   // Picks pendientes (todavía no jugados) — para poder revisar ANTES
   // de que se jueguen cuáles quedaron publicados con el piso de
   // confianza nuevo, no solo verlos después de que ya se resolvieron.
+  // Se traen TODOS (publicados y descartados) y se separan acá: los
+  // descartados (confianza < piso) nunca se muestran en público, pero
+  // acá sí, en su propia lista, para que el admin vea que el modelo SÍ
+  // los evaluó.
   const { data: pendingPicks, error: pendingErr } = await supabase
     .from('picks')
-    .select('id, confidence, odds, market, match_id')
+    .select('id, confidence, odds, market, match_id, published')
     .eq('result', 'pending')
     .order('confidence', { ascending: false });
   if (pendingErr) return res.status(500).json({ error: pendingErr.message });
@@ -50,29 +54,52 @@ export default async function handler(req, res) {
     : { data: [] };
   const pendingMatchById = new Map((pendingMatches || []).map((m) => [m.id, m]));
 
+  const mapPending = (p) => ({
+    id: p.id,
+    market: p.market,
+    confidence: p.confidence,
+    odds: p.odds ? Number(p.odds) : null,
+    scheduledAt: pendingMatchById.get(p.match_id)?.scheduled_at || null
+  });
+  const byScheduledAt = (a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0);
   const pending = (pendingPicks || [])
-    .map((p) => ({
-      id: p.id,
-      market: p.market,
-      confidence: p.confidence,
-      odds: p.odds ? Number(p.odds) : null,
-      scheduledAt: pendingMatchById.get(p.match_id)?.scheduled_at || null
-    }))
-    .sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0));
+    .filter((p) => p.published !== false)
+    .map(mapPending)
+    .sort(byScheduledAt);
+  const discardedPending = (pendingPicks || [])
+    .filter((p) => p.published === false)
+    .map(mapPending)
+    .sort(byScheduledAt);
 
   const { data: picks, error } = await supabase
     .from('picks')
-    .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market')
+    .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market, published')
     .in('result', ['hit', 'miss'])
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: error.message });
-  if (!picks || picks.length === 0) return res.status(200).json({ n: 0, pending });
+  if (!picks || picks.length === 0) return res.status(200).json({ n: 0, pending, discardedPending, discardedResolved: [] });
 
   const matchIds = [...new Set(picks.map((p) => p.match_id))];
   const { data: matches } = await supabase.from('matches').select('id, player_a_id, scheduled_at').in('id', matchIds);
   const matchById = new Map((matches || []).map((m) => [m.id, m]));
 
+  // Resueltos DESCARTADOS (confianza < piso, ya jugados) — lista
+  // aparte, simple, sin entrar en las estadísticas/buckets de abajo
+  // (esos siguen midiendo solo el track record publicado real).
+  const discardedResolved = picks
+    .filter((p) => p.published === false)
+    .map((p) => ({
+      id: p.id,
+      win: p.result === 'hit',
+      market: p.market,
+      confidence: p.confidence,
+      scheduledAt: matchById.get(p.match_id)?.scheduled_at || null
+    }))
+    .sort((a, b) => new Date(b.scheduledAt || 0) - new Date(a.scheduledAt || 0))
+    .slice(0, 20);
+
   const rows = picks
+    .filter((p) => p.published !== false)
     .map((p) => {
       const match = matchById.get(p.match_id);
       if (!match || !p.factors) return null;
@@ -133,11 +160,13 @@ export default async function handler(req, res) {
     n,
     hits,
     misses: n - hits,
-    hitRate: hits / n,
+    hitRate: n > 0 ? hits / n : null,
     wilson95: [lo, hi],
     buckets,
     factorAvg,
     recentSequence: recent,
-    pending
+    pending,
+    discardedPending,
+    discardedResolved
   });
 }
