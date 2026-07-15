@@ -2210,7 +2210,10 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
         {featured ? (
           <span className="tier-badge tier-featured">★ Pick destacado del día</span>
         ) : pick.exclusive ? (
-          <span className="tier-badge tier-exclusive">👑 Exclusivo</span>
+          <span className="tier-badge tier-exclusive">
+            <ProfileIcon name="crown" size={12} />
+            Exclusivo
+          </span>
         ) : (
           <span className={`tier-badge tier-${pick.tier}`}>{TIER_LABEL[pick.tier]}</span>
         )}
@@ -2575,7 +2578,7 @@ function LiveChat({ matchSourceId, user, profile }) {
 
     supabaseClient
       .from('chat_messages')
-      .select('id, user_name, user_avatar, user_avatar_emoji, message, created_at, sender_level')
+      .select('id, user_name, user_avatar, user_avatar_emoji, message, created_at, sender_level, sender_is_premium')
       .eq('match_source_id', matchSourceId)
       .order('created_at', { ascending: true })
       .limit(100)
@@ -2642,6 +2645,11 @@ function LiveChat({ matchSourceId, user, profile }) {
               <div>
                 <div className="live-chat-name">
                   {msg.user_name || 'Anónimo'}
+                  {msg.sender_is_premium ? (
+                    <span className="chat-premium-badge" title="Usuario Premium">
+                      <ProfileIcon name="crown" size={11} />
+                    </span>
+                  ) : null}
                   {msg.sender_level ? (
                     <span className={`level-badge tier-${levelTier(msg.sender_level)}`}>Nv.{msg.sender_level}</span>
                   ) : null}
@@ -8186,7 +8194,9 @@ const CSS = `
   .tier-badge{
     font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.3px;
     padding:4px 9px; border-radius:999px; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:4px;
   }
+  .tier-badge svg{flex:none;}
   .tier-badge.tier-alta{background:rgba(93,202,165,.16); color:var(--hit);}
   .tier-badge.tier-media{background:rgba(255,193,7,.16); color:#FFC845;}
   .tier-badge.tier-baja{background:var(--bg-alt); color:var(--muted);}
@@ -8492,6 +8502,12 @@ const CSS = `
   .level-badge.tier-active{background:rgba(93,202,165,.15); color:var(--hit);}
   .level-badge.tier-fan{background:rgba(255,122,69,.18); color:var(--ball);}
   .level-badge.tier-legend{background:linear-gradient(135deg, #FFD700, #FF7A45); color:#1a1a1a;}
+  .chat-premium-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:16px; height:16px; border-radius:999px; flex:none;
+    background:linear-gradient(135deg, #FFD700, #FF7A45); color:#1a1a1a;
+  }
+  .chat-premium-badge svg{display:block;}
   .live-chat-text{font-size:13.5px; color:var(--ink); line-height:1.4; word-break:break-word;}
   .live-chat-form{display:flex; gap:8px;}
   .live-chat-form input{
