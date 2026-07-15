@@ -1780,7 +1780,7 @@ export async function getServerSideProps({ query }) {
   const { data: champMatches } = champTournamentIds.length
     ? await supabase
         .from('matches')
-        .select('tournament_id, player_a_id, player_b_id, sets_a, sets_b, scheduled_at, winner_id')
+        .select('tournament_id, player_a_id, player_b_id, sets_a, sets_b, set_scores, scheduled_at, winner_id')
         .in('tournament_id', champTournamentIds)
         .eq('status', 'finished')
     : { data: [] };
@@ -1798,11 +1798,20 @@ export async function getServerSideProps({ query }) {
       const rival = playersById.get(winnerIsA ? last.player_b_id : last.player_a_id);
       const setsFor = winnerIsA ? last.sets_a : last.sets_b;
       const setsAgainst = winnerIsA ? last.sets_b : last.sets_a;
+      // set_scores viene relativo a jugador_a/b — se reordena para que
+      // quede siempre "campeón-rival", igual que el resto del sitio
+      // hace con setScores en los picks.
+      const setScores = Array.isArray(last.set_scores)
+        ? winnerIsA
+          ? last.set_scores
+          : last.set_scores.map((s) => ({ a: s.b, b: s.a }))
+        : null;
       const wins = myMatches.filter((m) => m.winner_id === t.winner_id).length;
       const losses = myMatches.length - wins;
       return {
         tournamentId: t.id,
         tournamentName: t.name || 'Torneo',
+        matchDate: last.scheduled_at,
         winnerName: winner.name,
         winnerInitials: initialsOf(winner.name),
         winnerAvatarUrl: winner.avatar_cutout_url || winner.avatar_url || null,
@@ -1810,6 +1819,7 @@ export async function getServerSideProps({ query }) {
         rivalName: rival?.name || '—',
         rivalInitials: initialsOf(rival?.name),
         rivalAvatarUrl: rival?.avatar_cutout_url || rival?.avatar_url || null,
+        setScores,
         rivalHasCutout: Boolean(rival?.avatar_cutout_url),
         score: setsFor != null && setsAgainst != null ? `${setsFor}-${setsAgainst}` : null,
         wins,
@@ -2369,7 +2379,6 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
   );
 }
 
-// Tarjeta de doble foto.
 // Tarjeta de campeón reciente — se muestra en Inicio cuando no hay
 // nada en vivo (ver recentChampions en getServerSideProps). Los
 // torneos son grupos todos-contra-todos, no bracket de eliminación,
@@ -2381,6 +2390,17 @@ function ChampionCard({ champ }) {
       <div className="champion-card-head">
         <ProfileIcon name="crown" size={14} />
         <span>{champ.tournamentName}</span>
+        {champ.matchDate ? (
+          <span className="champion-card-date">
+            {shortDate(champ.matchDate)} ·{' '}
+            {new Intl.DateTimeFormat('es-CO', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: 'America/Bogota'
+            }).format(new Date(champ.matchDate))}
+          </span>
+        ) : null}
       </div>
       <div className="champion-card-body">
         <div className="champion-card-side champion-card-winner">
@@ -2418,6 +2438,19 @@ function ChampionCard({ champ }) {
           <span className="champion-name champion-rival-name">{champ.rivalName}</span>
         </div>
       </div>
+
+      {champ.setScores && champ.setScores.length > 0 ? (
+        <div className="champion-sets-row">
+          {champ.setScores.map((s, i) => (
+            <div className={`champion-set ${s.a > s.b ? 'won' : 'lost'}`} key={i}>
+              <span className="champion-set-label">Set {i + 1}</span>
+              <span className="num">
+                {s.a}-{s.b}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -8368,10 +8401,14 @@ const CSS = `
     background:linear-gradient(90deg, #FFC845, #FFA000);
   }
   .champion-card-head{
-    display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;
-    color:var(--muted); margin-bottom:14px; color:#B8860B;
+    display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; font-size:12.5px; font-weight:700;
+    color:#B8860B; margin-bottom:14px;
   }
   .champion-card-head svg{flex:none; color:#FFC845;}
+  .champion-card-date{
+    font-family:var(--font-mono); font-size:10.5px; font-weight:600; color:var(--muted);
+    margin-left:auto;
+  }
   .champion-card-body{display:flex; align-items:center; justify-content:space-between; gap:8px;}
   .champion-card-side{display:flex; flex-direction:column; align-items:center; gap:6px; width:88px; flex:none;}
   .champion-avatar-wrap{position:relative;}
@@ -8391,6 +8428,16 @@ const CSS = `
   .champion-card-mid{display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; min-width:0;}
   .champion-score{font-family:var(--font-display); font-size:24px; color:var(--ink);}
   .champion-record{font-size:11px; color:var(--muted); white-space:nowrap;}
+  .champion-sets-row{
+    display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line);
+  }
+  .champion-set{
+    display:flex; flex-direction:column; align-items:center; gap:2px; min-width:44px;
+    padding:6px 8px; border-radius:10px; background:var(--bg-alt); border:1px solid var(--line);
+  }
+  .champion-set.won{border-color:rgba(255,193,7,.5); background:rgba(255,193,7,.1);}
+  .champion-set-label{font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px;}
+  .champion-set .num{font-size:13px; font-weight:800; color:var(--ink);}
 
   .live-clock{
     font-family:var(--font-mono); font-size:13px; color:var(--ball); font-weight:700;
