@@ -16,11 +16,12 @@ const VIEWS = [
   'mibankroll',
   'actividad',
   'destacados',
+  'historialvip',
   'admin'
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
 // bajo un solo botón "Admin" (ver la sección admin más abajo).
-const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados'];
+const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados', 'historialvip'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 const LANG_KEY = 'camilorey_lang';
@@ -46,6 +47,7 @@ const TRANSLATIONS = {
     navModelo: 'Modelo',
     navErrores: 'Errores',
     navDestacados: 'Destacados',
+    navHistorialVip: 'Historial VIP',
     entrar: 'Entrar',
     cerrarSesion: 'Cerrar sesión',
     cargando: 'Cargando…',
@@ -66,6 +68,7 @@ const TRANSLATIONS = {
     statRachaActual: 'Racha actual',
     statROI: 'ROI',
     statBalance: 'Balance',
+    statCuotaMinima: 'Cuota mínima',
     enVivoAhora: 'En vivo ahora',
     pickDestacado: 'Pick destacado del día',
     picksVipBtn: 'PICKS VIP',
@@ -320,6 +323,7 @@ const TRANSLATIONS = {
     navModelo: 'Model',
     navErrores: 'Errors',
     navDestacados: 'Featured',
+    navHistorialVip: 'VIP History',
     entrar: 'Sign in',
     cerrarSesion: 'Sign out',
     cargando: 'Loading…',
@@ -340,6 +344,7 @@ const TRANSLATIONS = {
     statRachaActual: 'Current streak',
     statROI: 'ROI',
     statBalance: 'Balance',
+    statCuotaMinima: 'Minimum odds',
     enVivoAhora: 'Live now',
     pickDestacado: "Today's featured pick",
     picksVipBtn: 'VIP PICKS',
@@ -592,6 +597,7 @@ const TRANSLATIONS = {
     navModelo: 'Modelo',
     navErrores: 'Erros',
     navDestacados: 'Destaques',
+    navHistorialVip: 'Histórico VIP',
     entrar: 'Entrar',
     cerrarSesion: 'Sair',
     cargando: 'Carregando…',
@@ -612,6 +618,7 @@ const TRANSLATIONS = {
     statRachaActual: 'Sequência atual',
     statROI: 'ROI',
     statBalance: 'Saldo',
+    statCuotaMinima: 'Odd mínima',
     enVivoAhora: 'Ao vivo agora',
     pickDestacado: 'Pick em destaque do dia',
     picksVipBtn: 'PICKS VIP',
@@ -4181,6 +4188,8 @@ function VipPicksModal({
 }) {
   const t = useTranslate(lang);
   const vipPicks = [...exclusivePicks, ...exclusiveResolvedPicks].slice(0, 15);
+  const vipOdds = vipPicks.map((p) => p.odds).filter(Boolean);
+  const minOdds = vipOdds.length ? Math.min(...vipOdds) : null;
 
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
@@ -4244,10 +4253,8 @@ function VipPicksModal({
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="label">{t('statBalance')}</div>
-                  <div className={`value num ${exclusiveBalance.balance >= 0 ? 'hit' : 'miss'}`}>
-                    {formatCOP(exclusiveBalance.balance)}
-                  </div>
+                  <div className="label">{t('statCuotaMinima')}</div>
+                  <div className="value num">{minOdds ? minOdds.toFixed(2) : '—'}</div>
                 </div>
               </div>
             )}
@@ -5937,6 +5944,32 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
+  // Historial VIP — todo lo que salió alguna vez en Picks VIP (mismo
+  // criterio de exclusivo: confianza>=85 + cuota>=1.60), no solo lo
+  // que está visible ahora mismo. Mismo patrón que Destacados.
+  const [vipHistory, setVipHistory] = useState(null);
+  const [vipHistoryError, setVipHistoryError] = useState(null);
+  useEffect(() => {
+    if (view !== 'historialvip' || !isAdmin || !supabaseClient) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/vip-history', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok) setVipHistoryError(data.error || 'Error cargando el historial VIP.');
+        else setVipHistory(data);
+      } catch (e) {
+        if (!cancelled) setVipHistoryError(e.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isAdmin]);
+
   // Balance de los picks exclusivos — solo se consulta cuando alguien
   // con acceso abre el modal "Picks VIP".
   const [exclusiveBalance, setExclusiveBalance] = useState(null);
@@ -6656,6 +6689,16 @@ export default function Home({
             </div>
             <ProfileIcon name="chevron-right" size={16} />
           </a>
+          <a className="profile-row" href="#historialvip">
+            <span className="profile-row-icon">
+              <ProfileIcon name="crown" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('navHistorialVip')}</strong>
+              <p>Historial completo de todo lo que salió alguna vez en Picks VIP</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
 
           <div className="profile-section-label" style={{ marginTop: '22px' }}>
             PREMIUM MANUAL
@@ -7084,6 +7127,28 @@ export default function Home({
             <p className="page-sub">Todavía no hay picks destacados registrados.</p>
           ) : (
             <FeaturedHistoryView data={featuredHistory} />
+          )}
+        </section>
+        )}
+
+        {isAdmin && (
+        <section className={`view ${view === 'historialvip' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
+          <span className="eyebrow">Solo tú ves esto</span>
+          <h1 className="page-title">{t('navHistorialVip')}</h1>
+          <p className="page-sub">
+            Todo lo que salió alguna vez en Picks VIP (confianza≥85 + cuota≥1.60), pendiente o resuelto.
+          </p>
+          {vipHistoryError ? (
+            <p className="page-sub">Error: {vipHistoryError}</p>
+          ) : !vipHistory ? (
+            <p className="page-sub">Cargando…</p>
+          ) : vipHistory.picks.length === 0 ? (
+            <p className="page-sub">Todavía no hay picks VIP registrados.</p>
+          ) : (
+            <FeaturedHistoryView data={vipHistory} />
           )}
         </section>
         )}
