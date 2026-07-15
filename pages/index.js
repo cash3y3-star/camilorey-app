@@ -65,7 +65,7 @@ const TRANSLATIONS = {
     inicioSub: 'Análisis propio sobre partidos de la Liga Pro Checa, contrastado con nuestro propio historial.',
     holaSaludo: 'Hola',
     statsSistemaTitle: 'Estadísticas del Sistema',
-    statEfectividad: 'Efectividad',
+    statEfectividad: 'Efectividad (últ. 30)',
     statRachaActual: 'Racha actual',
     statROI: 'ROI',
     statBalance: 'Balance',
@@ -351,7 +351,7 @@ const TRANSLATIONS = {
     inicioSub: 'Our own analysis of Czech Liga Pro matches, checked against our own track record.',
     holaSaludo: 'Hi',
     statsSistemaTitle: 'System Stats',
-    statEfectividad: 'Accuracy',
+    statEfectividad: 'Accuracy (last 30)',
     statRachaActual: 'Current streak',
     statROI: 'ROI',
     statBalance: 'Balance',
@@ -635,7 +635,7 @@ const TRANSLATIONS = {
     inicioSub: 'Nossa própria análise dos jogos da Liga Pro Checa, comparada com nosso histórico real.',
     holaSaludo: 'Olá',
     statsSistemaTitle: 'Estatísticas do Sistema',
-    statEfectividad: 'Efetividade',
+    statEfectividad: 'Efetividade (últ. 30)',
     statRachaActual: 'Sequência atual',
     statROI: 'ROI',
     statBalance: 'Saldo',
@@ -7470,7 +7470,7 @@ export default function Home({
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="label">Efectividad</div>
+                  <div className="label">Efectividad (últ. 30)</div>
                   <div className="value hit num">{stats.efectividad}%</div>
                 </div>
                 <div className="stat-card">
