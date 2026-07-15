@@ -2667,7 +2667,7 @@ function LiveChat({ matchSourceId, user, profile }) {
 
     supabaseClient
       .from('chat_messages')
-      .select('id, user_name, user_avatar, user_avatar_emoji, message, created_at, sender_level, sender_is_premium')
+      .select('id, user_name, user_avatar, user_avatar_emoji, message, created_at, sender_level')
       .eq('match_source_id', matchSourceId)
       .order('created_at', { ascending: true })
       .limit(100)
@@ -2734,11 +2734,6 @@ function LiveChat({ matchSourceId, user, profile }) {
               <div>
                 <div className="live-chat-name">
                   {msg.user_name || 'Anónimo'}
-                  {msg.sender_is_premium ? (
-                    <span className="chat-premium-badge" title="Usuario Premium">
-                      <ProfileIcon name="check" size={12} />
-                    </span>
-                  ) : null}
                   {msg.sender_level ? (
                     <span className={`level-badge tier-${levelTier(msg.sender_level)}`}>Nv.{msg.sender_level}</span>
                   ) : null}
@@ -5436,16 +5431,7 @@ function ProfileModal({
               />
             </div>
             <div>
-              <h3 style={{ fontSize: '18px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                  {displayName || user.email}
-                  {isAdmin || isPremium ? (
-                    <span className="chat-premium-badge" title={t('perfilPlanPremium')}>
-                      <ProfileIcon name="check" size={11} />
-                    </span>
-                  ) : null}
-                </span>
-              </h3>
+              <h3 style={{ fontSize: '18px' }}>{displayName || user.email}</h3>
               <div className="sub">{user.email}</div>
               <div className="profile-plan-line">
                 {isAdmin || isPremium ? t('perfilPlanPremium') : t('perfilPlanGratuito')}
@@ -8697,12 +8683,6 @@ const CSS = `
   .level-badge.tier-active{background:rgba(93,202,165,.15); color:var(--hit);}
   .level-badge.tier-fan{background:rgba(255,122,69,.18); color:var(--ball);}
   .level-badge.tier-legend{background:linear-gradient(135deg, #FFD700, #FF7A45); color:#1a1a1a;}
-  .chat-premium-badge{
-    display:inline-flex; align-items:center; justify-content:center;
-    width:20px; height:20px; border-radius:999px; flex:none;
-    background:linear-gradient(135deg, #FFD700, #FF7A45); color:#1a1a1a;
-  }
-  .chat-premium-badge svg{display:block; stroke-width:2.5;}
   .live-chat-text{font-size:13.5px; color:var(--ink); line-height:1.4; word-break:break-word;}
   .live-chat-form{display:flex; gap:8px;}
   .live-chat-form input{
