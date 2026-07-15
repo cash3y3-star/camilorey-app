@@ -17,6 +17,7 @@ const VIEWS = [
   'actividad',
   'destacados',
   'historialvip',
+  'picksvip',
   'admin'
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
@@ -4177,8 +4178,10 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
 // ver 2026-07-14) con acceso directo desde Inicio, al lado del saludo.
 // Junta el destacado del día + los picks exclusivos + su balance
 // aparte, todo en una sola ventana para quien tiene acceso premium.
-function VipPicksModal({
-  onClose,
+// Vista normal (no modal flotante, ver 2026-07-15) — se navega igual
+// que Picks/Calendario/etc, con #picksvip en el hash.
+function PicksVipView({
+  view,
   lang,
   oddsFormat,
   canSeeExclusive,
@@ -4198,16 +4201,16 @@ function VipPicksModal({
   const minOdds = vipOdds.length ? Math.min(...vipOdds) : null;
 
   return (
-    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
-      <div className="modal">
-        <div className="subscreen-head">
-          <button className="subscreen-back" onClick={onClose}>
-            <ProfileIcon name="arrow-left" size={18} />
-          </button>
-          <h3>{t('picksVipTitle')}</h3>
-        </div>
+    <section className={`view ${view === 'picksvip' ? 'active' : ''}`}>
+      <a href="#inicio" className="admin-back-link">
+        <ProfileIcon name="arrow-left" size={14} /> {t('navInicio')}
+      </a>
+      <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <ProfileIcon name="crown" size={13} /> {t('picksVipBtn')}
+      </span>
+      <h1 className="page-title">{t('picksVipTitle')}</h1>
 
-        <div className="section-head" style={{ marginTop: 0 }}>
+      <div className="section-head" style={{ marginTop: 0 }}>
           <h2>{t('controlSerioTitle')}</h2>
         </div>
         {exclusiveBalanceError ? (
@@ -4324,8 +4327,7 @@ function VipPicksModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -5447,7 +5449,6 @@ export default function Home({
   const [matchFilter, setMatchFilter] = useState('todos');
   const [modalPick, setModalPick] = useState(null);
   const [modalMatch, setModalMatch] = useState(null);
-  const [showVipModal, setShowVipModal] = useState(false);
   const [user, setUser] = useState(null);
 
   // Vibración + "toc" suave en cualquier botón/enlace/tarjeta del
@@ -6105,14 +6106,14 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
-  // Balance/Control Serio de los picks exclusivos — se consulta al
-  // abrir el modal "Picks VIP" y se repite cada 20s mientras siga
-  // abierto (mismo patrón que Modelo), así Efectividad/Racha/ROI se
+  // Balance/Control Premium de los picks exclusivos — se consulta al
+  // entrar a la vista "Picks VIP" y se repite cada 20s mientras siga
+  // abierta (mismo patrón que Modelo), así Efectividad/Racha/ROI se
   // actualizan solos apenas se resuelve un partido, sin refrescar.
   const [exclusiveBalance, setExclusiveBalance] = useState(null);
   const [exclusiveBalanceError, setExclusiveBalanceError] = useState(null);
   useEffect(() => {
-    if (!showVipModal || !canSeeExclusive || !supabaseClient) return undefined;
+    if (view !== 'picksvip' || !canSeeExclusive || !supabaseClient) return undefined;
     let cancelled = false;
 
     async function load() {
@@ -6136,7 +6137,7 @@ export default function Home({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [showVipModal, canSeeExclusive]);
+  }, [view, canSeeExclusive]);
 
   // Errores de la app (getServerSideProps, rutas API) — mismo patrón
   // que Modelo: solo se consulta al entrar a esa pestaña.
@@ -6577,11 +6578,11 @@ export default function Home({
                 </div>
                 <div className="greeting-date">{todayLabel}</div>
               </div>
-              <button type="button" className="vip-picks-btn" onClick={() => setShowVipModal(true)}>
+              <a href="#picksvip" className="vip-picks-btn">
                 <ProfileIcon name="crown" size={14} />
                 {t('picksVipBtn')}
                 {!canSeeExclusive ? <ProfileIcon name="lock" size={10} /> : null}
-              </button>
+              </a>
             </div>
           ) : (
             <>
@@ -7296,6 +7297,22 @@ export default function Home({
         </section>
         )}
 
+        <PicksVipView
+          view={view}
+          lang={lang}
+          oddsFormat={oddsFormat}
+          canSeeExclusive={canSeeExclusive}
+          featured={featured}
+          exclusivePicks={exclusivePicks}
+          exclusiveResolvedPicks={exclusiveResolvedPicks}
+          exclusiveBalance={exclusiveBalance}
+          exclusiveBalanceError={exclusiveBalanceError}
+          followedPickIds={followedPickIds}
+          toggleFollow={toggleFollow}
+          liveScores={liveScores}
+          onPickClick={(p) => setModalPick(p)}
+        />
+
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">{t('seguidosEyebrow')}</span>
           <h1 className="page-title">{t('seguidosTitle')}</h1>
@@ -7610,26 +7627,6 @@ export default function Home({
         />
       )}
 
-      {showVipModal && (
-        <VipPicksModal
-          onClose={() => setShowVipModal(false)}
-          lang={lang}
-          oddsFormat={oddsFormat}
-          canSeeExclusive={canSeeExclusive}
-          featured={featured}
-          exclusivePicks={exclusivePicks}
-          exclusiveResolvedPicks={exclusiveResolvedPicks}
-          exclusiveBalance={exclusiveBalance}
-          exclusiveBalanceError={exclusiveBalanceError}
-          followedPickIds={followedPickIds}
-          toggleFollow={toggleFollow}
-          liveScores={liveScores}
-          onPickClick={(p) => {
-            setShowVipModal(false);
-            setModalPick(p);
-          }}
-        />
-      )}
 
       {modalMatch && (
         <MatchDetailModal
