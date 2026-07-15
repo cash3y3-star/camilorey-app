@@ -71,6 +71,7 @@ const TRANSLATIONS = {
     statBalance: 'Balance',
     statCuotaMinima: 'Cuota mínima',
     enVivoAhora: 'En vivo ahora',
+    campeonesRecientes: 'Campeones recientes',
     pickDestacado: 'Pick destacado del día',
     picksVipBtn: 'PICKS VIP',
     picksVipTitle: 'Picks VIP',
@@ -349,6 +350,7 @@ const TRANSLATIONS = {
     statBalance: 'Balance',
     statCuotaMinima: 'Minimum odds',
     enVivoAhora: 'Live now',
+    campeonesRecientes: 'Recent champions',
     pickDestacado: "Today's featured pick",
     picksVipBtn: 'VIP PICKS',
     picksVipTitle: 'VIP Picks',
@@ -625,6 +627,7 @@ const TRANSLATIONS = {
     statBalance: 'Saldo',
     statCuotaMinima: 'Odd mínima',
     enVivoAhora: 'Ao vivo agora',
+    campeonesRecientes: 'Campeões recentes',
     pickDestacado: 'Pick em destaque do dia',
     picksVipBtn: 'PICKS VIP',
     picksVipTitle: 'Picks VIP',
@@ -1759,6 +1762,63 @@ export async function getServerSideProps({ query }) {
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
+  // Campeones recientes — se muestran en Inicio cuando NO hay partidos
+  // en vivo (reemplaza el bloque "En vivo ahora" que queda vacío).
+  // Últimos torneos que ya cerraron con ganador definido (place=1);
+  // el "resultado final" es su cruce más reciente DENTRO de ese
+  // torneo (son grupos todos-contra-todos, no hay un partido de
+  // "final" real — se usa el último jugado como proxy del cierre).
+  const { data: recentFinishedTournaments } = await supabase
+    .from('tournaments')
+    .select('id, name, winner_id, scheduled_at')
+    .eq('status', 'finished')
+    .not('winner_id', 'is', null)
+    .order('scheduled_at', { ascending: false })
+    .limit(6);
+
+  const champTournamentIds = (recentFinishedTournaments || []).map((t) => t.id);
+  const { data: champMatches } = champTournamentIds.length
+    ? await supabase
+        .from('matches')
+        .select('tournament_id, player_a_id, player_b_id, sets_a, sets_b, scheduled_at, winner_id')
+        .in('tournament_id', champTournamentIds)
+        .eq('status', 'finished')
+    : { data: [] };
+
+  const recentChampions = (recentFinishedTournaments || [])
+    .map((t) => {
+      const winner = playersById.get(t.winner_id);
+      if (!winner) return null;
+      const myMatches = (champMatches || [])
+        .filter((m) => m.tournament_id === t.id && (m.player_a_id === t.winner_id || m.player_b_id === t.winner_id))
+        .sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
+      if (myMatches.length === 0) return null;
+      const last = myMatches[0];
+      const winnerIsA = last.player_a_id === t.winner_id;
+      const rival = playersById.get(winnerIsA ? last.player_b_id : last.player_a_id);
+      const setsFor = winnerIsA ? last.sets_a : last.sets_b;
+      const setsAgainst = winnerIsA ? last.sets_b : last.sets_a;
+      const wins = myMatches.filter((m) => m.winner_id === t.winner_id).length;
+      const losses = myMatches.length - wins;
+      return {
+        tournamentId: t.id,
+        tournamentName: t.name || 'Torneo',
+        winnerName: winner.name,
+        winnerInitials: initialsOf(winner.name),
+        winnerAvatarUrl: winner.avatar_cutout_url || winner.avatar_url || null,
+        winnerHasCutout: Boolean(winner.avatar_cutout_url),
+        rivalName: rival?.name || '—',
+        rivalInitials: initialsOf(rival?.name),
+        rivalAvatarUrl: rival?.avatar_cutout_url || rival?.avatar_url || null,
+        rivalHasCutout: Boolean(rival?.avatar_cutout_url),
+        score: setsFor != null && setsAgainst != null ? `${setsFor}-${setsAgainst}` : null,
+        wins,
+        losses,
+        points: wins * 2 + losses
+      };
+    })
+    .filter(Boolean);
+
   // Calendario: windowMatches ya se disparó al principio de la
   // función (ver windowMatchesPromise) — aquí solo se espera.
   const { data: windowMatches } = await windowMatchesPromise;
@@ -1885,6 +1945,7 @@ export async function getServerSideProps({ query }) {
       picks: publicPicks,
       resolvedPicks: publicResolvedPicks,
       tournamentGroups,
+      recentChampions,
       matches,
       currentDateStr,
       prevDateStr,
@@ -1912,6 +1973,7 @@ export async function getServerSideProps({ query }) {
         picks: [],
         resolvedPicks: [],
         tournamentGroups: [],
+        recentChampions: [],
         matches: [],
         currentDateStr: fallbackDate,
         prevDateStr: fallbackDate,
@@ -2308,6 +2370,58 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
 }
 
 // Tarjeta de doble foto.
+// Tarjeta de campeón reciente — se muestra en Inicio cuando no hay
+// nada en vivo (ver recentChampions en getServerSideProps). Los
+// torneos son grupos todos-contra-todos, no bracket de eliminación,
+// así que "resultado final" acá es el cruce más reciente del campeón
+// contra quien haya jugado último dentro de ese mismo torneo.
+function ChampionCard({ champ }) {
+  return (
+    <div className="champion-card">
+      <div className="champion-card-head">
+        <ProfileIcon name="crown" size={14} />
+        <span>{champ.tournamentName}</span>
+      </div>
+      <div className="champion-card-body">
+        <div className="champion-card-side champion-card-winner">
+          <div className="champion-avatar-wrap">
+            <PlayerAvatar
+              name={champ.winnerName}
+              avatarUrl={champ.winnerAvatarUrl}
+              initials={champ.winnerInitials}
+              side="left"
+              className="champion-avatar"
+            />
+            <span className="champion-crown-badge">
+              <ProfileIcon name="crown" size={12} />
+            </span>
+          </div>
+          <strong className="champion-name">{champ.winnerName}</strong>
+          <span className="champion-tag">Campeón</span>
+        </div>
+
+        <div className="champion-card-mid">
+          {champ.score ? <div className="champion-score num">{champ.score}</div> : <div className="champion-score num">—</div>}
+          <div className="champion-record">
+            {champ.wins}V-{champ.losses}D · {champ.points} pts
+          </div>
+        </div>
+
+        <div className="champion-card-side">
+          <PlayerAvatar
+            name={champ.rivalName}
+            avatarUrl={champ.rivalAvatarUrl}
+            initials={champ.rivalInitials}
+            side="right"
+            className="champion-avatar champion-avatar-rival"
+          />
+          <span className="champion-name champion-rival-name">{champ.rivalName}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MatchRow({ m, onClick, followed, onToggleFollow, live }) {
   const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Pendiente';
 
@@ -5449,6 +5563,7 @@ export default function Home({
   picks: initialPicks,
   resolvedPicks: initialResolvedPicks,
   tournamentGroups: initialTournamentGroups,
+  recentChampions = [],
   matches: initialMatches,
   currentDateStr,
   userCount
@@ -6724,6 +6839,19 @@ export default function Home({
                   live={liveScores[m.sourceId]}
                 />
               ))}
+            </>
+          ) : recentChampions.length > 0 ? (
+            <>
+              <div className="section-head">
+                <h2>
+                  <ProfileIcon name="crown" size={16} /> {t('campeonesRecientes')}
+                </h2>
+              </div>
+              <div className="champion-grid">
+                {recentChampions.map((champ) => (
+                  <ChampionCard champ={champ} key={champ.tournamentId} />
+                ))}
+              </div>
             </>
           ) : null}
 
@@ -8229,6 +8357,40 @@ const CSS = `
   .mc-live-loading{font-size:12px; color:var(--muted);}
   .mc-live-score-small{margin-top:8px; padding-top:8px; gap:5px;}
   .mc-live-score-small .mc-set{padding:3px 7px; font-size:11px; background:transparent; border:1px solid var(--line); color:var(--muted);}
+
+  .champion-grid{display:grid; gap:12px;}
+  .champion-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px; box-shadow:var(--shadow); overflow:hidden; position:relative;
+  }
+  .champion-card::before{
+    content:""; position:absolute; top:0; left:0; right:0; height:3px;
+    background:linear-gradient(90deg, #FFC845, #FFA000);
+  }
+  .champion-card-head{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;
+    color:var(--muted); margin-bottom:14px; color:#B8860B;
+  }
+  .champion-card-head svg{flex:none; color:#FFC845;}
+  .champion-card-body{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .champion-card-side{display:flex; flex-direction:column; align-items:center; gap:6px; width:88px; flex:none;}
+  .champion-avatar-wrap{position:relative;}
+  .champion-avatar{width:64px; height:64px; border:2px solid #FFC845;}
+  .champion-avatar-rival{width:44px; height:44px; opacity:.85;}
+  .champion-crown-badge{
+    position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-radius:50%;
+    background:#FFC845; color:#3a2a00; border:2px solid var(--card);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .champion-name{font-size:12.5px; font-weight:700; color:var(--ink); text-align:center; line-height:1.25;}
+  .champion-rival-name{font-size:11.5px; font-weight:600; color:var(--muted);}
+  .champion-tag{
+    font-family:var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+    color:#3a2a00; background:#FFC845; border-radius:999px; padding:2px 8px;
+  }
+  .champion-card-mid{display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; min-width:0;}
+  .champion-score{font-family:var(--font-display); font-size:24px; color:var(--ink);}
+  .champion-record{font-size:11px; color:var(--muted); white-space:nowrap;}
 
   .live-clock{
     font-family:var(--font-mono); font-size:13px; color:var(--ball); font-weight:700;
