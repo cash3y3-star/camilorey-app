@@ -65,6 +65,7 @@ const TRANSLATIONS = {
     statRachaActual: 'Racha actual',
     statROI: 'ROI',
     statBalance: 'Balance',
+    statCuotaProm: 'Cuota promedio',
     enVivoAhora: 'En vivo ahora',
     pickDestacado: 'Pick destacado del día',
     picksVipBtn: 'PICKS VIP',
@@ -338,6 +339,7 @@ const TRANSLATIONS = {
     statRachaActual: 'Current streak',
     statROI: 'ROI',
     statBalance: 'Balance',
+    statCuotaProm: 'Average odds',
     enVivoAhora: 'Live now',
     pickDestacado: "Today's featured pick",
     picksVipBtn: 'VIP PICKS',
@@ -609,6 +611,7 @@ const TRANSLATIONS = {
     statRachaActual: 'Sequência atual',
     statROI: 'ROI',
     statBalance: 'Saldo',
+    statCuotaProm: 'Odd média',
     enVivoAhora: 'Ao vivo agora',
     pickDestacado: 'Pick em destaque do dia',
     picksVipBtn: 'PICKS VIP',
@@ -6425,7 +6428,7 @@ export default function Home({
             <span className="tg-banner-cta">Entrar →</span>
           </a>
 
-          <div className="stat-strip stat-strip-4">
+          <div className="stat-strip stat-strip-3">
             <div className="stat-card">
               <div className="label">{t('statEfectividad')}</div>
               <div className="value hit num">{stats.efectividad}%</div>
@@ -6437,15 +6440,8 @@ export default function Home({
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">{t('statROI')}</div>
-              <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
-                {stats.roi >= 0 ? '+' : ''}
-                {stats.roi}%
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="label">{t('statBalance')}</div>
-              <div className={`value num ${stats.unidades >= 0 ? 'hit' : 'miss'}`}>{formatCOP(stats.unidades)}</div>
+              <div className="label">{t('statCuotaProm')}</div>
+              <div className="value num">{stats.cuotaProm ? stats.cuotaProm.toFixed(2) : '—'}</div>
             </div>
           </div>
 
