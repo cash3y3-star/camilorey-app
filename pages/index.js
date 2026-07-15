@@ -2736,7 +2736,7 @@ function LiveChat({ matchSourceId, user, profile }) {
                   {msg.user_name || 'Anónimo'}
                   {msg.sender_is_premium ? (
                     <span className="chat-premium-badge" title="Usuario Premium">
-                      <ProfileIcon name="crown" size={11} />
+                      <ProfileIcon name="crown" size={14} />
                     </span>
                   ) : null}
                   {msg.sender_level ? (
@@ -5441,7 +5441,7 @@ function ProfileModal({
                   {displayName || user.email}
                   {isAdmin || isPremium ? (
                     <span className="chat-premium-badge" title={t('perfilPlanPremium')}>
-                      <ProfileIcon name="crown" size={11} />
+                      <ProfileIcon name="crown" size={14} />
                     </span>
                   ) : null}
                 </span>
@@ -8699,10 +8699,10 @@ const CSS = `
   .level-badge.tier-legend{background:linear-gradient(135deg, #FFD700, #FF7A45); color:#1a1a1a;}
   .chat-premium-badge{
     display:inline-flex; align-items:center; justify-content:center;
-    width:16px; height:16px; border-radius:999px; flex:none;
+    width:20px; height:20px; border-radius:999px; flex:none;
     background:linear-gradient(135deg, #FFD700, #FF7A45); color:#1a1a1a;
   }
-  .chat-premium-badge svg{display:block;}
+  .chat-premium-badge svg{display:block; stroke-width:2.5;}
   .live-chat-text{font-size:13.5px; color:var(--ink); line-height:1.4; word-break:break-word;}
   .live-chat-form{display:flex; gap:8px;}
   .live-chat-form input{
