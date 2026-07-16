@@ -4250,10 +4250,15 @@ function OnboardingModal({ onClose, onLogin, lang, resolvedPicks }) {
   const current = ONBOARDING_SLIDES[step];
   // Picks reales acertados (no inventados) para las chips flotantes de
   // arriba — mismo espíritu que la referencia guardada, con nuestro
-  // propio track record en vez de ejemplos de otra app. No se muestran
-  // en el paso de Índice IA a propósito: ahí va solo el trayecto de la
-  // pelota, pedido explícito para no saturar esa pantalla.
-  const hitChips = current.trajectory ? [] : (resolvedPicks || []).filter((p) => p.result === 'hit').slice(0, 5);
+  // propio track record en vez de ejemplos de otra app. Pedido
+  // explícito: solo van en el primer paso (Datos reales) — Índice IA
+  // tiene el trayecto de la pelota, Sin riesgo va limpio — y solo
+  // cuentan los de cuota real 1.70 o más (si uno queda afuera por eso,
+  // el slice(0,5) ya trae el siguiente en la lista en su lugar).
+  const hitChips =
+    step === 0
+      ? (resolvedPicks || []).filter((p) => p.result === 'hit' && p.odds && Number(p.odds) >= 1.7).slice(0, 5)
+      : [];
 
   // Un solo intervalo fijo para toda la vida del componente (deps
   // vacías) — antes se reiniciaba en cada cambio de "step", lo que en
@@ -4277,7 +4282,11 @@ function OnboardingModal({ onClose, onLogin, lang, resolvedPicks }) {
       {hitChips.length > 0 && (
         <div className="onboarding-chips">
           {hitChips.map((p, i) => (
-            <div className={`onboarding-chip onboarding-chip-${i}`} key={p.id}>
+            <div
+              className={`onboarding-chip onboarding-chip-${i}`}
+              style={{ animationDelay: `${i * 0.35}s` }}
+              key={p.id}
+            >
               <span className="onboarding-chip-check">
                 <ProfileIcon name="check" size={12} />
               </span>
@@ -9116,10 +9125,15 @@ const CSS = `
     display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); margin-bottom:18px; flex:none;
   }
   .onboarding-chips{display:flex; flex-direction:column; gap:8px; min-height:190px; justify-content:center; flex:none; padding-top:6px;}
+  @keyframes onboardingChipFloat{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-7px);}
+  }
   .onboarding-chip{
     display:inline-flex; align-items:center; gap:7px; align-self:flex-start; max-width:82%;
     background:rgba(255,255,255,.14); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.25);
     border-radius:14px; padding:7px 12px; font-family:var(--font-body); font-size:12px; font-weight:700; color:#fff;
+    animation:onboardingChipFloat 3.2s ease-in-out infinite;
   }
   .onboarding-chip-1{align-self:flex-end;}
   .onboarding-chip-2{align-self:flex-start; margin-left:28px;}
