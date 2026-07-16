@@ -6386,7 +6386,16 @@ export default function Home({
   // Pasada esa fecha, betaAllowed solo puede ser true si isAdmin.
   const [betaChecked, setBetaChecked] = useState(false);
   const [betaAllowed, setBetaAllowed] = useState(false);
+  // TEMPORAL 2026-07-16, pedido explícito del admin para probar algo
+  // con el sitio abierto sin la valla de beta — volver a `false` para
+  // cerrar la prueba de nuevo.
+  const BETA_GATE_DISABLED_TEMPORARILY = true;
   useEffect(() => {
+    if (BETA_GATE_DISABLED_TEMPORARILY) {
+      setBetaAllowed(true);
+      setBetaChecked(true);
+      return undefined;
+    }
     if (isAdmin) {
       setBetaAllowed(true);
       setBetaChecked(true);
