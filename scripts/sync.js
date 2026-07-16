@@ -310,11 +310,19 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel) {
   const mlProbability = mlModel?.weights ? predictProbability(mlModel.weights, mlFeatures) : null;
   const mlConfidence = mlProbability != null ? Math.round(mlProbability * 100) : null;
 
-  const isExclusiveCandidate =
+  // Boolean(...) a propósito: picks.is_exclusive es NOT NULL, y una
+  // cadena de && en JS no siempre da true/false — si favoredOdds es
+  // null (sin cuota de Rushbet todavía, algo común en partidos sin
+  // mucho movimiento de apuestas), toda la expresión quedaba en null
+  // en vez de false, y el insert de abajo rompía con "null value in
+  // column is_exclusive violates not-null constraint" para CUALQUIER
+  // partido sin cuota — no era específico de ningún jugador.
+  const isExclusiveCandidate = Boolean(
     published &&
-    favoredOdds &&
-    favoredOdds >= EXCLUSIVE_MIN_ODDS &&
-    (hasTrainedModel ? mlProbability >= mlModel.threshold : pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE);
+      favoredOdds &&
+      favoredOdds >= EXCLUSIVE_MIN_ODDS &&
+      (hasTrainedModel ? mlProbability >= mlModel.threshold : pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE)
+  );
   if (isExclusiveCandidate) {
     const countToday = await countExclusivePublishedOnDay(matchRow.scheduled_at);
     if (countToday >= MAX_EXCLUSIVE_PER_DAY) published = false;
