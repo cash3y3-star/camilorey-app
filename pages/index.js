@@ -4221,12 +4221,16 @@ function OnboardingModal({ onClose, onLogin, lang }) {
   const [step, setStep] = useState(0);
   const current = ONBOARDING_SLIDES[step];
 
+  // Un solo intervalo fijo para toda la vida del componente (deps
+  // vacías) — antes se reiniciaba en cada cambio de "step", lo que en
+  // teoría también rota solo pero es más frágil (arma y destruye el
+  // timer 1 vez por tick en vez de una sola vez).
   useEffect(() => {
     const interval = setInterval(() => {
       setStep((s) => (s + 1) % ONBOARDING_SLIDES.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, [step]);
+  }, []);
 
   return (
     <div className="onboarding-screen">
@@ -9042,7 +9046,7 @@ const CSS = `
     position:fixed; inset:0; z-index:200; display:flex; flex-direction:column; overflow-y:auto;
     background:
       radial-gradient(120% 55% at 50% 100%, var(--bg) 0%, transparent 62%),
-      linear-gradient(160deg, var(--court) 0%, var(--ball) 55%, var(--bg) 100%);
+      linear-gradient(160deg, var(--court) 0%, var(--bg) 100%);
     padding:calc(16px + env(safe-area-inset-top)) 20px calc(22px + env(safe-area-inset-bottom));
   }
   .onboarding-topbar{display:flex; align-items:center; justify-content:space-between; flex:none;}
