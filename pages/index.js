@@ -310,18 +310,28 @@ const TRANSLATIONS = {
     analisisCuotaValor: 'La cuota de Rushbet ({odds}) implica una probabilidad de {implied}% — nuestro modelo le da {confidence}%.',
     analisisSinCuota: 'Todavía no tenemos la cuota real de Rushbet para este partido.',
 
+    onboarding1Badge: 'Datos reales',
     onboarding1Title: 'Picks basados en datos reales',
     onboarding1Desc:
       'Analizamos el rating, la racha reciente y los enfrentamientos directos de cada jugador de la Liga Pro Checa — nada de números inventados.',
+    onboarding2Badge: 'Con IA',
     onboarding2Title: '¿Qué es el Índice IA?',
     onboarding2Desc:
       'Es el % de confianza que arma nuestro modelo combinando esos factores. No es una garantía — mirá la pestaña Modelo para ver el acierto real medido, incluso cuando es bajo.',
+    onboarding3Badge: 'Sin riesgo',
     onboarding3Title: 'Mi Bankroll: practicá sin arriesgar',
     onboarding3Desc:
       'Simulá cuánto apostarías con el criterio de Kelly en los picks que seguís — no es dinero real, es para practicar el tamaño de tus apuestas antes de arriesgar el tuyo.',
     onboardingSiguiente: 'Siguiente',
-    onboardingEntendido: 'Entendido',
-    onboardingSaltar: 'Saltar'
+    onboardingSaltar: 'Saltar',
+    onboardingAtras: 'Atrás',
+    onboardingYaTengo: 'Ya tengo una cuenta',
+    onboardingFinalTitleA: 'Creá tu cuenta',
+    onboardingFinalTitleB: 'CAMILOREY.',
+    onboardingFinalSub: 'Gratis para empezar. Desbloqueá los picks exclusivos cuando quieras.',
+    onboardingFinalCta: 'Continuar con Google',
+    onboardingSinCuenta: 'Seguir sin cuenta',
+    onboardingTerminos: 'Al continuar aceptás nuestros Términos y Política de Privacidad.'
   },
   en: {
     navInicio: 'Home',
@@ -594,18 +604,28 @@ const TRANSLATIONS = {
     analisisCuotaValor: 'Rushbet odds ({odds}) imply a {implied}% probability — our model gives them {confidence}%.',
     analisisSinCuota: "We don't have real Rushbet odds for this match yet.",
 
+    onboarding1Badge: 'Real data',
     onboarding1Title: 'Picks backed by real data',
     onboarding1Desc:
       "We analyze each Czech Liga Pro player's rating, recent streak, and head-to-head record — nothing made up.",
+    onboarding2Badge: 'With AI',
     onboarding2Title: 'What is the AI Score?',
     onboarding2Desc:
       "It's the confidence % our model builds by combining those factors. It's not a guarantee — check the Model tab to see the real measured accuracy, even when it's low.",
+    onboarding3Badge: 'Risk-free',
     onboarding3Title: 'My Bankroll: practice without risk',
     onboarding3Desc:
       "Simulate how much you'd bet using the Kelly criterion on the picks you follow — not real money, just practice sizing your bets before risking your own.",
     onboardingSiguiente: 'Next',
-    onboardingEntendido: 'Got it',
-    onboardingSaltar: 'Skip'
+    onboardingSaltar: 'Skip',
+    onboardingAtras: 'Back',
+    onboardingYaTengo: 'I already have an account',
+    onboardingFinalTitleA: 'Create your',
+    onboardingFinalTitleB: 'CAMILOREY account.',
+    onboardingFinalSub: 'Free to start. Unlock the exclusive picks whenever you want.',
+    onboardingFinalCta: 'Continue with Google',
+    onboardingSinCuenta: 'Continue without an account',
+    onboardingTerminos: 'By continuing you accept our Terms and Privacy Policy.'
   },
   pt: {
     navInicio: 'Início',
@@ -879,18 +899,28 @@ const TRANSLATIONS = {
     analisisCuotaValor: 'A odd da Rushbet ({odds}) implica uma probabilidade de {implied}% — nosso modelo dá {confidence}%.',
     analisisSinCuota: 'Ainda não temos a odd real da Rushbet para esta partida.',
 
+    onboarding1Badge: 'Dados reais',
     onboarding1Title: 'Picks baseados em dados reais',
     onboarding1Desc:
       'Analisamos o rating, a sequência recente e os confrontos diretos de cada jogador da Liga Pro Checa — nada inventado.',
+    onboarding2Badge: 'Com IA',
     onboarding2Title: 'O que é o Índice IA?',
     onboarding2Desc:
       'É a porcentagem de confiança que nosso modelo calcula combinando esses fatores. Não é garantia — veja a aba Modelo para o acerto real medido, mesmo quando é baixo.',
+    onboarding3Badge: 'Sem risco',
     onboarding3Title: 'Minha Banca: pratique sem arriscar',
     onboarding3Desc:
       'Simule quanto você apostaria usando o critério de Kelly nos picks que você segue — não é dinheiro real, é para praticar o tamanho das suas apostas antes de arriscar a sua.',
     onboardingSiguiente: 'Próximo',
-    onboardingEntendido: 'Entendi',
-    onboardingSaltar: 'Pular'
+    onboardingSaltar: 'Pular',
+    onboardingAtras: 'Voltar',
+    onboardingYaTengo: 'Já tenho uma conta',
+    onboardingFinalTitleA: 'Crie sua',
+    onboardingFinalTitleB: 'conta CAMILOREY.',
+    onboardingFinalSub: 'Grátis para começar. Desbloqueie os picks exclusivos quando quiser.',
+    onboardingFinalCta: 'Continuar com Google',
+    onboardingSinCuenta: 'Continuar sem conta',
+    onboardingTerminos: 'Ao continuar você aceita nossos Termos e Política de Privacidade.'
   }
 };
 
@@ -4196,50 +4226,96 @@ function GoogleGIcon({ size = 20 }) {
 // Índice IA y qué es Mi Bankroll, para que alguien nuevo no llegue
 // perdido a esos conceptos.
 const ONBOARDING_SLIDES = [
-  { icon: 'chart', titleKey: 'onboarding1Title', descKey: 'onboarding1Desc' },
-  { icon: 'shield', titleKey: 'onboarding2Title', descKey: 'onboarding2Desc' },
-  { icon: 'dollar', titleKey: 'onboarding3Title', descKey: 'onboarding3Desc' }
+  { icon: 'chart', badgeKey: 'onboarding1Badge', titleKey: 'onboarding1Title', descKey: 'onboarding1Desc' },
+  { icon: 'zap', badgeKey: 'onboarding2Badge', titleKey: 'onboarding2Title', descKey: 'onboarding2Desc' },
+  { icon: 'dollar', badgeKey: 'onboarding3Badge', titleKey: 'onboarding3Title', descKey: 'onboarding3Desc' }
 ];
 
-function OnboardingModal({ onClose, lang }) {
+// Onboarding de primera visita — pantalla completa (no el sheet chico
+// de abajo), diseño adaptado de 4 referencias guardadas por el admin:
+// fondo degradado de color, insignia cuadrada con ícono, pastilla
+// "eyebrow", título grande a dos tonos, puntos de progreso y botón
+// píldora de alto contraste. 3 pasos de contenido + un 4to paso de
+// cuenta que reusa el login real (Google) en vez de inventar un flujo
+// de email que el sitio no tiene.
+function OnboardingModal({ onClose, onLogin, onShowLogin, lang }) {
   const t = useTranslate(lang);
-  const [slide, setSlide] = useState(0);
-  const current = ONBOARDING_SLIDES[slide];
-  const isLast = slide === ONBOARDING_SLIDES.length - 1;
+  const [step, setStep] = useState(0);
+  const isAccountStep = step === ONBOARDING_SLIDES.length;
+  const current = ONBOARDING_SLIDES[step];
 
   return (
-    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
-      <div className="modal login-modal">
-        <button className="modal-close login-modal-close" onClick={onClose}>
-          ✕
+    <div className="onboarding-screen">
+      <div className="onboarding-topbar">
+        <button
+          type="button"
+          className="onboarding-back"
+          aria-label={t('onboardingAtras')}
+          onClick={() => (step === 0 ? onClose() : setStep((s) => s - 1))}
+        >
+          <ProfileIcon name="arrow-left" size={16} />
         </button>
-        <div className="login-modal-icon" style={{ color: 'var(--court)' }}>
-          <ProfileIcon name={current.icon} size={28} />
-        </div>
-        <h3 className="login-modal-title">{t(current.titleKey)}</h3>
-        <p className="login-modal-sub">{t(current.descKey)}</p>
-
-        <div className="onboarding-dots">
-          {ONBOARDING_SLIDES.map((_, i) => (
-            <span key={i} className={`onboarding-dot ${i === slide ? 'active' : ''}`}></span>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {slide === 0 ? (
-            <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
-              {t('onboardingSaltar')}
-            </button>
-          ) : null}
-          <button
-            className="btn btn-ball"
-            style={{ flex: 1, justifyContent: 'center' }}
-            onClick={() => (isLast ? onClose() : setSlide((s) => s + 1))}
-          >
-            {isLast ? t('onboardingEntendido') : t('onboardingSiguiente')}
+        {!isAccountStep && (
+          <button type="button" className="onboarding-skip" onClick={onClose}>
+            {t('onboardingSaltar')}
           </button>
-        </div>
+        )}
       </div>
+
+      {isAccountStep ? (
+        <div className="onboarding-body">
+          <div className="onboarding-icon-badge">
+            <ProfileIcon name="shield" size={30} />
+          </div>
+          <h1 className="onboarding-title">
+            {t('onboardingFinalTitleA')} <span>{t('onboardingFinalTitleB')}</span>
+          </h1>
+          <p className="onboarding-desc">{t('onboardingFinalSub')}</p>
+
+          <div className="onboarding-actions">
+            <button
+              type="button"
+              className="onboarding-cta-pill"
+              onClick={() => {
+                onLogin();
+                onClose();
+              }}
+            >
+              <GoogleGIcon size={18} /> {t('onboardingFinalCta')}
+            </button>
+            <button type="button" className="onboarding-link" onClick={onClose}>
+              {t('onboardingSinCuenta')}
+            </button>
+          </div>
+          <p className="onboarding-terms">{t('onboardingTerminos')}</p>
+        </div>
+      ) : (
+        <div className="onboarding-body">
+          <div className="onboarding-icon-badge">
+            <ProfileIcon name={current.icon} size={30} />
+          </div>
+          <span className="onboarding-pill">
+            <ProfileIcon name={current.icon} size={12} /> {t(current.badgeKey)}
+          </span>
+          <h1 className="onboarding-title">{t(current.titleKey)}</h1>
+          <p className="onboarding-desc">{t(current.descKey)}</p>
+
+          <div className="onboarding-dots">
+            {ONBOARDING_SLIDES.map((_, i) => (
+              <span key={i} className={`onboarding-dot ${i === step ? 'active' : ''}`}></span>
+            ))}
+          </div>
+
+          <div className="onboarding-actions">
+            <button type="button" className="onboarding-cta-pill" onClick={() => setStep((s) => s + 1)}>
+              {t('onboardingSiguiente')}
+            </button>
+            <button type="button" className="onboarding-link" onClick={onShowLogin}>
+              {t('onboardingYaTengo')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -8085,7 +8161,17 @@ export default function Home({
       )}
 
       {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} lang={lang} />}
-      {showOnboarding && <OnboardingModal onClose={dismissOnboarding} lang={lang} />}
+      {showOnboarding && (
+        <OnboardingModal
+          onClose={dismissOnboarding}
+          onLogin={loginWithGoogle}
+          onShowLogin={() => {
+            dismissOnboarding();
+            setShowLoginModal(true);
+          }}
+          lang={lang}
+        />
+      )}
     </>
   );
 }
@@ -9015,9 +9101,54 @@ const CSS = `
   .login-modal-title{font-family:var(--font-display); font-size:24px; margin:0 0 8px;}
   .login-modal-sub{color:var(--muted); font-size:14px; margin:0 0 24px;}
   .login-modal-sub strong{color:var(--ink);}
-  .onboarding-dots{display:flex; justify-content:center; gap:6px; margin-bottom:22px;}
+  .onboarding-screen{
+    position:fixed; inset:0; z-index:200; display:flex; flex-direction:column; overflow-y:auto;
+    background:
+      radial-gradient(120% 55% at 50% 100%, var(--bg) 0%, transparent 62%),
+      linear-gradient(160deg, var(--court) 0%, var(--ball) 55%, var(--bg) 100%);
+    padding:calc(16px + env(safe-area-inset-top)) 20px calc(22px + env(safe-area-inset-bottom));
+  }
+  .onboarding-topbar{display:flex; align-items:center; justify-content:space-between; flex:none;}
+  .onboarding-back{
+    width:34px; height:34px; border-radius:50%; border:none; cursor:pointer;
+    background:rgba(255,255,255,.3); color:#fff; display:flex; align-items:center; justify-content:center;
+    backdrop-filter:blur(4px);
+  }
+  .onboarding-skip{
+    background:none; border:none; color:#fff; opacity:.85; font-family:var(--font-body);
+    font-weight:700; font-size:13.5px; cursor:pointer; padding:8px;
+  }
+  .onboarding-body{
+    flex:1; display:flex; flex-direction:column; justify-content:flex-end;
+    max-width:420px; width:100%; margin:0 auto; padding-bottom:8px;
+  }
+  .onboarding-icon-badge{
+    width:64px; height:64px; border-radius:20px; background:var(--card); color:var(--court);
+    display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); margin-bottom:18px; flex:none;
+  }
+  .onboarding-pill{
+    display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
+    background:var(--card); border:1px solid var(--line); color:var(--court);
+    font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px;
+    padding:7px 12px; border-radius:999px; margin-bottom:14px;
+  }
+  .onboarding-title{
+    font-family:var(--font-display); font-size:32px; line-height:1.08; color:var(--ink);
+    margin:0 0 12px; font-weight:800;
+  }
+  .onboarding-title span{color:var(--court);}
+  .onboarding-desc{color:var(--ink); opacity:.75; font-size:14.5px; line-height:1.5; margin:0 0 22px; max-width:340px;}
+  .onboarding-dots{display:flex; gap:6px; margin-bottom:20px;}
   .onboarding-dot{width:6px; height:6px; border-radius:50%; background:var(--line);}
   .onboarding-dot.active{background:var(--court); width:18px; border-radius:3px;}
+  .onboarding-actions{display:flex; flex-direction:column; gap:14px; align-items:center;}
+  .onboarding-cta-pill{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    background:var(--ink); color:var(--bg); border:none; border-radius:999px;
+    padding:16px; font-family:var(--font-body); font-weight:800; font-size:15px; cursor:pointer;
+  }
+  .onboarding-link{background:none; border:none; color:var(--ink); font-weight:700; font-size:13.5px; cursor:pointer; padding:6px;}
+  .onboarding-terms{color:var(--ink); opacity:.55; font-size:11.5px; text-align:center; margin:14px 0 0;}
   .google-btn{
     width:100%; display:flex; align-items:center; justify-content:center; gap:12px;
     background:var(--bg-alt); border:1px solid var(--line); border-radius:12px;
