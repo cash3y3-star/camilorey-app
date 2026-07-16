@@ -22,7 +22,12 @@ const { computeStake } = require('../lib/staking');
 const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 const { ensureAvatarCutout } = require('../lib/avatarCutout');
 const { fetchNuxtData } = require('../lib/tt');
-const { trainLogisticRegression, predictProbability, MIN_TRAINING_SAMPLES } = require('../lib/ml-exclusive');
+const {
+  trainLogisticRegression,
+  predictProbability,
+  computeExclusiveThreshold,
+  MIN_TRAINING_SAMPLES
+} = require('../lib/ml-exclusive');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -202,7 +207,7 @@ async function trainExclusiveModel() {
     .select('factors, predicted_winner_id, result, match_id')
     .in('result', ['hit', 'miss']);
   if (error) throw new Error(`select picks (entrenamiento ML): ${error.message}`);
-  if (!resolvedPicks || resolvedPicks.length === 0) return { weights: null, trainingCount: 0 };
+  if (!resolvedPicks || resolvedPicks.length === 0) return { weights: null, trainingCount: 0, threshold: null };
 
   const matchIds = [...new Set(resolvedPicks.map((p) => p.match_id))];
   const { data: matches, error: mErr } = await supabase.from('matches').select('id, player_a_id').in('id', matchIds);
@@ -224,7 +229,9 @@ async function trainExclusiveModel() {
     })
     .filter(Boolean);
 
-  return { weights: trainLogisticRegression(rows), trainingCount: rows.length };
+  const weights = trainLogisticRegression(rows);
+  const threshold = computeExclusiveThreshold(weights, rows);
+  return { weights, trainingCount: rows.length, threshold };
 }
 
 async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel) {
@@ -302,13 +309,12 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel) {
   const hasTrainedModel = mlModel?.weights && mlModel.trainingCount >= MIN_TRAINING_SAMPLES;
   const mlProbability = mlModel?.weights ? predictProbability(mlModel.weights, mlFeatures) : null;
   const mlConfidence = mlProbability != null ? Math.round(mlProbability * 100) : null;
-  const ML_EXCLUSIVE_THRESHOLD = 0.75;
 
   const isExclusiveCandidate =
     published &&
     favoredOdds &&
     favoredOdds >= EXCLUSIVE_MIN_ODDS &&
-    (hasTrainedModel ? mlProbability >= ML_EXCLUSIVE_THRESHOLD : pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE);
+    (hasTrainedModel ? mlProbability >= mlModel.threshold : pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE);
   if (isExclusiveCandidate) {
     const countToday = await countExclusivePublishedOnDay(matchRow.scheduled_at);
     if (countToday >= MAX_EXCLUSIVE_PER_DAY) published = false;
@@ -600,7 +606,7 @@ async function run() {
   const mlModel = await trainExclusiveModel();
   console.log(
     mlModel.trainingCount >= MIN_TRAINING_SAMPLES
-      ? `Modelo ML de Exclusivo: reentrenado con ${mlModel.trainingCount} picks resueltos.`
+      ? `Modelo ML de Exclusivo: reentrenado con ${mlModel.trainingCount} picks resueltos, umbral ${Math.round(mlModel.threshold * 100)}%.`
       : `Modelo ML de Exclusivo: solo ${mlModel.trainingCount} picks resueltos (mínimo ${MIN_TRAINING_SAMPLES}) — usando el criterio viejo (confianza>=85) mientras tanto.`
   );
 
