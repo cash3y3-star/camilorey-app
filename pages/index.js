@@ -319,11 +319,6 @@ const TRANSLATIONS = {
       'Simulá cuánto apostarías con el criterio de Kelly en los picks que seguís — no es dinero real, es para practicar el tamaño de tus apuestas antes de arriesgar el tuyo.',
     onboardingSiguiente: 'Siguiente',
     onboardingSaltar: 'Saltar',
-    onboardingAtras: 'Atrás',
-    onboardingYaTengo: 'Ya tengo una cuenta',
-    onboardingFinalTitleA: 'Creá tu cuenta',
-    onboardingFinalTitleB: 'CAMILOREY.',
-    onboardingFinalSub: 'Gratis para empezar. Desbloqueá los picks exclusivos cuando quieras.',
     onboardingFinalCta: 'Continuar con Google',
     onboardingSinCuenta: 'Seguir sin cuenta',
     onboardingTerminos: 'Al continuar aceptás nuestros Términos y Política de Privacidad.'
@@ -608,11 +603,6 @@ const TRANSLATIONS = {
       "Simulate how much you'd bet using the Kelly criterion on the picks you follow — not real money, just practice sizing your bets before risking your own.",
     onboardingSiguiente: 'Next',
     onboardingSaltar: 'Skip',
-    onboardingAtras: 'Back',
-    onboardingYaTengo: 'I already have an account',
-    onboardingFinalTitleA: 'Create your',
-    onboardingFinalTitleB: 'CAMILOREY account.',
-    onboardingFinalSub: 'Free to start. Unlock the exclusive picks whenever you want.',
     onboardingFinalCta: 'Continue with Google',
     onboardingSinCuenta: 'Continue without an account',
     onboardingTerminos: 'By continuing you accept our Terms and Privacy Policy.'
@@ -898,11 +888,6 @@ const TRANSLATIONS = {
       'Simule quanto você apostaria usando o critério de Kelly nos picks que você segue — não é dinheiro real, é para praticar o tamanho das suas apostas antes de arriscar a sua.',
     onboardingSiguiente: 'Próximo',
     onboardingSaltar: 'Pular',
-    onboardingAtras: 'Voltar',
-    onboardingYaTengo: 'Já tenho uma conta',
-    onboardingFinalTitleA: 'Crie sua',
-    onboardingFinalTitleB: 'conta CAMILOREY.',
-    onboardingFinalSub: 'Grátis para começar. Desbloqueie os picks exclusivos quando quiser.',
     onboardingFinalCta: 'Continuar com Google',
     onboardingSinCuenta: 'Continuar sem conta',
     onboardingTerminos: 'Ao continuar você aceita nossos Termos e Política de Privacidade.'
@@ -4222,88 +4207,79 @@ const ONBOARDING_SLIDES = [
 // tonos, puntos de progreso y botón píldora de alto contraste. Es el
 // único punto de entrada al login ahora (reemplaza al viejo LoginModal
 // chico) — se abre CADA VEZ que alguien intenta iniciar sesión, nuevo
-// o viejo, no una sola vez por navegador. 3 pasos de contenido + un
-// 4to paso de cuenta que reusa el login real (Google) en vez de
-// inventar un flujo de email que el sitio no tiene; "Ya tengo una
-// cuenta" salta directo a ese 4to paso.
+// o viejo, no una sola vez por navegador.
+//
+// Los 3 pasos de contenido rotan solos (no hace falta ir tocando
+// "Siguiente" para verlos todos) — "Siguiente" sigue ahí por si
+// alguien quiere avanzar más rápido, y tocar un punto salta directo a
+// ese paso. El botón de Google (crea cuenta O inicia sesión, Supabase
+// reconoce si ya existe) está SIEMPRE visible desde el primer momento,
+// para que quien no quiera leer pueda entrar ya — la persona decide si
+// sigue mirando o entra de una vez, no se lo hacemos elegir.
 function OnboardingModal({ onClose, onLogin, lang }) {
   const t = useTranslate(lang);
   const [step, setStep] = useState(0);
-  const isAccountStep = step === ONBOARDING_SLIDES.length;
   const current = ONBOARDING_SLIDES[step];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStep((s) => (s + 1) % ONBOARDING_SLIDES.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [step]);
 
   return (
     <div className="onboarding-screen">
       <div className="onboarding-topbar">
-        <button
-          type="button"
-          className="onboarding-back"
-          aria-label={t('onboardingAtras')}
-          onClick={() => (step === 0 ? onClose() : setStep((s) => s - 1))}
-        >
+        <button type="button" className="onboarding-back" aria-label={t('onboardingSaltar')} onClick={onClose}>
           <ProfileIcon name="arrow-left" size={16} />
         </button>
-        {!isAccountStep && (
-          <button type="button" className="onboarding-skip" onClick={onClose}>
-            {t('onboardingSaltar')}
-          </button>
-        )}
       </div>
 
-      {isAccountStep ? (
-        <div className="onboarding-body">
-          <div className="onboarding-icon-badge">
-            <ProfileIcon name="shield" size={30} />
-          </div>
-          <h1 className="onboarding-title">
-            {t('onboardingFinalTitleA')} <span>{t('onboardingFinalTitleB')}</span>
-          </h1>
-          <p className="onboarding-desc">{t('onboardingFinalSub')}</p>
-
-          <div className="onboarding-actions">
-            <button
-              type="button"
-              className="onboarding-cta-pill"
-              onClick={() => {
-                onLogin();
-                onClose();
-              }}
-            >
-              <GoogleGIcon size={18} /> {t('onboardingFinalCta')}
-            </button>
-            <button type="button" className="onboarding-link" onClick={onClose}>
-              {t('onboardingSinCuenta')}
-            </button>
-          </div>
-          <p className="onboarding-terms">{t('onboardingTerminos')}</p>
+      <div className="onboarding-body">
+        <div className="onboarding-icon-badge">
+          <ProfileIcon name={current.icon} size={30} />
         </div>
-      ) : (
-        <div className="onboarding-body">
-          <div className="onboarding-icon-badge">
-            <ProfileIcon name={current.icon} size={30} />
-          </div>
-          <span className="onboarding-pill">
-            <ProfileIcon name={current.icon} size={12} /> {t(current.badgeKey)}
-          </span>
-          <h1 className="onboarding-title">{t(current.titleKey)}</h1>
-          <p className="onboarding-desc">{t(current.descKey)}</p>
+        <span className="onboarding-pill">
+          <ProfileIcon name={current.icon} size={12} /> {t(current.badgeKey)}
+        </span>
+        <h1 className="onboarding-title">{t(current.titleKey)}</h1>
+        <p className="onboarding-desc">{t(current.descKey)}</p>
 
-          <div className="onboarding-dots">
-            {ONBOARDING_SLIDES.map((_, i) => (
-              <span key={i} className={`onboarding-dot ${i === step ? 'active' : ''}`}></span>
-            ))}
-          </div>
-
-          <div className="onboarding-actions">
-            <button type="button" className="onboarding-cta-pill" onClick={() => setStep((s) => s + 1)}>
-              {t('onboardingSiguiente')}
-            </button>
-            <button type="button" className="onboarding-link" onClick={() => setStep(ONBOARDING_SLIDES.length)}>
-              {t('onboardingYaTengo')}
-            </button>
-          </div>
+        <div className="onboarding-dots">
+          {ONBOARDING_SLIDES.map((_, i) => (
+            <span
+              key={i}
+              className={`onboarding-dot ${i === step ? 'active' : ''}`}
+              onClick={() => setStep(i)}
+            ></span>
+          ))}
         </div>
-      )}
+
+        <div className="onboarding-actions">
+          <button
+            type="button"
+            className="onboarding-cta-pill"
+            onClick={() => {
+              onLogin();
+              onClose();
+            }}
+          >
+            <GoogleGIcon size={18} /> {t('onboardingFinalCta')}
+          </button>
+          <button
+            type="button"
+            className="onboarding-next-btn"
+            onClick={() => setStep((s) => (s + 1) % ONBOARDING_SLIDES.length)}
+          >
+            {t('onboardingSiguiente')}
+          </button>
+          <button type="button" className="onboarding-link" onClick={onClose}>
+            {t('onboardingSinCuenta')}
+          </button>
+        </div>
+        <p className="onboarding-terms">{t('onboardingTerminos')}</p>
+      </div>
     </div>
   );
 }
@@ -9075,10 +9051,6 @@ const CSS = `
     background:rgba(255,255,255,.3); color:#fff; display:flex; align-items:center; justify-content:center;
     backdrop-filter:blur(4px);
   }
-  .onboarding-skip{
-    background:none; border:none; color:#fff; opacity:.85; font-family:var(--font-body);
-    font-weight:700; font-size:13.5px; cursor:pointer; padding:8px;
-  }
   .onboarding-body{
     flex:1; display:flex; flex-direction:column; justify-content:flex-end;
     max-width:420px; width:100%; margin:0 auto; padding-bottom:8px;
@@ -9097,16 +9069,20 @@ const CSS = `
     font-family:var(--font-display); font-size:32px; line-height:1.08; color:var(--ink);
     margin:0 0 12px; font-weight:800;
   }
-  .onboarding-title span{color:var(--court);}
   .onboarding-desc{color:var(--ink); opacity:.75; font-size:14.5px; line-height:1.5; margin:0 0 22px; max-width:340px;}
   .onboarding-dots{display:flex; gap:6px; margin-bottom:20px;}
-  .onboarding-dot{width:6px; height:6px; border-radius:50%; background:var(--line);}
+  .onboarding-dot{width:6px; height:6px; border-radius:50%; background:var(--line); cursor:pointer;}
   .onboarding-dot.active{background:var(--court); width:18px; border-radius:3px;}
-  .onboarding-actions{display:flex; flex-direction:column; gap:14px; align-items:center;}
+  .onboarding-actions{display:flex; flex-direction:column; gap:12px; align-items:center;}
   .onboarding-cta-pill{
     width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
     background:var(--ink); color:var(--bg); border:none; border-radius:999px;
     padding:16px; font-family:var(--font-body); font-weight:800; font-size:15px; cursor:pointer;
+  }
+  .onboarding-next-btn{
+    width:100%; display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.16); color:var(--ink); border:1px solid rgba(255,255,255,.3); border-radius:999px;
+    padding:14px; font-family:var(--font-body); font-weight:700; font-size:14px; cursor:pointer;
   }
   .onboarding-link{background:none; border:none; color:var(--ink); font-weight:700; font-size:13.5px; cursor:pointer; padding:6px;}
   .onboarding-terms{color:var(--ink); opacity:.55; font-size:11.5px; text-align:center; margin:14px 0 0;}
