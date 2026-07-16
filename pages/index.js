@@ -321,7 +321,8 @@ const TRANSLATIONS = {
     onboardingSaltar: 'Saltar',
     onboardingFinalCta: 'Continuar con Google',
     onboardingSinCuenta: 'Seguir sin cuenta',
-    onboardingTerminos: 'Al continuar aceptás nuestros Términos y Política de Privacidad.'
+    onboardingTerminos: 'Al continuar aceptás nuestros Términos y Política de Privacidad.',
+    onboardingGanado: 'Ganado'
   },
   en: {
     navInicio: 'Home',
@@ -605,7 +606,8 @@ const TRANSLATIONS = {
     onboardingSaltar: 'Skip',
     onboardingFinalCta: 'Continue with Google',
     onboardingSinCuenta: 'Continue without an account',
-    onboardingTerminos: 'By continuing you accept our Terms and Privacy Policy.'
+    onboardingTerminos: 'By continuing you accept our Terms and Privacy Policy.',
+    onboardingGanado: 'Won'
   },
   pt: {
     navInicio: 'Início',
@@ -4197,9 +4199,32 @@ function GoogleGIcon({ size = 20 }) {
 // perdido a esos conceptos.
 const ONBOARDING_SLIDES = [
   { icon: 'chart', badgeKey: 'onboarding1Badge', titleKey: 'onboarding1Title', descKey: 'onboarding1Desc' },
-  { icon: 'zap', badgeKey: 'onboarding2Badge', titleKey: 'onboarding2Title', descKey: 'onboarding2Desc' },
+  { icon: 'zap', badgeKey: 'onboarding2Badge', titleKey: 'onboarding2Title', descKey: 'onboarding2Desc', trajectory: true },
   { icon: 'dollar', badgeKey: 'onboarding3Badge', titleKey: 'onboarding3Title', descKey: 'onboarding3Desc' }
 ];
+
+// Pelotita de tenis de mesa "rebotando" en zigzag hasta pegar justo en
+// el ícono de abajo — pedido explícito para el paso de Índice IA,
+// adaptado de la referencia (ahí eran 4 deportes conectados a un
+// ícono central; acá es una sola pelota, porque el sitio es solo tenis
+// de mesa).
+function TableTennisTrajectory() {
+  return (
+    <svg viewBox="0 0 200 76" width="176" height="68" fill="none" style={{ display: 'block', marginBottom: '2px' }}>
+      <path
+        d="M176 8 L58 26 L146 46 L34 62"
+        stroke="rgba(255,255,255,.5)"
+        strokeWidth="2"
+        strokeDasharray="5 6"
+        strokeLinecap="round"
+      />
+      <circle cx="176" cy="8" r="4" fill="#fff" opacity="0.5" />
+      <circle cx="58" cy="26" r="4" fill="#fff" opacity="0.68" />
+      <circle cx="146" cy="46" r="4" fill="#fff" opacity="0.85" />
+      <circle cx="34" cy="62" r="5.5" fill="#fff" />
+    </svg>
+  );
+}
 
 // Onboarding / login — pantalla completa, diseño adaptado de 4
 // referencias guardadas por el admin: fondo degradado de color,
@@ -4216,10 +4241,14 @@ const ONBOARDING_SLIDES = [
 // reconoce si ya existe) está SIEMPRE visible desde el primer momento,
 // para que quien no quiera leer pueda entrar ya — la persona decide si
 // sigue mirando o entra de una vez, no se lo hacemos elegir.
-function OnboardingModal({ onClose, onLogin, lang }) {
+function OnboardingModal({ onClose, onLogin, lang, resolvedPicks }) {
   const t = useTranslate(lang);
   const [step, setStep] = useState(0);
   const current = ONBOARDING_SLIDES[step];
+  // Picks reales acertados (no inventados) para las chips flotantes de
+  // arriba — mismo espíritu que la referencia guardada, con nuestro
+  // propio track record en vez de ejemplos de otra app.
+  const hitChips = (resolvedPicks || []).filter((p) => p.result === 'hit').slice(0, 3);
 
   // Un solo intervalo fijo para toda la vida del componente (deps
   // vacías) — antes se reiniciaba en cada cambio de "step", lo que en
@@ -4240,7 +4269,22 @@ function OnboardingModal({ onClose, onLogin, lang }) {
         </button>
       </div>
 
+      {hitChips.length > 0 && (
+        <div className="onboarding-chips">
+          {hitChips.map((p, i) => (
+            <div className={`onboarding-chip onboarding-chip-${i}`} key={p.id}>
+              <span className="onboarding-chip-check">
+                <ProfileIcon name="check" size={12} />
+              </span>
+              <span className="onboarding-chip-market">{p.market}</span>
+              <span className="onboarding-chip-won">{t('onboardingGanado')}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="onboarding-body">
+        {current.trajectory && <TableTennisTrajectory />}
         <div className="onboarding-icon-badge">
           <ProfileIcon name={current.icon} size={30} />
         </div>
@@ -8122,7 +8166,9 @@ export default function Home({
       )}
 
       {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} lang={lang} />}
-      {showOnboarding && <OnboardingModal onClose={dismissOnboarding} onLogin={loginWithGoogle} lang={lang} />}
+      {showOnboarding && (
+        <OnboardingModal onClose={dismissOnboarding} onLogin={loginWithGoogle} lang={lang} resolvedPicks={resolvedPicks} />
+      )}
     </>
   );
 }
@@ -9063,6 +9109,20 @@ const CSS = `
     width:64px; height:64px; border-radius:20px; background:var(--card); color:var(--court);
     display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); margin-bottom:18px; flex:none;
   }
+  .onboarding-chips{display:flex; flex-direction:column; gap:10px; min-height:110px; justify-content:center; flex:none; padding-top:6px;}
+  .onboarding-chip{
+    display:inline-flex; align-items:center; gap:8px; align-self:flex-start; max-width:80%;
+    background:rgba(255,255,255,.14); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.25);
+    border-radius:14px; padding:8px 12px; font-family:var(--font-body); font-size:12.5px; font-weight:700; color:#fff;
+  }
+  .onboarding-chip-1{align-self:flex-end;}
+  .onboarding-chip-2{align-self:flex-start; margin-left:28px;}
+  .onboarding-chip-check{
+    width:18px; height:18px; border-radius:50%; background:var(--hit); color:#0E0D0C;
+    display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .onboarding-chip-market{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .onboarding-chip-won{color:var(--hit); font-weight:800; font-size:11px; letter-spacing:.3px; flex:none;}
   .onboarding-pill{
     display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
     background:var(--card); border:1px solid var(--line); color:var(--court);
