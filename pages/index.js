@@ -259,13 +259,6 @@ const TRANSLATIONS = {
     aceptar: 'Aceptar',
     privacyFootnote: 'Puedes ver el detalle completo en la',
 
-    riskEyebrow: 'Gestión de riesgo',
-    riskSiguiendo: 'Estás siguiendo',
-    riskPick: 'pick',
-    riskPicks: 'picks',
-    entendido: 'Entendido',
-    riskDisclaimer: 'Esto no es asesoría financiera. Usa estos datos con responsabilidad.',
-
     tabResumen: 'Resumen',
     tabEstadisticas: 'Estadísticas',
     tabAnalisis: 'Análisis',
@@ -543,13 +536,6 @@ const TRANSLATIONS = {
     privacy3Desc: 'Change your name, photo, or notifications anytime from your Profile. Write to us if you want your account deleted.',
     aceptar: 'Accept',
     privacyFootnote: 'You can see the full details in the',
-
-    riskEyebrow: 'Risk management',
-    riskSiguiendo: "You're following",
-    riskPick: 'pick',
-    riskPicks: 'picks',
-    entendido: 'Got it',
-    riskDisclaimer: 'This is not financial advice. Use this data responsibly.',
 
     tabResumen: 'Summary',
     tabEstadisticas: 'Stats',
@@ -829,13 +815,6 @@ const TRANSLATIONS = {
     privacy3Desc: 'Altere seu nome, foto ou notificações quando quiser no seu Perfil. Escreva para nós se quiser que a gente exclua sua conta.',
     aceptar: 'Aceitar',
     privacyFootnote: 'Você pode ver os detalhes completos na',
-
-    riskEyebrow: 'Gestão de risco',
-    riskSiguiendo: 'Você está seguindo',
-    riskPick: 'pick',
-    riskPicks: 'picks',
-    entendido: 'Entendi',
-    riskDisclaimer: 'Isto não é consultoria financeira. Use estes dados com responsabilidade.',
 
     tabResumen: 'Resumo',
     tabEstadisticas: 'Estatísticas',
@@ -3716,110 +3695,6 @@ function GroupTable({ group }) {
   );
 }
 
-// Banco de consejos — cada vez que se dispara el modal se eligen 3 al
-// azar (sin repetir dentro de la misma aparición), para que no se
-// sienta como el mismo aviso copiado y pegado cada vez que alguien
-// pasa de 3 seguidos.
-const RISK_TIPS = [
-  {
-    icon: 'trending-down',
-    title: 'Protege tu bankroll',
-    body: 'Reparte tu banco entre las selecciones que sigues. Evita concentrar más de lo que te sientas cómodo gestionando en un solo día.'
-  },
-  {
-    icon: 'layers',
-    title: 'Mantén una jornada enfocada',
-    body: 'Seguir menos selecciones facilita revisar el rendimiento y controlar mejor la exposición diaria.'
-  },
-  {
-    icon: 'shield',
-    title: 'Define un límite diario de asignación',
-    body: 'Usa el planificador Kelly en la pestaña Bankroll como referencia para no arriesgar más de la cuenta.'
-  },
-  {
-    icon: 'target',
-    title: 'Prioriza calidad sobre cantidad',
-    body: 'Entre más picks sigas a la vez, más difícil es darle seguimiento real a cada uno cuando estén en vivo.'
-  },
-  {
-    icon: 'chart',
-    title: 'Ninguna racha dura para siempre',
-    body: 'Ajusta el tamaño de lo que arriesgas según tu propio límite, no solo según qué tan segura se vea la confianza del modelo.'
-  },
-  {
-    icon: 'search',
-    title: 'Revisa el historial real primero',
-    body: 'Antes de subir el monto que arriesgas por pick, mira el acierto real acumulado en la pestaña Bankroll.'
-  },
-  {
-    icon: 'dice',
-    title: 'Diversifica entre torneos',
-    body: 'Seguir picks de un solo torneo hace que un resultado inesperado pese más sobre tu banco completo.'
-  },
-  {
-    icon: 'stop',
-    title: 'Nunca sigas "para recuperar"',
-    body: 'Cada pick es independiente — seguir uno más solo porque el anterior falló no cambia sus probabilidades reales.'
-  },
-  {
-    icon: 'pause',
-    title: 'El impulso es una señal',
-    body: 'Si notas que estás siguiendo picks muy rápido, sin revisarlos, es buen momento para bajar el ritmo un rato.'
-  }
-];
-
-function pickRandomTips(n = 3) {
-  const shuffled = [...RISK_TIPS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
-}
-
-// Se dispara cada vez que la cantidad de picks seguidos SUBE y pasa de
-// 3 (no solo la primera vez) — ver el useEffect que llama a esto en
-// Home. Los 3 consejos salen al azar del banco de arriba.
-function RiskModal({ count, tips, onClose, lang }) {
-  const t = useTranslate(lang);
-  return (
-    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
-      <div className="modal risk-modal">
-        <div className="risk-modal-banner">
-          <div className="risk-modal-handle"></div>
-          <div className="risk-modal-banner-row">
-            <div className="risk-modal-icon">
-              <ProfileIcon name="shield" size={22} />
-            </div>
-            <div>
-              <div className="risk-modal-eyebrow">{t('riskEyebrow')}</div>
-              <h3>
-                {t('riskSiguiendo')} {count} {count === 1 ? t('riskPick') : t('riskPicks')}
-              </h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="risk-tip-list">
-          {tips.map((tip) => (
-            <div className="risk-tip" key={tip.title}>
-              <span className="risk-tip-icon">
-                <ProfileIcon name={tip.icon} size={17} />
-              </span>
-              <div>
-                <strong>{tip.title}</strong>
-                <p>{tip.body}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <button className="btn btn-ball risk-modal-btn" onClick={onClose}>
-          <ProfileIcon name="check" size={16} />
-          {t('entendido')}
-        </button>
-        <p className="risk-modal-disclaimer">{t('riskDisclaimer')}</p>
-      </div>
-    </div>
-  );
-}
-
 // Decoración pura (mesa en perspectiva + pelota rebotando en loop) en
 // los márgenes — SOLO existe visualmente a partir de 1400px de ancho
 // (ver .table-decor en el CSS, display:none por debajo de eso), que
@@ -5924,9 +5799,6 @@ export default function Home({
 
   const [followedPickIds, setFollowedPickIds] = useState(new Set());
   const [followedDetail, setFollowedDetail] = useState([]);
-  const [showRiskModal, setShowRiskModal] = useState(false);
-  const [riskTips, setRiskTips] = useState([]);
-  const prevFollowedCountRef = useRef(0);
   const [bankrollTab, setBankrollTab] = useState('slip');
   const [showProfileModal, setShowProfileModal] = useState(false);
 
@@ -6294,21 +6166,6 @@ export default function Home({
     };
   }, [user]);
 
-  // Se dispara solo al CRUZAR el umbral de 3 hacia arriba (de 3 o
-  // menos a 4+) — antes se repetía cada vez que se seguía un pick más
-  // estando ya arriba de 3, lo que se sentía como que "salían nuevos"
-  // todo el tiempo. Si bajas a 3 o menos (dejas de seguir algo) y
-  // vuelves a subir, sí se vuelve a mostrar — es una alerta nueva,
-  // no la misma repetida.
-  useEffect(() => {
-    const count = followedPickIds.size;
-    if (count > 3 && prevFollowedCountRef.current <= 3) {
-      setRiskTips(pickRandomTips());
-      setShowRiskModal(true);
-    }
-    prevFollowedCountRef.current = count;
-  }, [followedPickIds]);
-
   // Detalle completo de los picks seguidos — aparte del array "picks"
   // de la SSR, que oculta un pick apenas el partido está por arrancar
   // o ya arrancó (regla pensada para "Picks", no para lo que alguien
@@ -6375,6 +6232,10 @@ export default function Home({
       vibrateFollow();
       ensurePushSubscription(user);
       track('follow_pick');
+      // Pedido explícito: al seguir un pick, llevar directo a Seguidos
+      // en vez de dejar a la persona donde estaba — así ve de una que
+      // ya quedó guardado.
+      if (typeof window !== 'undefined') window.location.hash = 'seguidos';
     }
   };
 
@@ -6425,16 +6286,7 @@ export default function Home({
   // Pasada esa fecha, betaAllowed solo puede ser true si isAdmin.
   const [betaChecked, setBetaChecked] = useState(false);
   const [betaAllowed, setBetaAllowed] = useState(false);
-  // TEMPORAL 2026-07-16, pedido explícito del admin para probar algo
-  // con el sitio abierto sin la valla de beta — volver a `false` para
-  // cerrar la prueba de nuevo.
-  const BETA_GATE_DISABLED_TEMPORARILY = true;
   useEffect(() => {
-    if (BETA_GATE_DISABLED_TEMPORARILY) {
-      setBetaAllowed(true);
-      setBetaChecked(true);
-      return undefined;
-    }
     if (isAdmin) {
       setBetaAllowed(true);
       setBetaChecked(true);
@@ -8155,10 +8007,6 @@ export default function Home({
         />
       )}
 
-      {showRiskModal && (
-        <RiskModal count={followedPickIds.size} tips={riskTips} onClose={() => setShowRiskModal(false)} lang={lang} />
-      )}
-
       {showProfileModal && user && (
         <ProfileModal
           user={user}
@@ -8844,7 +8692,6 @@ const CSS = `
     color:#fff;
   }
   @media(min-width:640px){ .risk-modal-banner{border-radius:20px 20px 0 0;} }
-  .risk-modal-handle{width:36px; height:4px; border-radius:99px; background:rgba(255,255,255,.35); margin:0 auto 18px;}
   .risk-modal-banner-row{display:flex; align-items:center; gap:14px;}
   .risk-modal-icon{
     width:48px; height:48px; border-radius:12px; flex:none; font-size:21px;
@@ -8853,7 +8700,6 @@ const CSS = `
   }
   .risk-modal-eyebrow{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:rgba(255,255,255,.75); margin-bottom:3px;}
   .risk-modal-banner h3{color:#fff; margin:0;}
-  .risk-tip-list{display:flex; flex-direction:column;}
   .risk-tip{display:flex; gap:12px; padding:14px 0; border-top:1px solid var(--line);}
   .risk-tip:first-child{border-top:none; padding-top:2px;}
   .risk-tip-icon{
