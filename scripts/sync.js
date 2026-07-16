@@ -477,58 +477,70 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
     const sideB = sidesById.get(match.side_two_id);
     if (!sideA?.player || !sideB?.player) continue;
 
-    // OJO: results.score_one ya viene con el marcador parcial mientras
-    // el partido está en curso (status 2), no solo cuando termina — no
-    // sirve para saber si ya cerró. status === 3 es la señal real
-    // (1 = no empezado, 2 = en curso, 3 = terminado).
-    const played = match.status === 3;
-    const winnerId = played
-      ? match.results.score_one > match.results.score_two
-        ? sideA.player.id
-        : sideB.player.id
-      : null;
+    // Aislado por partido — antes un error generando el pick de UN
+    // partido (ej. una consulta que fallara para un jugador puntual)
+    // abortaba el resto del torneo entero para esa corrida, dejando
+    // sin pick tanto a ese partido como a los que venían después en la
+    // lista, corrida tras corrida. Ahora se loguea con el detalle
+    // exacto (partido + jugadores) y se sigue con el próximo.
+    try {
+      // OJO: results.score_one ya viene con el marcador parcial mientras
+      // el partido está en curso (status 2), no solo cuando termina — no
+      // sirve para saber si ya cerró. status === 3 es la señal real
+      // (1 = no empezado, 2 = en curso, 3 = terminado).
+      const played = match.status === 3;
+      const winnerId = played
+        ? match.results.score_one > match.results.score_two
+          ? sideA.player.id
+          : sideB.player.id
+        : null;
 
-    // El detalle set por set (matches.set_scores) ya NO se llena
-    // acá: Sofascore bloquea las IPs de GitHub Actions con 403. Lo
-    // llena pages/api/backfill-set-scores.js, que corre en Vercel.
-    const { data: matchRow, error: mErr } = await supabase
-      .from('matches')
-      .upsert(
-        {
-          source_id: match.id,
-          tournament_id: t.id,
-          player_a_id: sideA.player.id,
-          player_b_id: sideB.player.id,
-          scheduled_at: match.start_game,
-          status: match.status === 3 ? 'finished' : match.status === 2 ? 'live' : 'scheduled',
-          sets_a: played ? match.results.score_one : null,
-          sets_b: played ? match.results.score_two : null,
-          winner_id: winnerId,
-          raw_data: match
-        },
-        { onConflict: 'source_id' }
-      )
-      .select()
-      .single();
-    if (mErr) throw new Error(`upsert matches(source_id=${match.id}): ${mErr.message}`);
-    matchesProcessed++;
+      // El detalle set por set (matches.set_scores) ya NO se llena
+      // acá: Sofascore bloquea las IPs de GitHub Actions con 403. Lo
+      // llena pages/api/backfill-set-scores.js, que corre en Vercel.
+      const { data: matchRow, error: mErr } = await supabase
+        .from('matches')
+        .upsert(
+          {
+            source_id: match.id,
+            tournament_id: t.id,
+            player_a_id: sideA.player.id,
+            player_b_id: sideB.player.id,
+            scheduled_at: match.start_game,
+            status: match.status === 3 ? 'finished' : match.status === 2 ? 'live' : 'scheduled',
+            sets_a: played ? match.results.score_one : null,
+            sets_b: played ? match.results.score_two : null,
+            winner_id: winnerId,
+            raw_data: match
+          },
+          { onConflict: 'source_id' }
+        )
+        .select()
+        .single();
+      if (mErr) throw new Error(`upsert matches(source_id=${match.id}): ${mErr.message}`);
+      matchesProcessed++;
 
-    if (played) {
-      const result = await resolvePick(matchRow);
-      if (result) picksResolved++;
-      continue;
+      if (played) {
+        const result = await resolvePick(matchRow);
+        if (result) picksResolved++;
+        continue;
+      }
+
+      const { data: existingPick, error: pErr } = await supabase
+        .from('picks')
+        .select('id')
+        .eq('match_id', matchRow.id)
+        .maybeSingle();
+      if (pErr) throw new Error(`select picks(match_id=${matchRow.id}): ${pErr.message}`);
+      if (existingPick) continue;
+
+      const created = await generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel);
+      if (created) picksGenerated++;
+    } catch (e) {
+      console.error(
+        `Error procesando partido ${match.id} (${playerName(sideA.player)} vs ${playerName(sideB.player)}, torneo ${t.id}): ${e.message}`
+      );
     }
-
-    const { data: existingPick, error: pErr } = await supabase
-      .from('picks')
-      .select('id')
-      .eq('match_id', matchRow.id)
-      .maybeSingle();
-    if (pErr) throw new Error(`select picks(match_id=${matchRow.id}): ${pErr.message}`);
-    if (existingPick) continue;
-
-    const created = await generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel);
-    if (created) picksGenerated++;
   }
 
   return { matchesProcessed, picksGenerated, picksResolved };
