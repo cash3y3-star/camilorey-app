@@ -70,6 +70,9 @@ const TRANSLATIONS = {
     statROI: 'ROI',
     statBalance: 'Balance',
     statCuotaMinima: 'Cuota mínima',
+    statCuotaProm: 'Cuota Prom.',
+    seguidosActivos: 'activos',
+    seguidosTotal: 'total',
     enVivoAhora: 'En vivo ahora',
     campeonesRecientes: 'Campeones recientes',
     pickDestacado: 'Pick destacado del día',
@@ -350,6 +353,9 @@ const TRANSLATIONS = {
     statROI: 'ROI',
     statBalance: 'Balance',
     statCuotaMinima: 'Minimum odds',
+    statCuotaProm: 'Avg. Odds',
+    seguidosActivos: 'active',
+    seguidosTotal: 'total',
     enVivoAhora: 'Live now',
     campeonesRecientes: 'Recent champions',
     pickDestacado: "Today's featured pick",
@@ -628,6 +634,9 @@ const TRANSLATIONS = {
     statROI: 'ROI',
     statBalance: 'Saldo',
     statCuotaMinima: 'Odd mínima',
+    statCuotaProm: 'Odd média',
+    seguidosActivos: 'ativos',
+    seguidosTotal: 'total',
     enVivoAhora: 'Ao vivo agora',
     campeonesRecientes: 'Campeões recentes',
     pickDestacado: 'Pick em destaque do dia',
@@ -6607,6 +6616,16 @@ export default function Home({
   const myAvgOdds = myHistory.length
     ? Math.round((myHistory.reduce((s, h) => s + h.odds, 0) / myHistory.length) * 100) / 100
     : 0;
+  // Racha de Seguidos — misma lógica que la racha general del sitio,
+  // pero recorriendo myHistory de atrás para adelante (viene ordenado
+  // de más viejo a más nuevo).
+  let myRacha = 0;
+  for (let i = myHistory.length - 1; i >= 0; i--) {
+    const won = myHistory[i].units > 0;
+    if (myRacha === 0) myRacha = won ? 1 : -1;
+    else if (myRacha > 0 === won) myRacha += won ? 1 : -1;
+    else break;
+  }
   const myTotalStake = myHistory.reduce((s, h) => s + h.stake, 0);
   const myTotalProfit = myHistory.reduce((s, h) => s + h.units, 0);
   const myRoi = myTotalStake > 0 ? Math.round((myTotalProfit / myTotalStake) * 1000) / 10 : 0;
@@ -7693,18 +7712,41 @@ export default function Home({
               if (followedDetail.length === 0) {
                 return <p className="page-sub">{t('noSiguesNingunPick')}</p>;
               }
+              const activos = followedDetail.filter((p) => p.matchStatus !== 'done').length;
               return (
-                <div className="followed-grid">
-                  {followedDetail.map((p) => (
-                    <FollowedPickCard
-                      key={p.id}
-                      pick={p}
-                      onClick={() => setModalPick(p)}
-                      followed={true}
-                      onToggleFollow={toggleFollow}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="seguidos-count-row">
+                    <span className="live-dot"></span>
+                    {activos} {t('seguidosActivos')} · {followedDetail.length} {t('seguidosTotal')}
+                  </div>
+                  <div className="stat-strip stat-strip-3">
+                    <div className="stat-card">
+                      <div className="label">{t('statEfectividad')}</div>
+                      <div className="value hit num">{myEfectividad}%</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="label">{t('statRachaActual')}</div>
+                      <div className="value num">
+                        {myRacha === 0 ? '—' : `${Math.abs(myRacha)}${myRacha > 0 ? 'W' : 'L'}`}
+                      </div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="label">{t('statCuotaProm')}</div>
+                      <div className="value num">{myAvgOdds || '—'}</div>
+                    </div>
+                  </div>
+                  <div className="followed-grid">
+                    {followedDetail.map((p) => (
+                      <FollowedPickCard
+                        key={p.id}
+                        pick={p}
+                        onClick={() => setModalPick(p)}
+                        followed={true}
+                        onToggleFollow={toggleFollow}
+                      />
+                    ))}
+                  </div>
+                </>
               );
             })()
           )}
@@ -8346,6 +8388,10 @@ const CSS = `
      favorito), estilo picks de otra app pedido tal cual por
      referencia — distinta de PickCard (que muestra a los dos
      jugadores lado a lado con "VS"), solo se usa en esta vista. */
+  .seguidos-count-row{
+    display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; font-weight:600;
+    margin:2px 0 14px;
+  }
   .followed-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
   @media (min-width:641px){
     .followed-grid{grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));}
