@@ -244,11 +244,6 @@ const TRANSLATIONS = {
     politicaPrivacidad: 'Política de Privacidad',
     terminosCondiciones: 'Términos y Condiciones',
 
-    loginTitle: 'Iniciar sesión',
-    loginSub: 'Utiliza tu cuenta de Google para continuar',
-    loginBtnGoogle: 'Iniciar sesión con Google',
-    loginNote: 'No almacenamos tu contraseña. Autenticación segura con Google.',
-
     privacyEyebrow: 'CAMILOREY · PRIVACIDAD',
     privacyTitle: 'Tus datos, tu decisión',
     privacyIntro:
@@ -539,11 +534,6 @@ const TRANSLATIONS = {
     politicaPrivacidad: 'Privacy Policy',
     terminosCondiciones: 'Terms and Conditions',
 
-    loginTitle: 'Sign in',
-    loginSub: 'Use your Google account to continue',
-    loginBtnGoogle: 'Sign in with Google',
-    loginNote: "We don't store your password. Secure authentication via Google.",
-
     privacyEyebrow: 'CAMILOREY · PRIVACY',
     privacyTitle: 'Your data, your choice',
     privacyIntro:
@@ -832,11 +822,6 @@ const TRANSLATIONS = {
       'oferece análises e opiniões próprias com fins informativos e de entretenimento sobre a Liga Pro Checa de tênis de mesa. Não garantimos resultados e não administramos apostas nem fundos de terceiros. Serviço destinado exclusivamente a maiores de 18 anos. Se sentir que o jogo deixou de ser entretenimento, procure ajuda profissional. Jogue sempre com responsabilidade.',
     politicaPrivacidad: 'Política de Privacidade',
     terminosCondiciones: 'Termos e Condições',
-
-    loginTitle: 'Entrar',
-    loginSub: 'Use sua conta do Google para continuar',
-    loginBtnGoogle: 'Entrar com o Google',
-    loginNote: 'Não armazenamos sua senha. Autenticação segura com o Google.',
 
     privacyEyebrow: 'CAMILOREY · PRIVACIDADE',
     privacyTitle: 'Seus dados, sua decisão',
@@ -4231,14 +4216,17 @@ const ONBOARDING_SLIDES = [
   { icon: 'dollar', badgeKey: 'onboarding3Badge', titleKey: 'onboarding3Title', descKey: 'onboarding3Desc' }
 ];
 
-// Onboarding de primera visita — pantalla completa (no el sheet chico
-// de abajo), diseño adaptado de 4 referencias guardadas por el admin:
-// fondo degradado de color, insignia cuadrada con ícono, pastilla
-// "eyebrow", título grande a dos tonos, puntos de progreso y botón
-// píldora de alto contraste. 3 pasos de contenido + un 4to paso de
-// cuenta que reusa el login real (Google) en vez de inventar un flujo
-// de email que el sitio no tiene.
-function OnboardingModal({ onClose, onLogin, onShowLogin, lang }) {
+// Onboarding / login — pantalla completa, diseño adaptado de 4
+// referencias guardadas por el admin: fondo degradado de color,
+// insignia cuadrada con ícono, pastilla "eyebrow", título grande a dos
+// tonos, puntos de progreso y botón píldora de alto contraste. Es el
+// único punto de entrada al login ahora (reemplaza al viejo LoginModal
+// chico) — se abre CADA VEZ que alguien intenta iniciar sesión, nuevo
+// o viejo, no una sola vez por navegador. 3 pasos de contenido + un
+// 4to paso de cuenta que reusa el login real (Google) en vez de
+// inventar un flujo de email que el sitio no tiene; "Ya tengo una
+// cuenta" salta directo a ese 4to paso.
+function OnboardingModal({ onClose, onLogin, lang }) {
   const t = useTranslate(lang);
   const [step, setStep] = useState(0);
   const isAccountStep = step === ONBOARDING_SLIDES.length;
@@ -4310,7 +4298,7 @@ function OnboardingModal({ onClose, onLogin, onShowLogin, lang }) {
             <button type="button" className="onboarding-cta-pill" onClick={() => setStep((s) => s + 1)}>
               {t('onboardingSiguiente')}
             </button>
-            <button type="button" className="onboarding-link" onClick={onShowLogin}>
+            <button type="button" className="onboarding-link" onClick={() => setStep(ONBOARDING_SLIDES.length)}>
               {t('onboardingYaTengo')}
             </button>
           </div>
@@ -4391,36 +4379,6 @@ function PrivacyConsentModal({ onClose, lang }) {
           </a>
           .
         </p>
-      </div>
-    </div>
-  );
-}
-
-// Modal de login — se abre desde el botón "Entrar" del header o
-// cuando alguien intenta seguir un pick sin haber iniciado sesión.
-// El sitio se navega libre sin cuenta (Inicio/Picks/Calendario); esto
-// solo reemplaza el clic directo a Google por una pantalla intermedia
-// con el branding de CAMILOREY, para que quede claro qué se está
-// autorizando antes de saltar a la ventana de Google.
-function LoginModal({ onClose, onLogin, lang }) {
-  const t = useTranslate(lang);
-  return (
-    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
-      <div className="modal login-modal">
-        <button className="modal-close login-modal-close" onClick={onClose}>
-          ✕
-        </button>
-        <div className="login-modal-icon">🔒</div>
-        <h3 className="login-modal-title">{t('loginTitle')}</h3>
-        <p className="login-modal-sub">{t('loginSub')}</p>
-        <button className="google-btn" onClick={onLogin}>
-          <GoogleGIcon size={20} />
-          {t('loginBtnGoogle')}
-        </button>
-        <div className="login-modal-note">
-          <span>🛡️</span>
-          {t('loginNote')}
-        </div>
       </div>
     </div>
   );
@@ -5932,7 +5890,6 @@ export default function Home({
   const prevFollowedCountRef = useRef(0);
   const [bankrollTab, setBankrollTab] = useState('slip');
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Aviso de privacidad — una vez por navegador, la primera vez que
   // alguien inicia sesión (no antes, porque sin cuenta no guardamos
@@ -5947,18 +5904,12 @@ export default function Home({
     setShowPrivacyConsent(false);
   };
 
-  // Mini-onboarding — una vez por navegador en la PRIMERA visita, con
-  // o sin sesión (a diferencia del aviso de privacidad de arriba, que
-  // espera al login).
+  // Onboarding de bienvenida — pedido explícito 2026-07-16: ya no es
+  // "una vez por navegador en la primera visita", sino que se abre
+  // CADA VEZ que alguien (nuevo o viejo) intenta iniciar sesión —
+  // reemplaza al viejo LoginModal chico como punto de entrada al login.
   const [showOnboarding, setShowOnboarding] = useState(false);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!window.localStorage.getItem('camilorey_onboarding_seen')) setShowOnboarding(true);
-  }, []);
-  const dismissOnboarding = () => {
-    if (typeof window !== 'undefined') window.localStorage.setItem('camilorey_onboarding_seen', '1');
-    setShowOnboarding(false);
-  };
+  const dismissOnboarding = () => setShowOnboarding(false);
 
   // Formato de cuotas — solo cambia cómo se MUESTRAN (siempre se
   // guardan en decimal), preferencia por navegador.
@@ -6354,7 +6305,7 @@ export default function Home({
   const toggleFollow = async (pick) => {
     if (!supabaseClient) return;
     if (!user) {
-      setShowLoginModal(true);
+      setShowOnboarding(true);
       return;
     }
     const already = followedPickIds.has(pick.id);
@@ -7027,7 +6978,7 @@ export default function Home({
               />
             </div>
           ) : (
-            <button className="login-btn" onClick={() => setShowLoginModal(true)}>
+            <button className="login-btn" onClick={() => setShowOnboarding(true)}>
               <GoogleGIcon size={14} />
               {t('entrar')}
             </button>
@@ -8156,22 +8107,8 @@ export default function Home({
         />
       )}
 
-      {showLoginModal && (
-        <LoginModal onClose={() => setShowLoginModal(false)} onLogin={loginWithGoogle} lang={lang} />
-      )}
-
       {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} lang={lang} />}
-      {showOnboarding && (
-        <OnboardingModal
-          onClose={dismissOnboarding}
-          onLogin={loginWithGoogle}
-          onShowLogin={() => {
-            dismissOnboarding();
-            setShowLoginModal(true);
-          }}
-          lang={lang}
-        />
-      )}
+      {showOnboarding && <OnboardingModal onClose={dismissOnboarding} onLogin={loginWithGoogle} lang={lang} />}
     </>
   );
 }
@@ -9091,16 +9028,6 @@ const CSS = `
   }
   .profile-name-input:focus{outline:none; border-color:var(--court);}
 
-  .login-modal{text-align:center; padding-top:36px;}
-  .login-modal-close{position:absolute; top:16px; right:16px;}
-  .login-modal-icon{
-    width:64px; height:64px; margin:0 auto 18px; border-radius:50%; font-size:26px;
-    display:flex; align-items:center; justify-content:center;
-    background:var(--court-soft); border:1px solid rgba(226,68,74,.4);
-  }
-  .login-modal-title{font-family:var(--font-display); font-size:24px; margin:0 0 8px;}
-  .login-modal-sub{color:var(--muted); font-size:14px; margin:0 0 24px;}
-  .login-modal-sub strong{color:var(--ink);}
   .onboarding-screen{
     position:fixed; inset:0; z-index:200; display:flex; flex-direction:column; overflow-y:auto;
     background:
@@ -9149,17 +9076,6 @@ const CSS = `
   }
   .onboarding-link{background:none; border:none; color:var(--ink); font-weight:700; font-size:13.5px; cursor:pointer; padding:6px;}
   .onboarding-terms{color:var(--ink); opacity:.55; font-size:11.5px; text-align:center; margin:14px 0 0;}
-  .google-btn{
-    width:100%; display:flex; align-items:center; justify-content:center; gap:12px;
-    background:var(--bg-alt); border:1px solid var(--line); border-radius:12px;
-    padding:14px; font-family:var(--font-body); font-weight:700; font-size:14.5px; color:var(--ink);
-    cursor:pointer;
-  }
-  .google-btn:hover{border-color:var(--court);}
-  .login-modal-note{
-    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:20px;
-    font-size:12px; color:var(--muted); text-align:left;
-  }
   .modal-market{
     display:inline-block; margin:12px 0; font-weight:700; font-size:14px;
     background:var(--court-soft); color:var(--court-soft-text); padding:8px 14px; border-radius:10px;
