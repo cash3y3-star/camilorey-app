@@ -6757,7 +6757,16 @@ export default function Home({
   // Los partidos en vivo se muestran en Inicio, no en Calendario —
   // calendarioMatches los excluye del todo (ni siquiera aparecen bajo
   // "Todos"), para no duplicar la misma tarjeta en dos lados.
-  const liveMatches = matches.filter((m) => m.status === 'live');
+  //
+  // "matches.status" viene de la base y solo se actualiza cuando corre
+  // el sync (hasta 30 min de atraso) — el marcador en vivo
+  // (liveScores, ver /api/live-match) lee la fuente en tiempo real y
+  // se entera de que el partido terminó mucho antes. Sin este chequeo,
+  // la tarjeta se quedaba "pegada" en En vivo ahora con el marcador
+  // final ya puesto pero la insignia de en vivo prendida hasta el
+  // próximo sync.
+  const isStillLive = (m) => m.status === 'live' && liveScores[m.sourceId]?.status !== 'finished';
+  const liveMatches = matches.filter(isStillLive);
   const calendarioMatches = matches.filter((m) => m.status !== 'live');
   const filteredMatches =
     matchFilter === 'finalizados'
