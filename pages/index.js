@@ -4207,21 +4207,24 @@ const ONBOARDING_SLIDES = [
 // el ícono de abajo — pedido explícito para el paso de Índice IA,
 // adaptado de la referencia (ahí eran 4 deportes conectados a un
 // ícono central; acá es una sola pelota, porque el sitio es solo tenis
-// de mesa).
+// de mesa). La línea punteada marca el recorrido completo; la pelota
+// sólida viaja por ese mismo camino en loop (animateMotion) para que
+// se vea en movimiento de verdad, no solo una imagen fija.
+const TT_TRAJECTORY_PATH = 'M232 10 L64 30 L192 50 L40 68 L34 82';
 function TableTennisTrajectory() {
   return (
-    <svg viewBox="0 0 200 76" width="176" height="68" fill="none" style={{ display: 'block', marginBottom: '2px' }}>
+    <svg viewBox="0 0 250 92" width="220" height="80" fill="none" style={{ display: 'block', marginBottom: '2px' }}>
       <path
-        d="M176 8 L58 26 L146 46 L34 62"
-        stroke="rgba(255,255,255,.5)"
+        d={TT_TRAJECTORY_PATH}
+        stroke="rgba(255,255,255,.45)"
         strokeWidth="2"
         strokeDasharray="5 6"
         strokeLinecap="round"
       />
-      <circle cx="176" cy="8" r="4" fill="#fff" opacity="0.5" />
-      <circle cx="58" cy="26" r="4" fill="#fff" opacity="0.68" />
-      <circle cx="146" cy="46" r="4" fill="#fff" opacity="0.85" />
-      <circle cx="34" cy="62" r="5.5" fill="#fff" />
+      <circle cx="34" cy="82" r="5.5" fill="#fff" />
+      <circle r="5" fill="#fff">
+        <animateMotion dur="2.6s" repeatCount="indefinite" path={TT_TRAJECTORY_PATH} />
+      </circle>
     </svg>
   );
 }
@@ -4247,8 +4250,10 @@ function OnboardingModal({ onClose, onLogin, lang, resolvedPicks }) {
   const current = ONBOARDING_SLIDES[step];
   // Picks reales acertados (no inventados) para las chips flotantes de
   // arriba — mismo espíritu que la referencia guardada, con nuestro
-  // propio track record en vez de ejemplos de otra app.
-  const hitChips = (resolvedPicks || []).filter((p) => p.result === 'hit').slice(0, 3);
+  // propio track record en vez de ejemplos de otra app. No se muestran
+  // en el paso de Índice IA a propósito: ahí va solo el trayecto de la
+  // pelota, pedido explícito para no saturar esa pantalla.
+  const hitChips = current.trajectory ? [] : (resolvedPicks || []).filter((p) => p.result === 'hit').slice(0, 5);
 
   // Un solo intervalo fijo para toda la vida del componente (deps
   // vacías) — antes se reiniciaba en cada cambio de "step", lo que en
@@ -4277,6 +4282,7 @@ function OnboardingModal({ onClose, onLogin, lang, resolvedPicks }) {
                 <ProfileIcon name="check" size={12} />
               </span>
               <span className="onboarding-chip-market">{p.market}</span>
+              {p.odds ? <span className="onboarding-chip-odds">@{Number(p.odds).toFixed(2)}</span> : null}
               <span className="onboarding-chip-won">{t('onboardingGanado')}</span>
             </div>
           ))}
@@ -9109,19 +9115,22 @@ const CSS = `
     width:64px; height:64px; border-radius:20px; background:var(--card); color:var(--court);
     display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); margin-bottom:18px; flex:none;
   }
-  .onboarding-chips{display:flex; flex-direction:column; gap:10px; min-height:110px; justify-content:center; flex:none; padding-top:6px;}
+  .onboarding-chips{display:flex; flex-direction:column; gap:8px; min-height:190px; justify-content:center; flex:none; padding-top:6px;}
   .onboarding-chip{
-    display:inline-flex; align-items:center; gap:8px; align-self:flex-start; max-width:80%;
+    display:inline-flex; align-items:center; gap:7px; align-self:flex-start; max-width:82%;
     background:rgba(255,255,255,.14); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,.25);
-    border-radius:14px; padding:8px 12px; font-family:var(--font-body); font-size:12.5px; font-weight:700; color:#fff;
+    border-radius:14px; padding:7px 12px; font-family:var(--font-body); font-size:12px; font-weight:700; color:#fff;
   }
   .onboarding-chip-1{align-self:flex-end;}
   .onboarding-chip-2{align-self:flex-start; margin-left:28px;}
+  .onboarding-chip-3{align-self:flex-end; margin-right:14px;}
+  .onboarding-chip-4{align-self:flex-start; margin-left:10px;}
   .onboarding-chip-check{
     width:18px; height:18px; border-radius:50%; background:var(--hit); color:#0E0D0C;
     display:flex; align-items:center; justify-content:center; flex:none;
   }
   .onboarding-chip-market{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .onboarding-chip-odds{color:rgba(255,255,255,.7); font-weight:700; font-size:11.5px; flex:none;}
   .onboarding-chip-won{color:var(--hit); font-weight:800; font-size:11px; letter-spacing:.3px; flex:none;}
   .onboarding-pill{
     display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
