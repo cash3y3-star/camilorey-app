@@ -6818,29 +6818,44 @@ export default function Home({
         <div
           style={{
             minHeight: '100vh',
-            background: '#0E0D0C',
+            background:
+              'radial-gradient(120% 55% at 50% 100%, #0E0D0C 0%, transparent 62%), linear-gradient(160deg, #E2444A 0%, #FF7A45 55%, #0E0D0C 100%)',
             color: '#F5F1EC',
             fontFamily: "'Manrope', sans-serif",
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '24px',
-            textAlign: 'center'
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            padding: '24px'
           }}
         >
-          <div style={{ maxWidth: '380px' }}>
-            <div style={{ fontSize: '34px', marginBottom: '14px' }}>🔒</div>
+          <div style={{ maxWidth: '380px', margin: '0 auto', width: '100%' }}>
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '20px',
+                background: '#1B1917',
+                color: '#E2444A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '18px'
+              }}
+            >
+              <ProfileIcon name="shield" size={30} />
+            </div>
             <h1
               style={{
                 fontFamily: "'Big Shoulders Display', sans-serif",
                 fontWeight: 800,
-                fontSize: '26px',
-                margin: '0 0 10px'
+                fontSize: '32px',
+                lineHeight: 1.08,
+                margin: '0 0 12px'
               }}
             >
               CAMILOREY
             </h1>
-            <p style={{ color: '#948C83', fontSize: '14.5px', lineHeight: 1.6, margin: '0 0 22px' }}>
+            <p style={{ color: '#F5F1EC', opacity: 0.75, fontSize: '14.5px', lineHeight: 1.5, margin: '0 0 22px', maxWidth: '340px' }}>
               {!user
                 ? 'El sitio está en pruebas cerradas por ahora. Inicia sesión con Google para ver si tenés acceso.'
                 : 'Tu cuenta todavía no tiene acceso — el sitio está en pruebas cerradas por ahora.'}
@@ -6849,17 +6864,19 @@ export default function Home({
               <button
                 onClick={loginWithGoogle}
                 style={{
-                  display: 'inline-flex',
+                  width: '100%',
+                  display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '10px',
-                  background: '#1B1917',
-                  border: '1px solid #2B2724',
-                  borderRadius: '12px',
-                  padding: '13px 22px',
-                  color: '#F5F1EC',
+                  background: '#F5F1EC',
+                  color: '#0E0D0C',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '16px',
                   fontFamily: "'Manrope', sans-serif",
-                  fontWeight: 700,
-                  fontSize: '14px',
+                  fontWeight: 800,
+                  fontSize: '15px',
                   cursor: 'pointer'
                 }}
               >
@@ -6870,14 +6887,13 @@ export default function Home({
                 onClick={logout}
                 style={{
                   background: 'none',
-                  border: '1px solid #2B2724',
-                  borderRadius: '12px',
-                  padding: '11px 20px',
-                  color: '#948C83',
+                  border: 'none',
+                  color: '#F5F1EC',
                   fontFamily: "'Manrope', sans-serif",
-                  fontWeight: 600,
-                  fontSize: '13px',
-                  cursor: 'pointer'
+                  fontWeight: 700,
+                  fontSize: '13.5px',
+                  cursor: 'pointer',
+                  padding: '6px'
                 }}
               >
                 Cerrar sesión
