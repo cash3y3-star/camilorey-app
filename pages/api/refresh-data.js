@@ -633,6 +633,27 @@ export default async function handler(req, res) {
     ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
     : null;
 
+  // Mismo criterio que getServerSideProps, solo picks Exclusivos —
+  // alimenta la tarjeta de "Estadísticas Premium" en Inicio.
+  const { data: exclusiveRows } = await supabase
+    .from('bankroll_log')
+    .select('units, picks!inner(published, is_exclusive)')
+    .eq('picks.published', true)
+    .eq('picks.is_exclusive', true)
+    .order('created_at', { ascending: false })
+    .limit(30);
+  const exHits = (exclusiveRows || []).filter((r) => Number(r.units) > 0).length;
+  const exMisses = (exclusiveRows || []).filter((r) => Number(r.units) < 0).length;
+  const exclusiveEfectividad = exHits + exMisses > 0 ? Math.round((exHits / (exHits + exMisses)) * 100) : 0;
+  let exclusiveRacha = 0;
+  for (const r of exclusiveRows || []) {
+    const won = Number(r.units) > 0;
+    if (exclusiveRacha === 0) exclusiveRacha = won ? 1 : -1;
+    else if (exclusiveRacha > 0 === won) exclusiveRacha += won ? 1 : -1;
+    else break;
+  }
+  const exclusiveStats = { efectividad: exclusiveEfectividad, racha: exclusiveRacha, n: exHits + exMisses };
+
   // El log detallado (bankrollLog/bankrollSeries, apuesta por apuesta)
   // ya NO se manda desde este endpoint público — antes cualquiera
   // podía pedirlo sin login y ver el bankroll completo del admin. Ese
@@ -642,6 +663,7 @@ export default async function handler(req, res) {
   // siendo públicas a propósito.
   return res.status(200).json({
     stats: { efectividad, racha, cuotaProm, roi, unidades },
+    exclusiveStats,
     picks: publicPicks,
     resolvedPicks: publicResolvedPicks,
     tournamentGroups,

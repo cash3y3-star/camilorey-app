@@ -83,6 +83,10 @@ const TRANSLATIONS = {
     inicioSub: 'Análisis propio sobre partidos de la Liga Pro Checa, contrastado con nuestro propio historial.',
     holaSaludo: 'Hola',
     statsSistemaTitle: 'Estadísticas del Sistema',
+    statsPremiumTitle: 'Estadísticas Premium',
+    statMuestra: 'Muestra',
+    statsPremiumLockTitle: 'Estadísticas Exclusivas',
+    statsPremiumLockDesc: 'Desbloquea la efectividad real de los picks Exclusivos con Premium',
     statEfectividad: 'Efectividad (últ. 30)',
     statRachaActual: 'Racha actual',
     statROI: 'ROI',
@@ -393,6 +397,10 @@ const TRANSLATIONS = {
     inicioSub: 'Our own analysis of Czech Liga Pro matches, checked against our own track record.',
     holaSaludo: 'Hi',
     statsSistemaTitle: 'System Stats',
+    statsPremiumTitle: 'Premium Stats',
+    statMuestra: 'Sample',
+    statsPremiumLockTitle: 'Exclusive Stats',
+    statsPremiumLockDesc: "Unlock Exclusive picks' real accuracy with Premium",
     statEfectividad: 'Accuracy (last 30)',
     statRachaActual: 'Current streak',
     statROI: 'ROI',
@@ -701,6 +709,10 @@ const TRANSLATIONS = {
     inicioSub: 'Nossa própria análise dos jogos da Liga Pro Checa, comparada com nosso histórico real.',
     holaSaludo: 'Olá',
     statsSistemaTitle: 'Estatísticas do Sistema',
+    statsPremiumTitle: 'Estatísticas Premium',
+    statMuestra: 'Amostra',
+    statsPremiumLockTitle: 'Estatísticas Exclusivas',
+    statsPremiumLockDesc: 'Desbloqueie a efetividade real dos picks Exclusivos com Premium',
     statEfectividad: 'Efetividade (últ. 30)',
     statRachaActual: 'Sequência atual',
     statROI: 'ROI',
@@ -1351,6 +1363,33 @@ export async function getServerSideProps({ query }) {
       ? await supabase.from('picks').select('id, market, odds').in('id', bkPickIds)
       : { data: [] };
     return { bankrollRows, bkPicks };
+  })();
+
+  // Mismo criterio que arriba pero SOLO picks Exclusivos — esto es lo
+  // que se muestra en Inicio como "Estadísticas Premium" (pedido
+  // 2026-07-17: la efectividad general deja de ser pública, se
+  // reemplaza por esto). No hace falta reconstruir el stake/ROI acá,
+  // solo efectividad y racha — coincide con lo simple que ya se ve en
+  // Inicio.
+  const exclusiveStatsPromise = (async () => {
+    const { data: rows } = await supabase
+      .from('bankroll_log')
+      .select('units, picks!inner(published, is_exclusive)')
+      .eq('picks.published', true)
+      .eq('picks.is_exclusive', true)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    const hits = (rows || []).filter((r) => Number(r.units) > 0).length;
+    const misses = (rows || []).filter((r) => Number(r.units) < 0).length;
+    const efectividad = hits + misses > 0 ? Math.round((hits / (hits + misses)) * 100) : 0;
+    let racha = 0;
+    for (const r of rows || []) {
+      const won = Number(r.units) > 0;
+      if (racha === 0) racha = won ? 1 : -1;
+      else if (racha > 0 === won) racha += won ? 1 : -1;
+      else break;
+    }
+    return { efectividad, racha, n: hits + misses };
   })();
 
   const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
@@ -2100,10 +2139,12 @@ export async function getServerSideProps({ query }) {
     : null;
 
   const { count: userCount } = await userCountPromise;
+  const exclusiveStats = await exclusiveStatsPromise;
 
   return {
     props: {
       stats: { efectividad, racha, cuotaProm, roi, unidades },
+      exclusiveStats,
       picks: publicPicks,
       resolvedPicks: publicResolvedPicks,
       tournamentGroups,
@@ -2133,6 +2174,7 @@ export async function getServerSideProps({ query }) {
     return {
       props: {
         stats: { efectividad: 0, racha: 0, cuotaProm: null, roi: 0, unidades: 0 },
+        exclusiveStats: { efectividad: 0, racha: 0, n: 0 },
         picks: [],
         resolvedPicks: [],
         tournamentGroups: [],
@@ -2415,7 +2457,13 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
             vs {pick.opponent} · {pick.matchStatus === 'done' && pick.score ? pick.score : pick.time}
           </span>
           <div className="pc-hero-quick">
-            <span className="pc-hero-odds num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
+            {canSeeFullHistory ? (
+              <span className="pc-hero-odds num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
+            ) : (
+              <span className="pc-hero-odds pc-hero-odds-locked">
+                Cuota <ProfileIcon name="lock" size={10} />
+              </span>
+            )}
           </div>
           <div className="pc-hero-pill-row">
             <span className="pc-hero-pill">{pick.market}</span>
@@ -2473,7 +2521,13 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
         <div className="ia-bar-fill" style={{ width: `${pick.confidence}%` }}></div>
       </div>
       <div className="pc-foot">
-        <span className="odd-mini num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
+        {canSeeFullHistory ? (
+          <span className="odd-mini num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
+        ) : (
+          <span className="odd-mini pc-hero-odds-locked">
+            Cuota <ProfileIcon name="lock" size={10} />
+          </span>
+        )}
         {featured ? (
           <button
             className="btn btn-ball"
@@ -3476,7 +3530,13 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
               </div>
               <div className="pick-metric-card">
                 <span className="pick-metric-label">{t('cuotaRushbet')}</span>
-                <span className="pick-metric-value num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : t('noDisponible')}</span>
+                {canSeeFullHistory ? (
+                  <span className="pick-metric-value num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : t('noDisponible')}</span>
+                ) : (
+                  <span className="pick-metric-value pick-metric-locked">
+                    <ProfileIcon name="lock" size={14} />
+                  </span>
+                )}
               </div>
               <div className="pick-metric-card">
                 <span className="pick-metric-label">{t('racha')}</span>
@@ -6223,6 +6283,7 @@ const BETA_GATE_END = new Date('2026-07-17T14:35:00-05:00').getTime();
 
 export default function Home({
   stats: initialStats,
+  exclusiveStats: initialExclusiveStats,
   picks: initialPicks,
   resolvedPicks: initialResolvedPicks,
   tournamentGroups: initialTournamentGroups,
@@ -6234,6 +6295,7 @@ export default function Home({
 }) {
   const [view, setView] = useState('inicio');
   const [stats, setStats] = useState(initialStats);
+  const [exclusiveStats, setExclusiveStats] = useState(initialExclusiveStats || { efectividad: 0, racha: 0, n: 0 });
   const [picks, setPicks] = useState(initialPicks);
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
   const [tournamentGroups, setTournamentGroups] = useState(initialTournamentGroups);
@@ -6518,6 +6580,7 @@ export default function Home({
         const data = await r.json();
         if (cancelled) return;
         if (data.stats) setStats(data.stats);
+        if (data.exclusiveStats) setExclusiveStats(data.exclusiveStats);
         if (data.picks) setPicks(data.picks);
         if (data.resolvedPicks) setResolvedPicks(data.resolvedPicks);
         if (data.tournamentGroups) setTournamentGroups(data.tournamentGroups);
@@ -7621,27 +7684,37 @@ export default function Home({
           </a>
 
           <div className="section-head">
-            <h2>{t('statsSistemaTitle')}</h2>
+            <h2>{t('statsPremiumTitle')}</h2>
           </div>
-          <div className="stat-strip stat-strip-3">
-            <div className="stat-card">
-              <div className="label">{t('statEfectividad')}</div>
-              <div className="value hit num">{stats.efectividad}%</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">{t('statRachaActual')}</div>
-              <div className="value num">
-                {stats.racha === 0 ? '—' : `${Math.abs(stats.racha)}${stats.racha > 0 ? 'W' : 'L'}`}
+          {isAdmin || isPremium ? (
+            <div className="stat-strip stat-strip-3">
+              <div className="stat-card">
+                <div className="label">{t('statEfectividad')}</div>
+                <div className="value hit num">{exclusiveStats.efectividad}%</div>
+              </div>
+              <div className="stat-card">
+                <div className="label">{t('statRachaActual')}</div>
+                <div className="value num">
+                  {exclusiveStats.racha === 0 ? '—' : `${Math.abs(exclusiveStats.racha)}${exclusiveStats.racha > 0 ? 'W' : 'L'}`}
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="label">{t('statMuestra')}</div>
+                <div className="value num">{exclusiveStats.n}</div>
               </div>
             </div>
-            <div className="stat-card">
-              <div className="label">{t('statROI')}</div>
-              <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
-                {stats.roi >= 0 ? '+' : ''}
-                {stats.roi}%
-              </div>
-            </div>
-          </div>
+          ) : (
+            <button type="button" className="upgrade-card" onClick={() => setShowProfileModal(true)}>
+              <span className="upgrade-card-icon">
+                <ProfileIcon name="crown" />
+              </span>
+              <span className="upgrade-card-body">
+                <strong>{t('statsPremiumLockTitle')}</strong>
+                <span>{t('statsPremiumLockDesc')}</span>
+              </span>
+              <span className="upgrade-card-cta">{t('verPlanes')}</span>
+            </button>
+          )}
 
           {featured ? (
             <>
@@ -7791,6 +7864,29 @@ export default function Home({
           </span>
           <h1 className="page-title">Admin</h1>
           <p className="page-sub">Todo lo que solo vos administrás, agrupado en un solo lugar.</p>
+
+          <div className="section-head">
+            <h2>{t('statsSistemaTitle')}</h2>
+          </div>
+          <div className="stat-strip stat-strip-3">
+            <div className="stat-card">
+              <div className="label">{t('statEfectividad')}</div>
+              <div className="value hit num">{stats.efectividad}%</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statRachaActual')}</div>
+              <div className="value num">
+                {stats.racha === 0 ? '—' : `${Math.abs(stats.racha)}${stats.racha > 0 ? 'W' : 'L'}`}
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statROI')}</div>
+              <div className={`value num ${stats.roi >= 0 ? 'hit' : 'miss'}`}>
+                {stats.roi >= 0 ? '+' : ''}
+                {stats.roi}%
+              </div>
+            </div>
+          </div>
 
           <div className="profile-section-label">PANELES</div>
           <a className="profile-row" href="#bankroll">
@@ -9177,6 +9273,7 @@ const CSS = `
   .pc-hero-meta{font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .pc-hero-quick{display:flex; gap:12px; align-items:center; margin:3px 0;}
   .pc-hero-odds{font-family:var(--font-mono); font-size:12px; color:var(--muted); font-weight:700;}
+  .pc-hero-odds-locked{display:inline-flex; align-items:center; gap:4px; text-transform:uppercase; letter-spacing:.3px; font-size:10.5px;}
   .pc-hero-pill{
     display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.2px;
     padding:4px 9px; border-radius:20px; background:rgba(34,197,94,.16); color:#22C55E;
@@ -10049,6 +10146,7 @@ const CSS = `
   .pick-metric-card-accent .pick-metric-label{color:var(--court-soft-text);}
   .pick-metric-value{font-size:15px; font-weight:800; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .pick-metric-card-accent .pick-metric-value{color:var(--court-soft-text);}
+  .pick-metric-locked{display:flex; align-items:center; color:var(--muted);}
   .pick-metric-bar{height:4px; border-radius:99px; background:rgba(0,0,0,.15); overflow:hidden; margin-top:1px;}
   .pick-metric-bar-fill{height:100%; background:#22C55E; border-radius:99px;}
 
