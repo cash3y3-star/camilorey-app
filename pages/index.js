@@ -8541,7 +8541,7 @@ const CSS = `
   .followed-card:hover{border-color:var(--court); transform:translateY(-1px);}
   .followed-photo{
     position:relative; width:100%; aspect-ratio:1/1;
-    background:linear-gradient(150deg, var(--court), var(--avatar-shade) 130%);
+    background:var(--avatar-shade);
     display:flex; align-items:center; justify-content:center;
   }
   .followed-photo img{width:100%; height:100%; object-fit:cover; display:block;}
