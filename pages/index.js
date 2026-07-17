@@ -155,8 +155,10 @@ const TRANSLATIONS = {
     perfilMiembroDesde: 'Miembro desde',
     mejoraTuPlan: 'Mejora tu plan',
     mejoraTuPlanDesc: 'Mi Bankroll y más funciones premium',
-    funcionPremium: 'Función Premium',
-    funcionPremiumDesc: 'Mejora tu plan para desbloquearla',
+    pickFuncionPremium: 'Función Premium',
+    pickFuncionPremiumDesc: 'Mejora tu plan para desbloquearla',
+    masPicksLockTitle: 'Más picks disponibles',
+    masPicksLockDesc: 'Desbloquea todos los picks del día con Premium',
     verPlanes: 'Ver Planes ›',
     plansTitle: 'Elige tu plan Premium',
     plansBullet1: 'Detección de cuotas con valor (edge) frente al mercado',
@@ -467,8 +469,10 @@ const TRANSLATIONS = {
     perfilMiembroDesde: 'Member since',
     mejoraTuPlan: 'Upgrade your plan',
     mejoraTuPlanDesc: 'My Bankroll and more premium features',
-    funcionPremium: 'Premium Feature',
-    funcionPremiumDesc: 'Upgrade your plan to unlock it',
+    pickFuncionPremium: 'Premium Feature',
+    pickFuncionPremiumDesc: 'Upgrade your plan to unlock it',
+    masPicksLockTitle: 'More picks available',
+    masPicksLockDesc: "Unlock the day's full pick list with Premium",
     verPlanes: 'See Plans ›',
     plansTitle: 'Choose your Premium plan',
     plansBullet1: 'Value-edge odds detection against the market',
@@ -778,8 +782,10 @@ const TRANSLATIONS = {
     perfilMiembroDesde: 'Membro desde',
     mejoraTuPlan: 'Melhore seu plano',
     mejoraTuPlanDesc: 'Minha Banca e mais funções premium',
-    funcionPremium: 'Função Premium',
-    funcionPremiumDesc: 'Melhore seu plano para desbloqueá-la',
+    pickFuncionPremium: 'Função Premium',
+    pickFuncionPremiumDesc: 'Melhore seu plano para desbloqueá-la',
+    masPicksLockTitle: 'Mais picks disponíveis',
+    masPicksLockDesc: 'Desbloqueie todos os picks do dia com Premium',
     verPlanes: 'Ver Planos ›',
     plansTitle: 'Escolha seu plano Premium',
     plansBullet1: 'Detecção de odds com valor (edge) frente ao mercado',
@@ -3675,8 +3681,8 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
                 <span className="premium-feature-lock">
                   <ProfileIcon name="lock" size={18} />
                 </span>
-                <strong>{t('funcionPremium')}</strong>
-                <p>{t('funcionPremiumDesc')}</p>
+                <strong>{t('pickFuncionPremium')}</strong>
+                <p>{t('pickFuncionPremiumDesc')}</p>
               </div>
             ) : null}
           </>
@@ -6872,10 +6878,19 @@ export default function Home({
   // vez de en cada sitio que use "picks"/"resolvedPicks" para pintar
   // algo visible a cualquiera.
   const canSeeExclusive = isAdmin || isPremium;
-  const visiblePicks = useMemo(
-    () => (canSeeExclusive ? picks : picks.filter((p) => !p.exclusive)),
-    [picks, canSeeExclusive]
-  );
+  // Pedido 2026-07-17: usuarios gratis solo ven los 20 picks de mayor
+  // confianza del día — no la lista completa. Exclusivo/Premium/Admin
+  // sigue viendo todo, sin tope (ya de por sí ven también los picks
+  // Exclusivos, que acá siguen sin mostrarse a quien no sea Exclusivo).
+  const FREE_PICKS_CAP = 20;
+  const visiblePicks = useMemo(() => {
+    if (canSeeExclusive) return picks;
+    return picks
+      .filter((p) => !p.exclusive)
+      .slice()
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, FREE_PICKS_CAP);
+  }, [picks, canSeeExclusive]);
   // Los picks exclusivos YA NO viajan en picks/resolvedPicks (esos son
   // props/JSON públicos, sin login) — se piden aparte acá abajo con el
   // token de sesión, a /api/vip-picks (mismo patrón que exclusiveBalance).
@@ -7821,6 +7836,18 @@ export default function Home({
               ))
             )}
           </div>
+          {!canSeeExclusive && picks.filter((p) => !p.exclusive).length > FREE_PICKS_CAP ? (
+            <button type="button" className="upgrade-card" onClick={() => setShowProfileModal(true)}>
+              <span className="upgrade-card-icon">
+                <ProfileIcon name="crown" />
+              </span>
+              <span className="upgrade-card-body">
+                <strong>{t('masPicksLockTitle')}</strong>
+                <span>{t('masPicksLockDesc')}</span>
+              </span>
+              <span className="upgrade-card-cta">{t('verPlanes')}</span>
+            </button>
+          ) : null}
         </section>
 
         <section className={`view ${view === 'calendario' ? 'active' : ''}`}>
