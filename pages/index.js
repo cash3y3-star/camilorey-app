@@ -7003,6 +7003,31 @@ export default function Home({
     setPromoBusy(false);
   };
 
+  // Prueba el aviso real de "Pick Exclusivo nuevo" en el propio
+  // celular del admin (con el Exclusivo publicado más reciente), sin
+  // esperar a que corra sync.js — pedido 2026-07-16 para poder ver
+  // cómo se ve antes de que le llegue a usuarios de verdad.
+  const [testVipBusy, setTestVipBusy] = useState(false);
+  const [testVipMsg, setTestVipMsg] = useState('');
+  const testVipPickNotif = async () => {
+    if (!supabaseClient) return;
+    setTestVipBusy(true);
+    setTestVipMsg('');
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/notify/test-vip-pick', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      const data = await r.json();
+      setTestVipMsg(r.ok ? `Enviado a ${data.sent} suscripción${data.sent === 1 ? '' : 'es'} de esta cuenta.` : data.error || 'Error.');
+    } catch (e) {
+      setTestVipMsg(e.message);
+    }
+    setTestVipBusy(false);
+  };
+
   // "Mi Bankroll": mismo cálculo de Kelly que el Bankroll del admin,
   // pero corriendo solo sobre los picks que ESTA persona sigue (no
   // los del sitio entero). followedDetail ya trae confianza/cuota/
@@ -7716,6 +7741,21 @@ export default function Home({
               {promoBusy ? 'Enviando…' : 'Enviar promoción'}
             </button>
             {promoMsg ? <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{promoMsg}</p> : null}
+          </div>
+
+          <div className="profile-section-label" style={{ marginTop: '22px' }}>
+            PRUEBA: PICK EXCLUSIVO NUEVO
+          </div>
+          <div className="bankroll-card">
+            <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
+              Manda el aviso de "🔒 Pick Exclusivo nuevo" a esta cuenta, con el Exclusivo publicado más reciente —
+              para ver cómo se ve antes de que le llegue a usuarios reales. Necesitas tener las notificaciones
+              activadas en este navegador.
+            </p>
+            <button type="button" className="btn btn-ghost" disabled={testVipBusy} onClick={testVipPickNotif}>
+              {testVipBusy ? 'Enviando…' : 'Probar en mi celular/navegador'}
+            </button>
+            {testVipMsg ? <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{testVipMsg}</p> : null}
           </div>
         </section>
         )}
