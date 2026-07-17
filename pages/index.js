@@ -9666,11 +9666,13 @@ const CSS = `
   .stream-player{position:fixed; z-index:300;}
   .stream-player.full{inset:0; display:flex; align-items:center; justify-content:center; padding:16px;}
   .stream-player-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.75);}
-  .stream-player.full .stream-player-box{position:relative; width:100%; max-width:720px; max-height:100%; overflow-y:auto;}
+  .stream-player.full .stream-player-box{position:relative; width:100%; max-width:920px; max-height:100%; overflow-y:auto;}
   .stream-player-stack{display:flex; flex-direction:column; gap:12px;}
+  .stream-player.full .stream-player-stack{flex-direction:row; flex-wrap:wrap; align-items:flex-start; justify-content:center;}
   .stream-player.full .stream-player-frame{
-    position:relative; width:100%; aspect-ratio:16/9; border-radius:14px; overflow:hidden;
-    background:#000; box-shadow:0 20px 50px rgba(0,0,0,.5); flex:none;
+    position:relative; aspect-ratio:16/9; border-radius:14px; overflow:hidden;
+    background:#000; box-shadow:0 20px 50px rgba(0,0,0,.5);
+    flex:1 1 260px; min-width:130px; max-width:100%;
   }
   .stream-player-controls{position:absolute; top:-46px; right:0; z-index:2; display:flex; gap:8px;}
   .stream-player-btn{
