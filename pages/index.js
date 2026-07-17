@@ -104,7 +104,7 @@ const TRANSLATIONS = {
     exclusivosVacio: 'Todavía no hay picks exclusivos activos — vuelve más tarde.',
     balanceExclusivoTitle: 'Balance Exclusivo',
     balanceExclusivoSub: 'El acierto real de los picks exclusivos (alta confianza + cuota 1.60+), aparte del balance general.',
-    historialCompletoLock: 'El historial completo (L10/L20) es beneficio premium — mejora tu plan para verlo.',
+    historialCompletoLock: 'El historial de 20 partidos (L20) es beneficio premium — mejora tu plan para verlo.',
 
     calendarioEyebrow: 'Liga Pro Checa',
     calendarioTitle: 'Calendario',
@@ -386,7 +386,7 @@ const TRANSLATIONS = {
     exclusivosVacio: 'No active exclusive picks yet — check back later.',
     balanceExclusivoTitle: 'Exclusive Balance',
     balanceExclusivoSub: 'Real hit rate of the exclusive picks (high confidence + 1.60+ odds), tracked apart from the overall balance.',
-    historialCompletoLock: 'Full history (L10/L20) is a premium perk — upgrade your plan to see it.',
+    historialCompletoLock: 'The 20-match history (L20) is a premium perk — upgrade your plan to see it.',
 
     calendarioEyebrow: 'Czech Liga Pro',
     calendarioTitle: 'Schedule',
@@ -667,7 +667,7 @@ const TRANSLATIONS = {
     exclusivosVacio: 'Ainda não há picks exclusivos ativos — volte mais tarde.',
     balanceExclusivoTitle: 'Banca Exclusiva',
     balanceExclusivoSub: 'O acerto real dos picks exclusivos (alta confiança + odds 1.60+), separado da banca geral.',
-    historialCompletoLock: 'O histórico completo (L10/L20) é benefício premium — melhore seu plano para vê-lo.',
+    historialCompletoLock: 'O histórico de 20 partidas (L20) é benefício premium — melhore seu plano para vê-lo.',
 
     calendarioEyebrow: 'Liga Pro Checa',
     calendarioTitle: 'Calendário',
@@ -3110,11 +3110,12 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
   // "Estadísticas" ahora es un solo tab con 3 botones (local/H2H/
   // visitante) y un selector de cantidad aparte — L5/L10/L20 para
   // forma reciente y para H2H (el H2H suelto que había antes se
-  // fusionó acá). L10/L20 son beneficio premium (ver 2026-07-14):
-  // quien no es admin/premium queda fijo en L5, sin selector.
+  // fusionó acá). Pedido 2026-07-16: solo L20 queda como beneficio
+  // premium — L10 (los últimos partidos del jugador) ya es gratis
+  // para cualquiera.
   const [statSide, setStatSide] = useState('local');
-  const [statRange, setStatRange] = useState(canSeeFullHistory ? 10 : 5);
-  const maxRange = canSeeFullHistory ? 20 : 5;
+  const [statRange, setStatRange] = useState(10);
+  const maxRange = canSeeFullHistory ? 20 : 10;
 
   // Local (camiseta roja) siempre a la izquierda, visitante (azul) a
   // la derecha — pick.player/pick.opponent están ordenados por
@@ -3299,11 +3300,8 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
               <div className={`tab ${statRange === 5 ? 'active' : ''}`} onClick={() => setStatRange(5)}>
                 L5
               </div>
-              <div
-                className={`tab ${statRange === 10 ? 'active' : ''} ${!canSeeFullHistory ? 'tab-locked' : ''}`}
-                onClick={() => (canSeeFullHistory ? setStatRange(10) : alert(t('historialCompletoLock')))}
-              >
-                L10 {!canSeeFullHistory ? <ProfileIcon name="lock" size={10} /> : null}
+              <div className={`tab ${statRange === 10 ? 'active' : ''}`} onClick={() => setStatRange(10)}>
+                L10
               </div>
               <div
                 className={`tab ${statRange === 20 ? 'active' : ''} ${!canSeeFullHistory ? 'tab-locked' : ''}`}
