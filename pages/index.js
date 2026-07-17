@@ -5556,7 +5556,7 @@ function ProfileModal({
                 : t('notifToca')}
             </p>
           </div>
-          <span className={`status ${notifStatus === 'granted' ? 'live' : 'soon'}`}>
+          <span className={`status ${notifStatus === 'granted' ? 'on' : 'soon'}`}>
             {notifStatus === 'granted' ? t('statusActivas') : t('statusActivar')}
           </span>
         </div>
@@ -8633,8 +8633,12 @@ const CSS = `
   }
   .match-filter-btn.active{background:var(--court); border-color:var(--court); color:#fff;}
   .live-dot{
-    display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--court);
-    animation:pulse-dot 1.8s ease-in-out infinite;
+    display:inline-block; width:7px; height:7px; border-radius:50%; background:#E2444A;
+    animation:pulse-dot-live 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse-dot-live{
+    0%, 100%{transform:scale(1); box-shadow:0 0 0 3px rgba(226,68,74,.25), 0 0 6px rgba(226,68,74,.6);}
+    50%{transform:scale(1.25); box-shadow:0 0 0 5px rgba(226,68,74,.15), 0 0 10px rgba(226,68,74,.9);}
   }
 
   .balance-hero{
@@ -8711,8 +8715,8 @@ const CSS = `
   .tab.tab-locked.active{background:var(--bg-alt); color:var(--muted); border-color:var(--line);}
 
   .status{font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; flex:none;}
-  .status.live{background:rgba(22,163,74,.18); color:var(--court); border:1px solid rgba(22,163,74,.5);}
-  .status.soon{background:var(--court-soft); color:var(--court-soft-text);}
+  .status.live{background:rgba(226,68,74,.18); color:#E2444A; border:1px solid rgba(226,68,74,.5);}
+  .status.soon, .status.on{background:var(--court-soft); color:var(--court-soft-text);}
   .status.done{background:var(--bg-alt); color:var(--muted);}
 
   .mc-live-score{
