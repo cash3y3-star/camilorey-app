@@ -2201,6 +2201,18 @@ function shortDate(iso) {
   }).format(new Date(iso));
 }
 
+// Busca el video de YouTube de la "mesa" (torneo) de un partido — el
+// código (A12, A14...) aparece como prefijo/palabra suelta dentro del
+// nombre real del torneo (ej. "A17. League 700-800"), por eso se
+// compara por palabra completa y no por substring a secas (así "A1"
+// no matchea de más contra "A17"/"A18").
+function findStreamForTournament(tournamentName, streams) {
+  if (!tournamentName || !streams || streams.length === 0) return null;
+  return (
+    streams.find((s) => new RegExp(`\\b${s.tournament_code}\\b`, 'i').test(tournamentName))?.youtube_video_id || null
+  );
+}
+
 // Bankroll en pesos colombianos, banco inicial $2.000.000 (ver
 // scripts/convert-bankroll-to-pesos.js). withSign se usa para
 // ganancia/pérdida de una apuesta puntual; el balance total no lleva
@@ -2634,7 +2646,7 @@ function ChampionCard({ champ }) {
   );
 }
 
-function MatchRow({ m, onClick, followed, onToggleFollow, live }) {
+function MatchRow({ m, onClick, followed, onToggleFollow, live, streamVideoId, onWatchStream }) {
   const label = m.status === 'live' ? 'En vivo' : m.status === 'done' ? 'Finalizado' : 'Pendiente';
 
   // Mientras está en vivo, el centro de la tarjeta muestra sets
@@ -2734,6 +2746,19 @@ function MatchRow({ m, onClick, followed, onToggleFollow, live }) {
             <span className="mc-live-loading">Buscando marcador…</span>
           )}
         </div>
+      ) : null}
+      {m.status === 'live' && streamVideoId ? (
+        <button
+          type="button"
+          className="watch-stream-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onWatchStream(streamVideoId);
+          }}
+        >
+          <span className="live-dot"></span>
+          Ver stream
+        </button>
       ) : null}
     </div>
   );
@@ -2858,6 +2883,30 @@ function LiveChat({ matchSourceId, user, profile }) {
 // si el partido sigue en vivo) consulta cada 8s el marcador real —
 // primero contra Rushbet (set por set + reloj), y si no lo tiene,
 // contra tt.league-pro.com directo.
+// Modal chico solo con el embed de YouTube de la mesa — separado del
+// detalle del partido a propósito: "Ver stream" tiene que abrir
+// directo al video, sin pasar por el resto de pestañas/estadísticas.
+function StreamModal({ videoId, onClose }) {
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal stream-modal">
+        <button className="modal-close stream-modal-close" onClick={onClose}>
+          ✕
+        </button>
+        <div className="stream-modal-frame">
+          <iframe
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+            title="Transmisión en vivo"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MatchDetailModal({ m, onClose, user, profile, lang }) {
   const t = useTranslate(lang);
   const [live, setLive] = useState(null);
@@ -6175,6 +6224,23 @@ export default function Home({
   const [modalMatch, setModalMatch] = useState(null);
   const [user, setUser] = useState(null);
 
+  // Transmisiones en vivo de YouTube por torneo (una por "mesa") — se
+  // cargan una sola vez, lectura pública sin login (ver policy de
+  // live_streams). El admin las actualiza a mano cada día desde el
+  // panel, así que no hace falta refrescarlas mientras la página
+  // sigue abierta.
+  const [liveStreams, setLiveStreams] = useState([]);
+  const [streamModalVideoId, setStreamModalVideoId] = useState(null);
+  useEffect(() => {
+    if (!supabaseClient) return;
+    supabaseClient
+      .from('live_streams')
+      .select('tournament_code, youtube_video_id')
+      .then(({ data, error }) => {
+        if (!error && data) setLiveStreams(data);
+      });
+  }, []);
+
   // Vibración + "toc" suave en cualquier botón/enlace/tarjeta del
   // sitio entero — ver useGlobalTapFeedback más arriba.
   useGlobalTapFeedback();
@@ -7068,6 +7134,61 @@ export default function Home({
     setTestVipBusy(false);
   };
 
+  // Administra las transmisiones de YouTube por torneo (cambian cada
+  // día) — agregar/actualizar reusa el mismo endpoint (upsert por
+  // código), borrar es aparte. Recarga liveStreams después de cada
+  // cambio para que se refleje ya mismo en los botones "Ver stream".
+  const [streamCodeInput, setStreamCodeInput] = useState('');
+  const [streamUrlInput, setStreamUrlInput] = useState('');
+  const [streamBusy, setStreamBusy] = useState(false);
+  const [streamMsg, setStreamMsg] = useState('');
+  const reloadLiveStreams = async () => {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient.from('live_streams').select('tournament_code, youtube_video_id');
+    if (!error && data) setLiveStreams(data);
+  };
+  const saveLiveStream = async () => {
+    if (!streamCodeInput.trim() || !streamUrlInput.trim() || !supabaseClient) return;
+    setStreamBusy(true);
+    setStreamMsg('');
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/admin-live-streams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ tournament_code: streamCodeInput.trim(), youtube_video_id_or_url: streamUrlInput.trim() })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setStreamMsg(data.error || 'Error guardando el stream.');
+      } else {
+        setStreamMsg(`Guardado: ${data.tournament_code} → ${data.youtube_video_id}`);
+        setStreamCodeInput('');
+        setStreamUrlInput('');
+        await reloadLiveStreams();
+      }
+    } catch (e) {
+      setStreamMsg(e.message);
+    }
+    setStreamBusy(false);
+  };
+  const deleteLiveStream = async (code) => {
+    if (!supabaseClient) return;
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      await fetch('/api/admin-live-streams', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ tournament_code: code })
+      });
+      await reloadLiveStreams();
+    } catch (e) {
+      setStreamMsg(e.message);
+    }
+  };
+
   // "Mi Bankroll": mismo cálculo de Kelly que el Bankroll del admin,
   // pero corriendo solo sobre los picks que ESTA persona sigue (no
   // los del sitio entero). followedDetail ya trae confianza/cuota/
@@ -7519,6 +7640,8 @@ export default function Home({
                   followed={m.pickId ? followedPickIds.has(m.pickId) : false}
                   onToggleFollow={m.pickResult ? undefined : toggleFollow}
                   live={liveScores[m.sourceId]}
+                  streamVideoId={findStreamForTournament(m.tournament, liveStreams)}
+                  onWatchStream={setStreamModalVideoId}
                 />
               ))}
             </>
@@ -7615,6 +7738,8 @@ export default function Home({
                   followed={m.pickId ? followedPickIds.has(m.pickId) : false}
                   onToggleFollow={m.pickResult ? undefined : toggleFollow}
                   live={liveScores[m.sourceId]}
+                  streamVideoId={findStreamForTournament(m.tournament, liveStreams)}
+                  onWatchStream={setStreamModalVideoId}
                 />
               ))
             )}
@@ -7796,6 +7921,68 @@ export default function Home({
               {testVipBusy ? 'Enviando…' : 'Probar en mi celular/navegador'}
             </button>
             {testVipMsg ? <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{testVipMsg}</p> : null}
+          </div>
+
+          <div className="profile-section-label" style={{ marginTop: '22px' }}>
+            STREAMS EN VIVO POR TORNEO
+          </div>
+          <div className="bankroll-card">
+            <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
+              Los streams de YouTube cambian de video cada día — pega acá el código del torneo (ej. A17, tal como
+              aparece en el nombre del torneo) y el link o id del video de esa mesa.
+            </p>
+            <input
+              type="text"
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px' }}
+              placeholder="Código del torneo (ej. A17)"
+              maxLength={20}
+              value={streamCodeInput}
+              onChange={(e) => setStreamCodeInput(e.target.value)}
+            />
+            <input
+              type="text"
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px' }}
+              placeholder="Link o id del video de YouTube"
+              value={streamUrlInput}
+              onChange={(e) => setStreamUrlInput(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-ball"
+              disabled={streamBusy || !streamCodeInput.trim() || !streamUrlInput.trim()}
+              onClick={saveLiveStream}
+            >
+              {streamBusy ? 'Guardando…' : 'Guardar stream'}
+            </button>
+            {streamMsg ? <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{streamMsg}</p> : null}
+
+            {liveStreams.length > 0 ? (
+              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {liveStreams.map((s) => (
+                  <div
+                    key={s.tournament_code}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      padding: '10px 12px',
+                      border: '1px solid var(--line)',
+                      borderRadius: '10px'
+                    }}
+                  >
+                    <span style={{ fontSize: '13px' }}>
+                      <strong>{s.tournament_code}</strong> — {s.youtube_video_id}
+                    </span>
+                    <button type="button" className="btn btn-ghost" style={{ padding: '6px 12px' }} onClick={() => deleteLiveStream(s.tournament_code)}>
+                      Borrar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
         )}
@@ -8572,6 +8759,8 @@ export default function Home({
         />
       )}
 
+      {streamModalVideoId && <StreamModal videoId={streamModalVideoId} onClose={() => setStreamModalVideoId(null)} />}
+
       {showProfileModal && user && (
         <ProfileModal
           user={user}
@@ -9175,6 +9364,13 @@ const CSS = `
   .mc-live-loading{font-size:12px; color:var(--muted);}
   .mc-live-score-small{margin-top:8px; padding-top:8px; gap:5px;}
   .mc-live-score-small .mc-set{padding:3px 7px; font-size:11px; background:transparent; border:1px solid var(--line); color:var(--muted);}
+  .watch-stream-btn{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+    margin-top:10px; padding:10px; border-radius:999px; border:1px solid rgba(226,68,74,.4);
+    background:rgba(226,68,74,.1); color:#E2444A; font-family:var(--font-body); font-weight:800;
+    font-size:13px; text-transform:uppercase; letter-spacing:.4px; cursor:pointer;
+  }
+  .watch-stream-btn:hover{background:rgba(226,68,74,.18);}
 
   .champion-grid{display:grid; gap:12px;}
   .champion-card{
@@ -9319,6 +9515,10 @@ const CSS = `
   }
   .modal h3{font-family:var(--font-display); font-size:24px; margin:2px 0 2px; color:var(--ink);}
   .modal .sub{color:var(--muted); font-size:13px;}
+  .stream-modal{padding:12px; max-width:720px;}
+  .stream-modal-close{position:absolute; top:20px; right:20px; z-index:2; background:rgba(14,13,12,.65); border-color:transparent; color:#fff;}
+  .stream-modal-frame{position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#000;}
+  .stream-modal-frame iframe{position:absolute; inset:0; width:100%; height:100%; border:0;}
   .subscreen-head{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
   .subscreen-back{
     background:var(--bg-alt); border:1px solid var(--line); width:32px; height:32px; border-radius:50%;
