@@ -2292,12 +2292,15 @@ function UserAvatar({ emoji, url, initials, className = '' }) {
 
 function PlayerAvatar({ name, avatarUrl, initials, side = 'left', className = '', hasCutout = false }) {
   return (
-    <div className={`avatar ${className}`} style={{ '--tone': SIDE_TONE[side] }}>
+    <div className={`avatar ${hasCutout ? 'cutout' : ''} ${className}`} style={{ '--tone': SIDE_TONE[side] }}>
       {avatarUrl ? (
         // Los recortes (cutout, fondo transparente) van con "contain"
-        // para que se vea el color de camiseta (--tone) alrededor de
-        // la figura — con "cover" (foto normal) tapa el círculo entero
-        // y el color de local/visitante queda invisible.
+        // para no recortar la figura — pero el fondo YA NO usa el
+        // color de local/visitante (--tone): la ropa real de la foto
+        // (a veces azul, a veces de cualquier color) chocaba contra un
+        // fondo rojo/azul puesto solo por el lado en el que juega, sin
+        // relación con lo que en verdad trae puesto. .avatar.cutout
+        // usa un fondo neutro fijo en vez de --tone.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={avatarUrl}
@@ -8862,6 +8865,7 @@ const CSS = `
     background:linear-gradient(150deg, var(--tone,var(--court)), #14100F 130%);
     border:2px solid rgba(255,255,255,.1);
   }
+  .avatar.cutout{background:linear-gradient(150deg, #4A4A4A, #14100F 130%);}
   .avatar img{width:100%; height:100%; object-fit:cover; display:block;}
   .avatar::after{
     content:""; position:absolute; inset:0; border-radius:50%;
