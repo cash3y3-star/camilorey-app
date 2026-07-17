@@ -2883,17 +2883,31 @@ function LiveChat({ matchSourceId, user, profile }) {
 // si el partido sigue en vivo) consulta cada 8s el marcador real —
 // primero contra Rushbet (set por set + reloj), y si no lo tiene,
 // contra tt.league-pro.com directo.
-// Modal chico solo con el embed de YouTube de la mesa — separado del
-// detalle del partido a propósito: "Ver stream" tiene que abrir
-// directo al video, sin pasar por el resto de pestañas/estadísticas.
-function StreamModal({ videoId, onClose }) {
+// Reproductor de la transmisión de YouTube de la mesa — "Ver stream"
+// abre esto a pantalla completa, pero se puede minimizar a una
+// ventanita flotante para seguir navegando el resto del sitio sin
+// cortar el video. Las dos vistas (completa/mini) son EL MISMO
+// <iframe> con distintas clases CSS alrededor — si se armaran como
+// dos árboles JSX separados (uno solo si minimized, otro solo si no),
+// React desmontaría y remontaría el iframe al cambiar de modo, y eso
+// reinicia el video de YouTube desde cero cada vez.
+function StreamPlayer({ videoId, minimized, onClose, onToggleMinimize }) {
+  if (!videoId) return null;
   return (
-    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
-      <div className="modal stream-modal">
-        <button className="modal-close stream-modal-close" onClick={onClose}>
-          ✕
-        </button>
-        <div className="stream-modal-frame">
+    <div className={`stream-player ${minimized ? 'mini' : 'full'}`}>
+      {!minimized ? <div className="stream-player-backdrop" onClick={onToggleMinimize}></div> : null}
+      <div className="stream-player-box">
+        {!minimized ? (
+          <div className="stream-player-controls">
+            <button className="stream-player-btn" onClick={onToggleMinimize} title="Minimizar">
+              <ProfileIcon name="chevron-down" size={16} />
+            </button>
+            <button className="stream-player-btn" onClick={onClose} title="Cerrar">
+              ✕
+            </button>
+          </div>
+        ) : null}
+        <div className="stream-player-frame" onClick={minimized ? onToggleMinimize : undefined}>
           <iframe
             src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
             title="Transmisión en vivo"
@@ -2901,6 +2915,18 @@ function StreamModal({ videoId, onClose }) {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+          {minimized ? (
+            <button
+              className="stream-player-mini-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              title="Cerrar"
+            >
+              ✕
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -6231,6 +6257,18 @@ export default function Home({
   // sigue abierta.
   const [liveStreams, setLiveStreams] = useState([]);
   const [streamModalVideoId, setStreamModalVideoId] = useState(null);
+  const [streamMinimized, setStreamMinimized] = useState(false);
+  // "Ver stream" siempre abre a pantalla completa, incluso si ya
+  // había uno minimizado de otra mesa (por eso no solo cambia el id,
+  // también desminimiza).
+  const openStream = (videoId) => {
+    setStreamModalVideoId(videoId);
+    setStreamMinimized(false);
+  };
+  const closeStream = () => {
+    setStreamModalVideoId(null);
+    setStreamMinimized(false);
+  };
   useEffect(() => {
     if (!supabaseClient) return;
     supabaseClient
@@ -7641,7 +7679,7 @@ export default function Home({
                   onToggleFollow={m.pickResult ? undefined : toggleFollow}
                   live={liveScores[m.sourceId]}
                   streamVideoId={findStreamForTournament(m.tournament, liveStreams)}
-                  onWatchStream={setStreamModalVideoId}
+                  onWatchStream={openStream}
                 />
               ))}
             </>
@@ -7739,7 +7777,7 @@ export default function Home({
                   onToggleFollow={m.pickResult ? undefined : toggleFollow}
                   live={liveScores[m.sourceId]}
                   streamVideoId={findStreamForTournament(m.tournament, liveStreams)}
-                  onWatchStream={setStreamModalVideoId}
+                  onWatchStream={openStream}
                 />
               ))
             )}
@@ -8759,7 +8797,12 @@ export default function Home({
         />
       )}
 
-      {streamModalVideoId && <StreamModal videoId={streamModalVideoId} onClose={() => setStreamModalVideoId(null)} />}
+      <StreamPlayer
+        videoId={streamModalVideoId}
+        minimized={streamMinimized}
+        onClose={closeStream}
+        onToggleMinimize={() => setStreamMinimized((m) => !m)}
+      />
 
       {showProfileModal && user && (
         <ProfileModal
@@ -9515,10 +9558,37 @@ const CSS = `
   }
   .modal h3{font-family:var(--font-display); font-size:24px; margin:2px 0 2px; color:var(--ink);}
   .modal .sub{color:var(--muted); font-size:13px;}
-  .stream-modal{padding:12px; max-width:720px;}
-  .stream-modal-close{position:absolute; top:20px; right:20px; z-index:2; background:rgba(14,13,12,.65); border-color:transparent; color:#fff;}
-  .stream-modal-frame{position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#000;}
-  .stream-modal-frame iframe{position:absolute; inset:0; width:100%; height:100%; border:0;}
+  .stream-player{position:fixed; z-index:300;}
+  .stream-player.full{inset:0; display:flex; align-items:center; justify-content:center; padding:16px;}
+  .stream-player-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.75);}
+  .stream-player.full .stream-player-box{position:relative; width:100%; max-width:720px;}
+  .stream-player.full .stream-player-frame{
+    position:relative; width:100%; aspect-ratio:16/9; border-radius:14px; overflow:hidden;
+    background:#000; box-shadow:0 20px 50px rgba(0,0,0,.5);
+  }
+  .stream-player-controls{position:absolute; top:-46px; right:0; z-index:2; display:flex; gap:8px;}
+  .stream-player-btn{
+    width:34px; height:34px; border-radius:50%; background:rgba(14,13,12,.65); border:1px solid rgba(255,255,255,.15);
+    color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px;
+  }
+  .stream-player-frame iframe{position:absolute; inset:0; width:100%; height:100%; border:0;}
+  .stream-player.mini{
+    bottom:calc(76px + 12px); right:12px; left:auto; top:auto;
+  }
+  @media (min-width:641px){
+    .stream-player.mini{bottom:20px;}
+  }
+  .stream-player.mini .stream-player-box{width:180px;}
+  .stream-player.mini .stream-player-frame{
+    position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden;
+    background:#000; box-shadow:0 8px 24px rgba(0,0,0,.45); border:2px solid var(--court); cursor:pointer;
+  }
+  .stream-player.mini .stream-player-frame iframe{pointer-events:none;}
+  .stream-player-mini-close{
+    position:absolute; top:4px; right:4px; z-index:2; width:20px; height:20px; border-radius:50%;
+    background:rgba(14,13,12,.7); border:none; color:#fff; font-size:11px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
   .subscreen-head{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
   .subscreen-back{
     background:var(--bg-alt); border:1px solid var(--line); width:32px; height:32px; border-radius:50%;
