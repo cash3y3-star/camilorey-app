@@ -2342,11 +2342,11 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           ) : pick.matchStatus === 'done' && pick.result === 'miss' ? (
             <span className="pc-hero-badge miss">✕</span>
           ) : null}
-          <span className="pc-hero-pct">
-            <span className="pc-hero-pct-dot"></span>
-            {pick.confidence}%
-          </span>
         </div>
+        <span className="pc-hero-pct">
+          <span className="pc-hero-pct-dot"></span>
+          {pick.confidence}%
+        </span>
         <div className="pc-hero-info">
           <strong className="pc-hero-name">{pick.player}</strong>
           <span className="pc-hero-meta">
@@ -8493,9 +8493,9 @@ const CSS = `
   .pc-hero-badge.miss{background:#EF4444; box-shadow:0 0 0 1px rgba(239,68,68,.35), 0 2px 8px rgba(239,68,68,.5);}
   .pc-hero-badge.live{background:rgba(14,13,12,.7);}
   .pc-hero-pct{
-    position:absolute; bottom:5px; right:5px; z-index:1;
+    position:absolute; top:100px; right:0; z-index:1;
     display:flex; align-items:center; gap:5px;
-    background:rgba(14,13,12,.65); border-radius:20px; padding:3px 8px 3px 6px;
+    background:rgba(14,13,12,.65); border-radius:20px 0 0 20px; padding:3px 10px 3px 8px;
     font-size:11px; font-weight:800; color:#22C55E;
   }
   .pc-hero-pct-dot{
