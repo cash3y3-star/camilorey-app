@@ -2958,6 +2958,26 @@ function DonutChart({ wins, total }) {
   );
 }
 
+// Barras de forma reciente (una por partido, verde=ganó/rojo=perdió) —
+// adaptado de una referencia guardada que usaba altura variable para
+// un stat numérico (runs, etc). Acá el resultado es binario
+// (ganó/perdió), así que todas las barras miden igual — lo que varía
+// es el color, como una racha de fichas W/L. matches[0] es el más
+// reciente; se muestra de izquierda (más viejo) a derecha (hoy).
+function FormBarChart({ matches }) {
+  if (!matches || matches.length === 0) return null;
+  const chronological = [...matches].reverse();
+  return (
+    <div className="form-bar-chart">
+      {chronological.map((m, i) => (
+        <div className={`form-bar ${m.win ? 'hit' : 'miss'}`} key={i} title={m.win ? 'W' : 'L'}>
+          <span className="form-bar-label">{m.win ? 'W' : 'L'}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Lista de H2H — muestra los DOS nombres completos en cada cruce, con
 // el que ganó ESE partido resaltado en verde. El orden es local
 // primero (como Sofascore), no
@@ -3240,44 +3260,36 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
               </>
             ) : null}
 
-            <div className="stat-rows">
-              <div className="stat-row">
-                <div className="stat-row-top">
-                  <span className="stat-row-label">
-                    <ProfileIcon name="chart" size={14} /> {t('indiceIA')}
-                  </span>
-                  <span className="stat-row-value num">{pick.confidence}%</span>
-                </div>
-                <div className="stat-row-bar">
-                  <div className="stat-row-bar-fill" style={{ width: `${pick.confidence}%` }}></div>
+            <div className="pick-metric-grid">
+              <div className="pick-metric-card pick-metric-card-accent">
+                <span className="pick-metric-label">
+                  <ProfileIcon name="chart" size={12} /> {t('indiceIA')}
+                </span>
+                <span className="pick-metric-value num">{pick.confidence}%</span>
+                <div className="pick-metric-bar">
+                  <div className="pick-metric-bar-fill" style={{ width: `${pick.confidence}%` }}></div>
                 </div>
               </div>
-              <div className="stat-row">
-                <div className="stat-row-top">
-                  <span className="stat-row-label">
-                    <ProfileIcon name="target" size={14} /> {t('cuotaRushbet')}
-                  </span>
-                  <span className="stat-row-value num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : t('noDisponible')}</span>
-                </div>
+              <div className="pick-metric-card">
+                <span className="pick-metric-label">
+                  <ProfileIcon name="target" size={12} /> {t('cuotaRushbet')}
+                </span>
+                <span className="pick-metric-value num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : t('noDisponible')}</span>
               </div>
-              <div className="stat-row">
-                <div className="stat-row-top">
-                  <span className="stat-row-label">
-                    <ProfileIcon name="trending-up" size={14} /> {t('racha')}
-                  </span>
-                  <span className="stat-row-value num">{pick.streakLabel || '—'}</span>
-                </div>
+              <div className="pick-metric-card">
+                <span className="pick-metric-label">
+                  <ProfileIcon name="trending-up" size={12} /> {t('racha')}
+                </span>
+                <span className="pick-metric-value num">{pick.streakLabel || '—'}</span>
               </div>
               {resumenH2HMatches.length > 0 ? (
-                <div className="stat-row">
-                  <div className="stat-row-top">
-                    <span className="stat-row-label">
-                      <ProfileIcon name="swords" size={14} /> H2H
-                    </span>
-                    <span className="stat-row-value num">
-                      {resumenH2HWins}-{resumenH2HMatches.length - resumenH2HWins}
-                    </span>
-                  </div>
+                <div className="pick-metric-card">
+                  <span className="pick-metric-label">
+                    <ProfileIcon name="swords" size={12} /> H2H
+                  </span>
+                  <span className="pick-metric-value num">
+                    {resumenH2HWins}-{resumenH2HMatches.length - resumenH2HWins}
+                  </span>
                 </div>
               ) : null}
             </div>
@@ -3314,6 +3326,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             {statSide === 'local' ? (
               displayLeftHistory.length > 0 ? (
                 <>
+                  <FormBarChart matches={displayLeftHistory} />
                   <div className="donut-row">
                     <DonutChart wins={hitsLeft} total={displayLeftHistory.length} />
                     <div>
@@ -3333,6 +3346,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             ) : statSide === 'visitante' ? (
               displayRightHistory.length > 0 ? (
                 <>
+                  <FormBarChart matches={displayRightHistory} />
                   <div className="donut-row">
                     <DonutChart wins={hitsRight} total={displayRightHistory.length} />
                     <div>
@@ -9130,6 +9144,28 @@ const CSS = `
   .stat-row-value{color:var(--ink); font-weight:800; font-size:14px;}
   .stat-row-bar{height:6px; border-radius:999px; background:var(--line); overflow:hidden; margin-top:6px;}
   .stat-row-bar-fill{height:100%; border-radius:999px; background:var(--court);}
+
+  .pick-metric-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:14px 0;}
+  .pick-metric-card{
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:14px; padding:12px 14px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .pick-metric-card-accent{background:var(--court-soft); border-color:rgba(226,68,74,.35);}
+  .pick-metric-label{
+    display:flex; align-items:center; gap:5px; font-size:11px; text-transform:uppercase;
+    letter-spacing:.4px; color:var(--muted); font-weight:700;
+  }
+  .pick-metric-card-accent .pick-metric-label{color:var(--court-soft-text);}
+  .pick-metric-value{font-size:20px; font-weight:800; color:var(--ink);}
+  .pick-metric-card-accent .pick-metric-value{color:var(--court-soft-text);}
+  .pick-metric-bar{height:5px; border-radius:99px; background:rgba(0,0,0,.15); overflow:hidden; margin-top:2px;}
+  .pick-metric-bar-fill{height:100%; background:var(--court); border-radius:99px;}
+
+  .form-bar-chart{display:flex; align-items:flex-end; gap:5px; height:64px; margin:12px 0 4px;}
+  .form-bar{flex:1; height:100%; border-radius:5px 5px 2px 2px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px;}
+  .form-bar.hit{background:var(--hit);}
+  .form-bar.miss{background:var(--miss);}
+  .form-bar-label{font-size:10px; font-weight:800; color:rgba(0,0,0,.55);}
 
   .model-verdict{
     font-weight:700; font-size:14px; padding:12px 16px; border-radius:12px; margin:4px 0 22px;
