@@ -7198,7 +7198,7 @@ export default function Home({
           style={{
             minHeight: '100vh',
             background:
-              'radial-gradient(120% 55% at 50% 100%, #0E0D0C 0%, transparent 62%), linear-gradient(160deg, #16A34A 0%, #FF7A45 55%, #0E0D0C 100%)',
+              'radial-gradient(120% 55% at 50% 100%, #0E0D0C 0%, transparent 62%), linear-gradient(160deg, #16A34A 0%, #0E0D0C 100%)',
             color: '#F5F1EC',
             fontFamily: "'Manrope', sans-serif",
             display: 'flex',
