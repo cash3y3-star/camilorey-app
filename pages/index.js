@@ -8452,7 +8452,7 @@ const CSS = `
   .tier-badge.tier-alta{background:rgba(93,202,165,.16); color:var(--hit);}
   .tier-badge.tier-media{background:rgba(34,197,94,.16); color:#22C55E;}
   .tier-badge.tier-baja{background:var(--bg-alt); color:var(--muted);}
-  .tier-badge.tier-featured{background:rgba(255,122,69,.18); color:var(--ball);}
+  .tier-badge.tier-featured{background:rgba(22,163,74,.16); color:var(--court);}
   .tier-badge.tier-exclusive{background:rgba(255,193,7,.18); color:#FFC845;}
 
   .pc-vs{display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:12px;}
