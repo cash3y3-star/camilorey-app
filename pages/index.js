@@ -4852,7 +4852,6 @@ function ProfileModal({
   // (notifPrefs) viven en notification_prefs; null = todavía cargando.
   const [notificationsScreenOpen, setNotificationsScreenOpen] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState(null);
-  const [notifPrefsSaving, setNotifPrefsSaving] = useState(null);
   useEffect(() => {
     if (!notificationsScreenOpen || !supabaseClient) return;
     let cancelled = false;
@@ -4875,7 +4874,6 @@ function ProfileModal({
     if (!notifPrefs || !supabaseClient) return;
     const nextValue = !notifPrefs[key];
     setNotifPrefs({ ...notifPrefs, [key]: nextValue });
-    setNotifPrefsSaving(key);
     try {
       const { data: sessionData } = await supabaseClient.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
@@ -4887,7 +4885,6 @@ function ProfileModal({
     } catch (e) {
       setNotifPrefs((prev) => (prev ? { ...prev, [key]: !nextValue } : prev));
     }
-    setNotifPrefsSaving(null);
   };
   const [nameInput, setNameInput] = useState(displayName || '');
   const [savingName, setSavingName] = useState(false);
@@ -8785,7 +8782,6 @@ const CSS = `
   }
 
   .stat-strip{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:16px 0 26px;}
-  .stat-strip-4{grid-template-columns:repeat(4,1fr);}
   .stat-strip-3{grid-template-columns:repeat(3,1fr);}
   .stat-card{
     background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
@@ -9050,7 +9046,6 @@ const CSS = `
   .flag{font-size:11px;}
 
   .mc-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; padding-right:24px;}
-  .mc-score{text-align:center; font-size:13px; font-weight:700; margin-top:2px;}
 
   .day-strip{display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:18px;}
   .day-chip{
@@ -9343,11 +9338,6 @@ const CSS = `
   .risk-modal-banner h3{color:#fff; margin:0;}
   .risk-tip{display:flex; gap:12px; padding:14px 0; border-top:1px solid var(--line);}
   .risk-tip:first-child{border-top:none; padding-top:2px;}
-  .risk-tip-icon{
-    font-size:18px; flex:none; width:38px; height:38px; border-radius:11px;
-    display:flex; align-items:center; justify-content:center;
-    background:var(--court-soft); border:1px solid rgba(226,68,74,.35);
-  }
   .risk-tip strong{display:block; font-size:14px; margin-bottom:3px;}
   .risk-tip p{margin:0; font-size:13px; color:var(--muted); line-height:1.5;}
   .risk-modal-btn{width:100%; justify-content:center; margin-top:16px; padding:13px;}
@@ -9845,7 +9835,6 @@ const CSS = `
     header.site nav.top-nav{display:none;}
     nav.bottom-nav{display:flex;}
     h1.page-title{font-size:30px;}
-    .stat-strip-4{grid-template-columns:repeat(2,1fr);}
     .pc-player-name{font-size:11.5px;}
   }
 `;
