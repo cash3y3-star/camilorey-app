@@ -2987,11 +2987,15 @@ function StreamPlayer({ videoIds, minimized, onClose, onToggleMinimize }) {
               >
                 ✕
               </button>
-              {/* Tapa la franja de abajo del reproductor de YouTube
-                  (marca del canal / "Más videos") con un cartel propio
-                  en movimiento — pointer-events:none para no bloquear
-                  play/pausa, solo se ve encima. */}
-              <div className="stream-player-banner">
+              {/* Tapa las franjas de arriba (título/canal del video) y
+                  de abajo (marca del canal / "Más videos") del
+                  reproductor de YouTube con un cartel propio en
+                  movimiento — pointer-events:none para no bloquear
+                  play/pausa ni el botón de cerrar, solo se ve encima. */}
+              <div className="stream-player-banner stream-player-banner-top">
+                <span>CAMILOREY · CAMILOREY · CAMILOREY · CAMILOREY ·</span>
+              </div>
+              <div className="stream-player-banner stream-player-banner-bottom">
                 <span>CAMILOREY · CAMILOREY · CAMILOREY · CAMILOREY ·</span>
               </div>
             </div>
@@ -9707,9 +9711,15 @@ const CSS = `
   }
   .stream-player.full .stream-player-frame-close{width:26px; height:26px; font-size:13px;}
   .stream-player-banner{
-    position:absolute; left:0; right:0; bottom:0; height:22%; z-index:1; overflow:hidden;
-    background:linear-gradient(0deg, rgba(0,0,0,.85) 40%, transparent 100%);
-    display:flex; align-items:flex-end; padding-bottom:4px; pointer-events:none;
+    position:absolute; left:0; right:0; height:22%; z-index:1; overflow:hidden; pointer-events:none;
+  }
+  .stream-player-banner-bottom{
+    bottom:0; background:linear-gradient(0deg, rgba(0,0,0,.85) 40%, transparent 100%);
+    display:flex; align-items:flex-end; padding-bottom:4px;
+  }
+  .stream-player-banner-top{
+    top:0; background:linear-gradient(180deg, rgba(0,0,0,.85) 40%, transparent 100%);
+    display:flex; align-items:flex-start; padding-top:4px;
   }
   .stream-player-banner span{
     display:inline-block; white-space:nowrap; padding-left:100%;
