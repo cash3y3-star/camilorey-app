@@ -310,6 +310,8 @@ const TRANSLATIONS = {
     tasaAcierto: 'Tasa de acierto',
     seguirPrediccion: 'Seguir predicción',
     siguiendoPick: 'Siguiendo',
+    unaPersonaSigue: '1 persona sigue este pick',
+    personasSiguen: '{n} personas siguen este pick',
     sinHistorial: 'Sin historial reciente todavía.',
     sinEnfrentamientos: 'Todavía no se han enfrentado.',
     buscandoMarcador: 'Buscando marcador…',
@@ -623,6 +625,8 @@ const TRANSLATIONS = {
     tasaAcierto: 'Hit rate',
     seguirPrediccion: 'Follow prediction',
     siguiendoPick: 'Following',
+    unaPersonaSigue: '1 person is following this pick',
+    personasSiguen: '{n} people are following this pick',
     sinHistorial: 'No recent history yet.',
     sinEnfrentamientos: "They haven't played each other yet.",
     buscandoMarcador: 'Looking for the score…',
@@ -937,6 +941,8 @@ const TRANSLATIONS = {
     tasaAcierto: 'Taxa de acerto',
     seguirPrediccion: 'Seguir previsão',
     siguiendoPick: 'Seguindo',
+    unaPersonaSigue: '1 pessoa segue este pick',
+    personasSiguen: '{n} pessoas seguem este pick',
     sinHistorial: 'Ainda sem histórico recente.',
     sinEnfrentamientos: 'Ainda não se enfrentaram.',
     buscandoMarcador: 'Buscando placar…',
@@ -1582,6 +1588,20 @@ export async function getServerSideProps({ query }) {
     })
     .filter(Boolean);
 
+  // Cuántas cuentas siguen cada pick — público (se muestra en
+  // cualquier tarjeta), pero followed_picks solo se puede leer con
+  // service_role (su policy de select es "auth.uid() = user_id"), así
+  // que se cuenta acá server-side y solo se manda el número, nunca
+  // quién.
+  const allPickIdsForFollowCount = [...pendingPrelim, ...resolvedPrelim].map((p) => p.pick.id);
+  const followersCountByPickId = new Map();
+  if (allPickIdsForFollowCount.length) {
+    const { data: followRows } = await supabase.from('followed_picks').select('pick_id').in('pick_id', allPickIdsForFollowCount);
+    for (const row of followRows || []) {
+      followersCountByPickId.set(row.pick_id, (followersCountByPickId.get(row.pick_id) || 0) + 1);
+    }
+  }
+
   // Antes, cada pick disparaba 2 consultas propias a Supabase (forma
   // reciente + H2H) — con decenas de picks pendientes y resueltos a la
   // vez, eso eran cientos de round-trips en CADA carga de página, y
@@ -1776,7 +1796,8 @@ export async function getServerSideProps({ query }) {
       h2hMatches: form.h2hMatches,
       score: null,
       setScores: null,
-      result: 'pending'
+      result: 'pending',
+      followersCount: followersCountByPickId.get(pick.id) || 0
     };
   });
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
@@ -1829,7 +1850,8 @@ export async function getServerSideProps({ query }) {
       score,
       setScores,
       result: pick.result,
-      matchStatus: 'done'
+      matchStatus: 'done',
+      followersCount: followersCountByPickId.get(pick.id) || 0
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
@@ -2502,7 +2524,7 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           ))}
         </div>
       ) : null}
-      {pick.streakLabel || cardH2HTotal > 0 ? (
+      {pick.streakLabel || cardH2HTotal > 0 || pick.followersCount > 0 ? (
         <div className="pc-stats-row">
           {cardH2HTotal > 0 ? (
             <div className="pc-stat">
@@ -2514,6 +2536,12 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
             <div className="pc-stat">
               <span className="l">Racha</span>
               <span className="v num">{pick.streakLabel}</span>
+            </div>
+          ) : null}
+          {pick.followersCount > 0 ? (
+            <div className="pc-stat">
+              <span className="l">Siguen</span>
+              <span className="v num">{pick.followersCount}</span>
             </div>
           ) : null}
         </div>
@@ -3511,6 +3539,15 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             </span>
             {followed ? t('siguiendoPick') : t('seguirPrediccion')}
           </button>
+        ) : null}
+
+        {pick.followersCount > 0 ? (
+          <p className="pick-followers-count">
+            <ProfileIcon name="user" size={13} />
+            {pick.followersCount === 1
+              ? t('unaPersonaSigue')
+              : t('personasSiguen', { n: pick.followersCount })}
+          </p>
         ) : null}
 
         <div className="tabs">
@@ -10212,6 +10249,10 @@ const CSS = `
   }
   .pick-follow-btn.active{background:rgba(93,202,165,.14); border-color:var(--hit); color:var(--hit);}
   .pick-follow-star{font-size:17px; line-height:1;}
+  .pick-followers-count{
+    display:flex; align-items:center; justify-content:center; gap:5px;
+    margin:6px 0 0; font-size:12px; color:var(--muted);
+  }
 
   .pick-metric-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin:14px 0;}
   .pick-metric-card{

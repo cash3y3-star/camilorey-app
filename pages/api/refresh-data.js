@@ -236,6 +236,18 @@ export default async function handler(req, res) {
     })
     .filter(Boolean);
 
+  // Mismo criterio que getServerSideProps: cuántas cuentas siguen cada
+  // pick, público pero contado con service_role porque followed_picks
+  // solo se puede leer con RLS como el propio dueño de la fila.
+  const allPickIdsForFollowCount = [...pendingPrelim, ...resolvedPrelim].map((p) => p.pick.id);
+  const followersCountByPickId = new Map();
+  if (allPickIdsForFollowCount.length) {
+    const { data: followRows } = await supabase.from('followed_picks').select('pick_id').in('pick_id', allPickIdsForFollowCount);
+    for (const row of followRows || []) {
+      followersCountByPickId.set(row.pick_id, (followersCountByPickId.get(row.pick_id) || 0) + 1);
+    }
+  }
+
   // Antes, cada pick disparaba 2 consultas propias a Supabase (forma
   // reciente + H2H) — con decenas de picks pendientes y resueltos a la
   // vez (y este endpoint se consulta cada 20s mientras Inicio/Picks
@@ -429,7 +441,8 @@ export default async function handler(req, res) {
       result: 'pending',
       matchStatus,
       sourceId: match.source_id,
-      tournamentId: match.tournament_id
+      tournamentId: match.tournament_id,
+      followersCount: followersCountByPickId.get(pick.id) || 0
     };
   });
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
@@ -481,7 +494,8 @@ export default async function handler(req, res) {
       score,
       setScores,
       result: pick.result,
-      matchStatus: 'done'
+      matchStatus: 'done',
+      followersCount: followersCountByPickId.get(pick.id) || 0
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
