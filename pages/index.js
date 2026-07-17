@@ -2492,16 +2492,26 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
   return (
     <div className="followed-card" onClick={onClick}>
       <div className="followed-photo">
-        {pick.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={pick.avatarUrl} alt="" referrerPolicy="no-referrer" loading="lazy" />
-        ) : (
-          <span className="followed-photo-initials">{pick.initials}</span>
-        )}
+        {/* Orden pedido: fondo (CSS) abajo, marcas de agua encima del
+            fondo, y la foto del jugador encima de todo — con recorte
+            (fondo transparente) la figura tapa la marca donde se
+            superpone, pero se ve alrededor. */}
         <span className="followed-watermark followed-watermark-1">CAMILOREY</span>
         <span className="followed-watermark followed-watermark-2">CAMILOREY</span>
         <span className="followed-watermark followed-watermark-3">CAMILOREY</span>
         <span className="followed-watermark followed-watermark-4">CAMILOREY</span>
+        {pick.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={pick.avatarUrl}
+            alt=""
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            style={pick.hasCutout ? { objectFit: 'contain' } : undefined}
+          />
+        ) : (
+          <span className="followed-photo-initials">{pick.initials}</span>
+        )}
         {onToggleFollow ? (
           <button
             className={`follow-btn followed-star ${followed ? 'active' : ''}`}
@@ -8594,7 +8604,6 @@ const CSS = `
     --radius:16px;
     --shadow:0 2px 12px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.3);
     --decor-ball:#D4A24C;
-    --avatar-shade:#000000;
   }
   /* Tema claro — mismos nombres de variable, el resto del CSS ya las
      usa en todos lados, así que basta con redefinirlas acá para que
@@ -8620,7 +8629,6 @@ const CSS = `
     --blue-dark:#1E4A73;
     --shadow:0 2px 12px rgba(20,15,12,0.08), 0 1px 2px rgba(20,15,12,0.06);
     --decor-ball:#B8860B;
-    --avatar-shade:#FFFFFF;
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
@@ -8941,18 +8949,21 @@ const CSS = `
   }
   .followed-card:hover{border-color:var(--court); transform:translateY(-1px);}
   .followed-photo{
-    position:relative; width:100%; aspect-ratio:1/1;
-    background:var(--avatar-shade);
+    position:relative; width:100%; aspect-ratio:1/1; overflow:hidden;
+    background:linear-gradient(160deg, #2E3358 0%, #14152A 100%);
     display:flex; align-items:center; justify-content:center;
   }
-  .followed-photo img{width:100%; height:100%; object-fit:cover; display:block;}
+  .followed-photo img{
+    position:relative; z-index:2;
+    width:100%; height:100%; object-fit:cover; display:block;
+  }
   .followed-photo-initials{font-family:var(--font-display); font-weight:800; font-size:26px; color:#fff;}
   .followed-watermark{
     position:absolute; z-index:1; pointer-events:none; white-space:nowrap;
     transform:translate(-50%, -50%) rotate(-18deg);
     font-family:var(--font-display); font-weight:800; font-size:8px; letter-spacing:1px;
-    color:rgba(255,255,255,.5);
-    text-shadow:0 0 3px rgba(0,0,0,.6), 0 0 6px rgba(0,0,0,.4), 1px 1px 1px rgba(0,0,0,.5);
+    color:rgba(255,255,255,.32);
+    text-shadow:0 0 3px rgba(0,0,0,.5), 0 0 6px rgba(0,0,0,.35), 1px 1px 1px rgba(0,0,0,.4);
   }
   .followed-watermark-1{top:22%; left:28%;}
   .followed-watermark-2{top:38%; left:78%;}
