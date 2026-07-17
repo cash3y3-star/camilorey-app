@@ -2444,6 +2444,7 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
         ) : (
           <span className="followed-photo-initials">{pick.initials}</span>
         )}
+        <span className="followed-watermark">CAMILOREY</span>
         {onToggleFollow ? (
           <button
             className={`follow-btn followed-star ${followed ? 'active' : ''}`}
@@ -8546,6 +8547,13 @@ const CSS = `
   }
   .followed-photo img{width:100%; height:100%; object-fit:cover; display:block;}
   .followed-photo-initials{font-family:var(--font-display); font-weight:800; font-size:26px; color:#fff;}
+  .followed-watermark{
+    position:absolute; top:50%; left:50%; z-index:1; pointer-events:none; white-space:nowrap;
+    transform:translate(-50%, -50%) rotate(-18deg);
+    font-family:var(--font-display); font-weight:800; font-size:13px; letter-spacing:1.5px;
+    color:rgba(255,255,255,.55);
+    text-shadow:0 0 3px rgba(0,0,0,.6), 0 0 6px rgba(0,0,0,.4), 1px 1px 1px rgba(0,0,0,.5);
+  }
   .followed-star{
     position:absolute; top:6px; left:6px; z-index:2; margin:0;
     width:24px; height:24px; border-radius:50%; background:rgba(14,13,12,.55);
