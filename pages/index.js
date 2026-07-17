@@ -2342,6 +2342,10 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           ) : pick.matchStatus === 'done' && pick.result === 'miss' ? (
             <span className="pc-hero-badge miss">✕</span>
           ) : null}
+          <span className="pc-hero-pct">
+            <span className="pc-hero-pct-dot"></span>
+            {pick.confidence}%
+          </span>
         </div>
         <div className="pc-hero-info">
           <strong className="pc-hero-name">{pick.player}</strong>
@@ -2350,7 +2354,6 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           </span>
           <div className="pc-hero-quick">
             <span className="pc-hero-odds num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
-            <span className="pc-hero-conf num">{pick.confidence}%</span>
           </div>
           <span className="pc-hero-pill">{pick.market}</span>
         </div>
@@ -8489,12 +8492,25 @@ const CSS = `
   .pc-hero-badge.hit{background:#22C55E; box-shadow:0 0 0 1px rgba(34,197,94,.35), 0 2px 8px rgba(34,197,94,.5);}
   .pc-hero-badge.miss{background:#EF4444; box-shadow:0 0 0 1px rgba(239,68,68,.35), 0 2px 8px rgba(239,68,68,.5);}
   .pc-hero-badge.live{background:rgba(14,13,12,.7);}
+  .pc-hero-pct{
+    position:absolute; bottom:5px; left:5px; z-index:1;
+    display:flex; align-items:center; gap:5px;
+    background:rgba(14,13,12,.65); border-radius:20px; padding:3px 8px 3px 6px;
+    font-size:11px; font-weight:800; color:#22C55E;
+  }
+  .pc-hero-pct-dot{
+    width:7px; height:7px; border-radius:50%; background:#22C55E; flex:none;
+    animation:pulse-dot-green 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse-dot-green{
+    0%, 100%{transform:scale(1); box-shadow:0 0 0 3px rgba(34,197,94,.25), 0 0 6px rgba(34,197,94,.6);}
+    50%{transform:scale(1.25); box-shadow:0 0 0 5px rgba(34,197,94,.12), 0 0 10px rgba(34,197,94,.9);}
+  }
   .pc-hero-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; padding-top:2px;}
   .pc-hero-name{font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .pc-hero-meta{font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .pc-hero-quick{display:flex; gap:12px; align-items:center; margin:3px 0;}
   .pc-hero-odds{font-family:var(--font-mono); font-size:12px; color:var(--muted); font-weight:700;}
-  .pc-hero-conf{font-size:12px; font-weight:800; color:var(--court);}
   .pc-hero-pill{
     display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.2px;
     padding:4px 9px; border-radius:20px; background:rgba(34,197,94,.16); color:#22C55E;
