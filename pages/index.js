@@ -2343,10 +2343,6 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
             <span className="pc-hero-badge miss">✕</span>
           ) : null}
         </div>
-        <span className="pc-hero-pct">
-          <span className="pc-hero-pct-dot"></span>
-          {pick.confidence}%
-        </span>
         <div className="pc-hero-info">
           <strong className="pc-hero-name">{pick.player}</strong>
           <span className="pc-hero-meta">
@@ -2355,7 +2351,13 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           <div className="pc-hero-quick">
             <span className="pc-hero-odds num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
           </div>
-          <span className="pc-hero-pill">{pick.market}</span>
+          <div className="pc-hero-pill-row">
+            <span className="pc-hero-pill">{pick.market}</span>
+            <span className="pc-hero-pct">
+              <span className="pc-hero-pct-dot"></span>
+              {pick.confidence}%
+            </span>
+          </div>
         </div>
       </div>
       {pick.matchStatus === 'live' && live?.source === 'kambi' && live.sets?.length > 0 ? (
@@ -8492,10 +8494,10 @@ const CSS = `
   .pc-hero-badge.hit{background:#22C55E; box-shadow:0 0 0 1px rgba(34,197,94,.35), 0 2px 8px rgba(34,197,94,.5);}
   .pc-hero-badge.miss{background:#EF4444; box-shadow:0 0 0 1px rgba(239,68,68,.35), 0 2px 8px rgba(239,68,68,.5);}
   .pc-hero-badge.live{background:rgba(14,13,12,.7);}
+  .pc-hero-pill-row{display:flex; align-items:center; justify-content:space-between; gap:8px;}
   .pc-hero-pct{
-    position:absolute; top:100px; right:0; z-index:1;
-    display:flex; align-items:center; gap:5px;
-    background:rgba(14,13,12,.65); border-radius:20px 0 0 20px; padding:3px 10px 3px 8px;
+    display:flex; align-items:center; gap:5px; flex:none;
+    background:rgba(14,13,12,.65); border-radius:20px; padding:3px 9px 3px 7px;
     font-size:11px; font-weight:800; color:#22C55E;
   }
   .pc-hero-pct-dot{
