@@ -98,12 +98,18 @@ export default async function handler(req, res) {
     .sort((a, b) => new Date(b.scheduledAt || 0) - new Date(a.scheduledAt || 0))
     .slice(0, 20);
 
+  // Fila base: cualquier pick resuelto y publicado con partido válido
+  // — esto es lo único que hace falta para contar (n/hits/hitRate),
+  // los buckets de confianza y la lista de "últimos resueltos". Antes
+  // esta misma condición también exigía p.factors (necesario SOLO
+  // para el desglose por factor de abajo), así que un pick resuelto
+  // sin factors guardados desaparecía de TODO, incluida la lista de
+  // recientes — sin necesitar factors para eso.
   const rows = picks
     .filter((p) => p.published !== false)
     .map((p) => {
       const match = matchById.get(p.match_id);
-      if (!match || !p.factors) return null;
-      const sign = p.predicted_winner_id === match.player_a_id ? 1 : -1;
+      if (!match) return null;
       return {
         id: p.id,
         hit: p.result === 'hit',
@@ -111,10 +117,9 @@ export default async function handler(req, res) {
         createdAt: p.created_at,
         scheduledAt: match.scheduled_at,
         market: p.market,
-        ratingScore: (p.factors.ratingScore ?? 0) * sign,
-        streakScore: (p.factors.streakScore ?? 0) * sign,
-        h2hScore: (p.factors.h2hScore ?? 0) * sign,
-        altScore: (p.factors.altScore ?? 0) * sign
+        factors: p.factors,
+        matchPlayerAId: match.player_a_id,
+        predictedWinnerId: p.predicted_winner_id
       };
     })
     .filter(Boolean);
@@ -134,10 +139,25 @@ export default async function handler(req, res) {
     return { range: `${lo_}-${hi_}`, n: inBucket.length, hitRate: inBucket.length ? bHits / inBucket.length : null };
   });
 
+  // El desglose por factor sí necesita p.factors — a diferencia de
+  // arriba, esto se calcula aparte, sobre el subconjunto que sí lo
+  // tiene, sin arrastrar esa exigencia a n/hits/buckets/recientes.
+  const factorRows = rows
+    .filter((r) => r.factors)
+    .map((r) => {
+      const sign = r.predictedWinnerId === r.matchPlayerAId ? 1 : -1;
+      return {
+        hit: r.hit,
+        ratingScore: (r.factors.ratingScore ?? 0) * sign,
+        streakScore: (r.factors.streakScore ?? 0) * sign,
+        h2hScore: (r.factors.h2hScore ?? 0) * sign,
+        altScore: (r.factors.altScore ?? 0) * sign
+      };
+    });
   const factorAvg = {};
   for (const key of ['ratingScore', 'streakScore', 'h2hScore', 'altScore']) {
-    const withHit = rows.filter((r) => r.hit).map((r) => r[key]);
-    const withMiss = rows.filter((r) => !r.hit).map((r) => r[key]);
+    const withHit = factorRows.filter((r) => r.hit).map((r) => r[key]);
+    const withMiss = factorRows.filter((r) => !r.hit).map((r) => r[key]);
     const avg = (arr) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
     factorAvg[key] = { avgOnHit: avg(withHit), avgOnMiss: avg(withMiss) };
   }
