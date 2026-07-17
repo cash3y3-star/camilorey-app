@@ -2194,6 +2194,16 @@ function formatOdds(decimal, format = 'decimal') {
   return decimal.toFixed(2);
 }
 
+// Color de las barras de Índice IA según la cuota del pick (no según
+// el tier de confianza): cuotas bajas = pick más "seguro" (verde),
+// cuotas medias = naranja, cuotas altas = más riesgo (rojoanaranjado).
+function oddsBarColor(odds) {
+  if (!odds) return 'var(--muted)';
+  if (odds <= 1.7) return '#22C55E';
+  if (odds <= 1.9) return '#FF9F1C';
+  return '#E8590C';
+}
+
 // Frase corta y honesta armada a partir de los factores reales de
 // lib/confidence.js — nada inventado, solo traduce los números.
 function buildAnalysis(factors) {
@@ -2399,7 +2409,7 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
         <span className="pc-ia-val num">{pick.confidence}%</span>
       </div>
       <div className="ia-bar-track">
-        <div className={`ia-bar-fill tier-${pick.tier}`} style={{ width: `${pick.confidence}%` }}></div>
+        <div className="ia-bar-fill" style={{ width: `${pick.confidence}%`, background: oddsBarColor(pick.odds) }}></div>
       </div>
       <div className="pc-foot">
         <span className="odd-mini num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
@@ -3321,7 +3331,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
                 <span className="pick-metric-label">{t('indiceIA')}</span>
                 <span className="pick-metric-value num">{pick.confidence}%</span>
                 <div className="pick-metric-bar">
-                  <div className="pick-metric-bar-fill" style={{ width: `${pick.confidence}%` }}></div>
+                  <div className="pick-metric-bar-fill" style={{ width: `${pick.confidence}%`, background: oddsBarColor(pick.odds) }}></div>
                 </div>
               </div>
               <div className="pick-metric-card">
@@ -8439,7 +8449,7 @@ const CSS = `
   }
   .tier-badge svg{flex:none;}
   .tier-badge.tier-alta{background:rgba(93,202,165,.16); color:var(--hit);}
-  .tier-badge.tier-media{background:rgba(255,193,7,.16); color:#FFC845;}
+  .tier-badge.tier-media{background:rgba(34,197,94,.16); color:#22C55E;}
   .tier-badge.tier-baja{background:var(--bg-alt); color:var(--muted);}
   .tier-badge.tier-featured{background:rgba(255,122,69,.18); color:var(--ball);}
   .tier-badge.tier-exclusive{background:rgba(255,193,7,.18); color:#FFC845;}
@@ -8573,8 +8583,6 @@ const CSS = `
   .ia-bar-track{height:6px; border-radius:999px; background:var(--bg-alt); overflow:hidden; margin-bottom:14px;}
   .ia-bar-fill{height:100%; border-radius:999px;}
   .ia-bar-fill.tier-alta{background:var(--hit);}
-  .ia-bar-fill.tier-media{background:#FFC845;}
-  .ia-bar-fill.tier-baja{background:var(--muted);}
 
   .pc-foot{display:flex; align-items:center; justify-content:space-between; gap:10px;}
   .odd-mini{font-family:var(--font-mono); font-size:13px; color:var(--muted); font-weight:600;}
