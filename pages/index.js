@@ -6316,6 +6316,11 @@ const MIBANKROLL_TRIAL_END = new Date('2026-07-14T00:00:00-05:00').getTime();
 // (pedido explícito las dos veces).
 const BETA_GATE_END = new Date('2026-07-18T17:20:00-05:00').getTime();
 
+// Sitio abierto al público — pedido explícito 2026-07-17. Se deja la
+// valla de beta_access intacta abajo (por si algún día hay que volver
+// a cerrarlo) en vez de borrarla, solo se salta con esta bandera.
+const SITE_IS_PUBLIC = true;
+
 export default function Home({
   stats: initialStats,
   exclusiveStats: initialExclusiveStats,
@@ -6918,7 +6923,7 @@ export default function Home({
   const [betaChecked, setBetaChecked] = useState(false);
   const [betaAllowed, setBetaAllowed] = useState(false);
   useEffect(() => {
-    if (isAdmin) {
+    if (SITE_IS_PUBLIC || isAdmin) {
       setBetaAllowed(true);
       setBetaChecked(true);
       return undefined;
