@@ -2350,7 +2350,7 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           }}
           title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
         >
-          {followed ? '♥' : '♡'}
+          <HeartIcon filled={followed} />
         </button>
       ) : null}
       <div className="pc-head">
@@ -2521,7 +2521,7 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
             }}
             title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
           >
-            {followed ? '♥' : '♡'}
+            <HeartIcon filled={followed} />
           </button>
         ) : null}
         <span className="followed-flag-badge">🇨🇿</span>
@@ -2663,7 +2663,7 @@ function MatchRow({ m, onClick, followed, onToggleFollow, live }) {
           }}
           title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
         >
-          {followed ? '♥' : '♡'}
+          <HeartIcon filled={followed} />
         </button>
       ) : null}
       <div className="mc-head">
@@ -3352,7 +3352,9 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             className={`pick-follow-btn ${followed ? 'active' : ''}`}
             onClick={() => onToggleFollow(pick)}
           >
-            <span className="pick-follow-star">{followed ? '♥' : '♡'}</span>
+            <span className="pick-follow-star">
+              <HeartIcon filled={followed} size={17} />
+            </span>
             {followed ? t('siguiendoPick') : t('seguirPrediccion')}
           </button>
         ) : null}
@@ -3924,6 +3926,29 @@ function TableDecor({ side }) {
 // (trazo simple, sin relleno) que se ve en la mayoría de apps de
 // picks/apuestas, dentro de una insignia circular oscura (ver
 // .profile-row-icon en el CSS).
+// Corazón de "seguir" en SVG — antes eran los caracteres Unicode
+// ♥/♡, pero en algunas fuentes/plataformas el navegador los pinta con
+// su propio rojo fijo (emoji de reemplazo) sin importar el `color`
+// del CSS. Con SVG + fill="currentColor" el relleno SIEMPRE combina
+// con el color que ya define cada botón (--hit, --ball, etc.), sin
+// depender de cómo la fuente del sistema decida mostrar el símbolo.
+function HeartIcon({ filled, size = 18 }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth={filled ? 0 : 2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 21s-7.5-4.7-10.2-9.1C-.1 8.6 1.2 4.8 4.8 4.1c2.1-.4 4 .5 5.2 2.2 1.2-1.7 3.1-2.6 5.2-2.2 3.6.7 4.9 4.5 3 7.8C19.5 16.3 12 21 12 21Z" />
+    </svg>
+  );
+}
+
 function ProfileIcon({ name, size = 20 }) {
   const common = { viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' };
   if (name === 'edit') {
