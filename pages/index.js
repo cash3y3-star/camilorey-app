@@ -4669,7 +4669,7 @@ function PicksVipView({
                   pick={featured}
                   onClick={() => onPickClick(featured)}
                   followed={followedPickIds.has(featured.id)}
-                  onToggleFollow={toggleFollow}
+                  onToggleFollow={featured.result === 'pending' ? toggleFollow : undefined}
                   featured
                   oddsFormat={oddsFormat}
                   live={liveScores[featured.sourceId]}
@@ -6586,6 +6586,14 @@ export default function Home({
     }
     const already = followedPickIds.has(pick.id);
     if (already) {
+      // No se puede dejar de seguir un pick ya finalizado (hit/miss) —
+      // pedido explícito: una vez se sabe el resultado, la estrella
+      // queda fija para que el historial de Seguidos no se pueda
+      // "limpiar" borrando los que salieron mal.
+      if (pick.result && pick.result !== 'pending') {
+        alert('No puedes dejar de seguir un pick que ya finalizó.');
+        return;
+      }
       const { error } = await supabaseClient.from('followed_picks').delete().eq('user_id', user.id).eq('pick_id', pick.id);
       if (error) {
         console.error('Error dejando de seguir:', error);
@@ -7453,7 +7461,7 @@ export default function Home({
                 pick={featured}
                 onClick={() => setModalPick(featured)}
                 followed={followedPickIds.has(featured.id)}
-                onToggleFollow={toggleFollow}
+                onToggleFollow={featured.result === 'pending' ? toggleFollow : undefined}
                 featured
                 oddsFormat={oddsFormat}
                 live={liveScores[featured.sourceId]}
@@ -7477,7 +7485,7 @@ export default function Home({
                   key={i}
                   onClick={() => setModalMatch(m)}
                   followed={m.pickId ? followedPickIds.has(m.pickId) : false}
-                  onToggleFollow={toggleFollow}
+                  onToggleFollow={m.pickResult ? undefined : toggleFollow}
                   live={liveScores[m.sourceId]}
                 />
               ))}
@@ -7573,7 +7581,7 @@ export default function Home({
                   key={i}
                   onClick={() => setModalMatch(m)}
                   followed={m.pickId ? followedPickIds.has(m.pickId) : false}
-                  onToggleFollow={toggleFollow}
+                  onToggleFollow={m.pickResult ? undefined : toggleFollow}
                   live={liveScores[m.sourceId]}
                 />
               ))
@@ -8223,7 +8231,7 @@ export default function Home({
                         pick={p}
                         onClick={() => setModalPick(p)}
                         followed={true}
-                        onToggleFollow={toggleFollow}
+                        onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
                       />
                     ))}
                   </div>
@@ -8509,7 +8517,7 @@ export default function Home({
           lang={lang}
           canSeeFullHistory={canSeeExclusive}
           followed={followedPickIds.has(modalPick.id)}
-          onToggleFollow={toggleFollow}
+          onToggleFollow={modalPick.result === 'pending' ? toggleFollow : undefined}
         />
       )}
 
