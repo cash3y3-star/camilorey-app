@@ -71,11 +71,21 @@ export default async function handler(req, res) {
     .map(mapPending)
     .sort(byScheduledAt);
 
+  // OJO: sin .limit(), Supabase/PostgREST igual aplica un tope
+  // implícito de fila (1000 por defecto) — pedirlo ascendente (más
+  // viejo primero) significaba que, apenas la tabla pasó de esa
+  // cantidad de picks resueltos, los MÁS RECIENTES ya ni se traían:
+  // "Últimos 30 resueltos" se quedaba pegado para siempre en lo que
+  // haya caído justo en ese límite, sin importar cuánto tiempo
+  // pasara ni cuántos picks nuevos se resolvieran. Pidiendo
+  // descendente (más nuevo primero) con un límite explícito generoso,
+  // lo reciente SIEMPRE entra.
   const { data: picks, error } = await supabase
     .from('picks')
     .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market, published')
     .in('result', ['hit', 'miss'])
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(3000);
   if (error) return res.status(500).json({ error: error.message });
   if (!picks || picks.length === 0) return res.status(200).json({ n: 0, pending, discardedPending, discardedResolved: [] });
 
