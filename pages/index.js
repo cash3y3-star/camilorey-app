@@ -6838,7 +6838,7 @@ export default function Home({
           style={{
             minHeight: '100vh',
             background:
-              'radial-gradient(120% 55% at 50% 100%, #0E0D0C 0%, transparent 62%), linear-gradient(160deg, #E2444A 0%, #FF7A45 55%, #0E0D0C 100%)',
+              'radial-gradient(120% 55% at 50% 100%, #0E0D0C 0%, transparent 62%), linear-gradient(160deg, #16A34A 0%, #FF7A45 55%, #0E0D0C 100%)',
             color: '#F5F1EC',
             fontFamily: "'Manrope', sans-serif",
             display: 'flex',
@@ -6854,7 +6854,7 @@ export default function Home({
                 height: '64px',
                 borderRadius: '20px',
                 background: '#1B1917',
-                color: '#E2444A',
+                color: '#16A34A',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -8177,10 +8177,10 @@ const CSS = `
     --ink:#F5F1EC;
     --muted:#948C83;
     --line:#2B2724;
-    --court:#E2444A;
-    --court-dark:#A32D2D;
-    --court-soft:#2E1817;
-    --court-soft-text:#FAC7C7;
+    --court:#16A34A;
+    --court-dark:#15803D;
+    --court-soft:#122A1C;
+    --court-soft-text:#A7F3C8;
     --ball:#FF7A45;
     --ball-dark:#D85A30;
     --hit:#5DCAA5;
@@ -8206,10 +8206,10 @@ const CSS = `
     --ink:#1E1815;
     --muted:#8A7F78;
     --line:#E9E0DB;
-    --court:#E2444A;
-    --court-dark:#A32D2D;
-    --court-soft:#FBE2E2;
-    --court-soft-text:#A32D2D;
+    --court:#16A34A;
+    --court-dark:#15803D;
+    --court-soft:#DCFCE7;
+    --court-soft-text:#15803D;
     --ball:#E85E2C;
     --ball-dark:#B8481F;
     --hit:#1E9C74;
@@ -8256,8 +8256,8 @@ const CSS = `
     animation: pulse-dot 1.8s ease-in-out infinite;
   }
   @keyframes pulse-dot{
-    0%, 100%{transform:scale(1); box-shadow:0 0 0 3px var(--court-soft), 0 0 6px rgba(226,68,74,.6);}
-    50%{transform:scale(1.25); box-shadow:0 0 0 5px rgba(226,68,74,.15), 0 0 10px rgba(226,68,74,.9);}
+    0%, 100%{transform:scale(1); box-shadow:0 0 0 3px var(--court-soft), 0 0 6px rgba(22,163,74,.6);}
+    50%{transform:scale(1.25); box-shadow:0 0 0 5px rgba(22,163,74,.15), 0 0 10px rgba(22,163,74,.9);}
   }
   nav.top-nav{display:flex; gap:6px;}
   nav.top-nav a{
@@ -8424,7 +8424,7 @@ const CSS = `
      e Inicio "En vivo ahora") sin ningún contenedor con gap. */
   .match-card{margin-bottom:10px;}
   .pick-card:hover, .match-card:hover{border-color:var(--court); transform:translateY(-1px);}
-  .pick-card-featured{border-color:var(--court); box-shadow:0 8px 22px rgba(226,68,74,.18);}
+  .pick-card-featured{border-color:var(--court); box-shadow:0 8px 22px rgba(22,163,74,.18);}
   .follow-btn{
     position:absolute; top:12px; right:12px; z-index:2;
     background:none; border:none; cursor:pointer; padding:4px;
@@ -8627,7 +8627,7 @@ const CSS = `
   .balance-hero{
     background:linear-gradient(135deg, var(--court), var(--court-dark));
     border-radius:20px; padding:20px 22px; margin:16px 0; color:#fff;
-    box-shadow:0 10px 24px rgba(226,68,74,.3);
+    box-shadow:0 10px 24px rgba(22,163,74,.3);
   }
   .balance-hero-label{font-size:12px; opacity:.85; margin-bottom:4px;}
   .balance-hero-value{font-family:var(--font-display); font-weight:800; font-size:32px;}
@@ -8698,7 +8698,7 @@ const CSS = `
   .tab.tab-locked.active{background:var(--bg-alt); color:var(--muted); border-color:var(--line);}
 
   .status{font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; flex:none;}
-  .status.live{background:rgba(226,68,74,.18); color:var(--court); border:1px solid rgba(226,68,74,.5);}
+  .status.live{background:rgba(22,163,74,.18); color:var(--court); border:1px solid rgba(22,163,74,.5);}
   .status.soon{background:var(--court-soft); color:var(--court-soft-text);}
   .status.done{background:var(--bg-alt); color:var(--muted);}
 
@@ -8709,7 +8709,7 @@ const CSS = `
   .mc-set{
     background:var(--bg-alt); border-radius:8px; padding:5px 10px; font-size:13px; font-weight:700; color:var(--ink);
   }
-  .mc-set-current{background:var(--court-soft); color:var(--court-soft-text); border:1px solid rgba(226,68,74,.45);}
+  .mc-set-current{background:var(--court-soft); color:var(--court-soft-text); border:1px solid rgba(22,163,74,.45);}
   .mc-live-loading{font-size:12px; color:var(--muted);}
   .mc-live-score-small{margin-top:8px; padding-top:8px; gap:5px;}
   .mc-live-score-small .mc-set{padding:3px 7px; font-size:11px; background:transparent; border:1px solid var(--line); color:var(--muted);}
@@ -8791,7 +8791,7 @@ const CSS = `
   .live-set-col{
     background:var(--bg-alt); border-radius:10px; padding:10px 14px; text-align:center; min-width:64px;
   }
-  .live-set-col.current{background:var(--court-soft); border:1px solid rgba(226,68,74,.45);}
+  .live-set-col.current{background:var(--court-soft); border:1px solid rgba(22,163,74,.45);}
   .live-set-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;}
   .live-set-score{font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--ink);}
 
@@ -9024,7 +9024,7 @@ const CSS = `
   .del-item-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
   .del-item{
     display:flex; gap:12px; padding:14px; border-radius:14px;
-    background:var(--court-soft); border:1px solid rgba(226,68,74,.25);
+    background:rgba(226,68,74,.12); border:1px solid rgba(226,68,74,.25);
   }
   .del-item-icon{
     flex:none; width:36px; height:36px; border-radius:10px; color:#B3261E;
@@ -9293,7 +9293,7 @@ const CSS = `
     background:var(--bg-alt); border:1px solid var(--line); border-radius:12px; padding:9px 8px;
     display:flex; flex-direction:column; gap:4px; min-width:0;
   }
-  .pick-metric-card-accent{background:var(--court-soft); border-color:rgba(226,68,74,.35);}
+  .pick-metric-card-accent{background:var(--court-soft); border-color:rgba(22,163,74,.35);}
   .pick-metric-label{
     font-size:9.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--muted); font-weight:700;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
@@ -9356,7 +9356,7 @@ const CSS = `
   .premium-lock-icon{
     width:56px; height:56px; border-radius:50%; margin:0 auto 14px;
     display:flex; align-items:center; justify-content:center;
-    background:var(--court-soft); color:var(--court); border:1px solid rgba(226,68,74,.4);
+    background:var(--court-soft); color:var(--court); border:1px solid rgba(22,163,74,.4);
   }
   .premium-lock-card h3{font-family:var(--font-display); font-size:19px; margin:0 0 8px;}
   .premium-lock-card p{color:var(--muted); font-size:13.5px; line-height:1.6; margin:0; max-width:340px; margin:0 auto;}
