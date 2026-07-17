@@ -2210,7 +2210,7 @@ function buildAnalysis(factors) {
 
 const TIER_LABEL = { alta: 'Alta confianza', media: 'Media confianza', baja: 'Confianza baja' };
 
-const SIDE_TONE = { left: 'var(--court)', right: 'var(--blue)' };
+const SIDE_TONE = { left: '#E2444A', right: 'var(--blue)' };
 
 // Avatar de un USUARIO del sitio (no de un jugador de tenis de mesa)
 // — prioridad emoji > foto propia/de Google > iniciales, la misma en
