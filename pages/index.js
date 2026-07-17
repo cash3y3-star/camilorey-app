@@ -2987,6 +2987,13 @@ function StreamPlayer({ videoIds, minimized, onClose, onToggleMinimize }) {
               >
                 ✕
               </button>
+              {/* Tapa la franja de abajo del reproductor de YouTube
+                  (marca del canal / "Más videos") con un cartel propio
+                  en movimiento — pointer-events:none para no bloquear
+                  play/pausa, solo se ve encima. */}
+              <div className="stream-player-banner">
+                <span>CAMILOREY · CAMILOREY · CAMILOREY · CAMILOREY ·</span>
+              </div>
             </div>
           ))}
         </div>
@@ -9699,6 +9706,23 @@ const CSS = `
     display:flex; align-items:center; justify-content:center;
   }
   .stream-player.full .stream-player-frame-close{width:26px; height:26px; font-size:13px;}
+  .stream-player-banner{
+    position:absolute; left:0; right:0; bottom:0; height:22%; z-index:1; overflow:hidden;
+    background:linear-gradient(0deg, rgba(0,0,0,.85) 40%, transparent 100%);
+    display:flex; align-items:flex-end; padding-bottom:4px; pointer-events:none;
+  }
+  .stream-player-banner span{
+    display:inline-block; white-space:nowrap; padding-left:100%;
+    font-family:var(--font-display); font-weight:800; font-size:11px; letter-spacing:1px;
+    color:rgba(255,255,255,.8); text-shadow:0 1px 2px rgba(0,0,0,.6);
+    animation:stream-banner-scroll 9s linear infinite;
+  }
+  @keyframes stream-banner-scroll{
+    from{transform:translateX(0);}
+    to{transform:translateX(-100%);}
+  }
+  .stream-player.mini .stream-player-banner{height:26%;}
+  .stream-player.mini .stream-player-banner span{font-size:8px; letter-spacing:.5px;}
   .subscreen-head{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
   .subscreen-back{
     background:var(--bg-alt); border:1px solid var(--line); width:32px; height:32px; border-radius:50%;
