@@ -288,6 +288,9 @@ const TRANSLATIONS = {
     partidosPl: 'partidos',
     victorias: 'victorias',
     derrotas: 'derrotas',
+    tasaAcierto: 'Tasa de acierto',
+    seguirPrediccion: 'Seguir predicción',
+    siguiendoPick: 'Siguiendo',
     sinHistorial: 'Sin historial reciente todavía.',
     sinEnfrentamientos: 'Todavía no se han enfrentado.',
     buscandoMarcador: 'Buscando marcador…',
@@ -579,6 +582,9 @@ const TRANSLATIONS = {
     partidosPl: 'matches',
     victorias: 'wins',
     derrotas: 'losses',
+    tasaAcierto: 'Hit rate',
+    seguirPrediccion: 'Follow prediction',
+    siguiendoPick: 'Following',
     sinHistorial: 'No recent history yet.',
     sinEnfrentamientos: "They haven't played each other yet.",
     buscandoMarcador: 'Looking for the score…',
@@ -871,6 +877,9 @@ const TRANSLATIONS = {
     partidosPl: 'jogos',
     victorias: 'vitórias',
     derrotas: 'derrotas',
+    tasaAcierto: 'Taxa de acerto',
+    seguirPrediccion: 'Seguir previsão',
+    siguiendoPick: 'Seguindo',
     sinHistorial: 'Ainda sem histórico recente.',
     sinEnfrentamientos: 'Ainda não se enfrentaram.',
     buscandoMarcador: 'Buscando placar…',
@@ -3166,7 +3175,7 @@ function buildRichAnalysis(pick, t) {
 // Análisis (el texto de por qué es favorito) y H2H (cruce directo
 // partido por partido). Todo lo que se muestra sale de datos reales
 // que ya calculamos — no se inventa ningún número.
-function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFullHistory = false }) {
+function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFullHistory = false, followed = false, onToggleFollow }) {
   const t = useTranslate(lang);
   const [tab, setTab] = useState('resumen');
   // "Estadísticas" ahora es un solo tab con 3 botones (local/H2H/
@@ -3285,6 +3294,17 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
           </div>
         </div>
 
+        {!isDone && onToggleFollow ? (
+          <button
+            type="button"
+            className={`pick-follow-btn ${followed ? 'active' : ''}`}
+            onClick={() => onToggleFollow(pick)}
+          >
+            <span className="pick-follow-star">{followed ? '★' : '☆'}</span>
+            {followed ? t('siguiendoPick') : t('seguirPrediccion')}
+          </button>
+        ) : null}
+
         <div className="tabs">
           <div className={`tab ${tab === 'resumen' ? 'active' : ''}`} onClick={() => setTab('resumen')}>
             {t('tabResumen')}
@@ -3376,6 +3396,12 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
               displayLeftHistory.length > 0 ? (
                 <>
                   <FormBarChart matches={displayLeftHistory} t={t} />
+                  <div className="pick-metric-card pick-metric-card-accent" style={{ marginBottom: '14px' }}>
+                    <span className="pick-metric-label">{t('tasaAcierto')}</span>
+                    <span className="pick-metric-value num">
+                      {hitsLeft}/{displayLeftHistory.length} · {Math.round((hitsLeft / displayLeftHistory.length) * 100)}%
+                    </span>
+                  </div>
                   <div className="donut-row">
                     <DonutChart wins={hitsLeft} total={displayLeftHistory.length} />
                     <div>
@@ -3396,6 +3422,12 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
               displayRightHistory.length > 0 ? (
                 <>
                   <FormBarChart matches={displayRightHistory} t={t} />
+                  <div className="pick-metric-card pick-metric-card-accent" style={{ marginBottom: '14px' }}>
+                    <span className="pick-metric-label">{t('tasaAcierto')}</span>
+                    <span className="pick-metric-value num">
+                      {hitsRight}/{displayRightHistory.length} · {Math.round((hitsRight / displayRightHistory.length) * 100)}%
+                    </span>
+                  </div>
                   <div className="donut-row">
                     <DonutChart wins={hitsRight} total={displayRightHistory.length} />
                     <div>
@@ -8125,6 +8157,8 @@ export default function Home({
           oddsFormat={oddsFormat}
           lang={lang}
           canSeeFullHistory={canSeeExclusive}
+          followed={followedPickIds.has(modalPick.id)}
+          onToggleFollow={toggleFollow}
         />
       )}
 
@@ -9243,6 +9277,15 @@ const CSS = `
   .stat-row-value{color:var(--ink); font-weight:800; font-size:14px;}
   .stat-row-bar{height:6px; border-radius:999px; background:var(--line); overflow:hidden; margin-top:6px;}
   .stat-row-bar-fill{height:100%; border-radius:999px; background:var(--court);}
+
+  .pick-follow-btn{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--bg-alt); border:1px solid var(--line); color:var(--ink);
+    font-family:var(--font-body); font-weight:800; font-size:14px; padding:13px; border-radius:999px;
+    margin:14px 0 4px; cursor:pointer;
+  }
+  .pick-follow-btn.active{background:rgba(93,202,165,.14); border-color:var(--hit); color:var(--hit);}
+  .pick-follow-star{font-size:17px; line-height:1;}
 
   .pick-metric-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin:14px 0;}
   .pick-metric-card{
