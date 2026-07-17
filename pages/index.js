@@ -155,6 +155,8 @@ const TRANSLATIONS = {
     perfilMiembroDesde: 'Miembro desde',
     mejoraTuPlan: 'Mejora tu plan',
     mejoraTuPlanDesc: 'Mi Bankroll y más funciones premium',
+    funcionPremium: 'Función Premium',
+    funcionPremiumDesc: 'Mejora tu plan para desbloquearla',
     verPlanes: 'Ver Planes ›',
     plansTitle: 'Elige tu plan Premium',
     plansBullet1: 'Detección de cuotas con valor (edge) frente al mercado',
@@ -465,6 +467,8 @@ const TRANSLATIONS = {
     perfilMiembroDesde: 'Member since',
     mejoraTuPlan: 'Upgrade your plan',
     mejoraTuPlanDesc: 'My Bankroll and more premium features',
+    funcionPremium: 'Premium Feature',
+    funcionPremiumDesc: 'Upgrade your plan to unlock it',
     verPlanes: 'See Plans ›',
     plansTitle: 'Choose your Premium plan',
     plansBullet1: 'Value-edge odds detection against the market',
@@ -774,6 +778,8 @@ const TRANSLATIONS = {
     perfilMiembroDesde: 'Membro desde',
     mejoraTuPlan: 'Melhore seu plano',
     mejoraTuPlanDesc: 'Minha Banca e mais funções premium',
+    funcionPremium: 'Função Premium',
+    funcionPremiumDesc: 'Melhore seu plano para desbloqueá-la',
     verPlanes: 'Ver Planos ›',
     plansTitle: 'Escolha seu plano Premium',
     plansBullet1: 'Detecção de odds com valor (edge) frente ao mercado',
@@ -3644,6 +3650,15 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             ) : (
               <p className="page-sub">{t('sinEnfrentamientos')}</p>
             )}
+            {!canSeeFullHistory ? (
+              <div className="premium-feature-card">
+                <span className="premium-feature-lock">
+                  <ProfileIcon name="lock" size={18} />
+                </span>
+                <strong>{t('funcionPremium')}</strong>
+                <p>{t('funcionPremiumDesc')}</p>
+              </div>
+            ) : null}
           </>
         ) : tab === 'analisis' ? (
           <>
@@ -10126,7 +10141,11 @@ const CSS = `
   .pick-metric-card-accent .pick-metric-label{color:var(--court-soft-text);}
   .pick-metric-value{font-size:15px; font-weight:800; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .pick-metric-card-accent .pick-metric-value{color:var(--court-soft-text);}
-  .pick-metric-locked{display:flex; align-items:center; color:var(--muted);}
+  .pick-metric-locked{
+    width:28px; height:28px; border-radius:50%; margin-top:2px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg-alt); border:1px solid var(--line); color:var(--muted);
+  }
   .pick-metric-bar{height:4px; border-radius:99px; background:rgba(0,0,0,.15); overflow:hidden; margin-top:1px;}
   .pick-metric-bar-fill{height:100%; background:#22C55E; border-radius:99px;}
 
@@ -10179,6 +10198,17 @@ const CSS = `
     background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
     padding:32px 24px; text-align:center; box-shadow:var(--shadow);
   }
+  .premium-feature-card{
+    background:linear-gradient(135deg, var(--court-soft), var(--bg-alt) 70%);
+    border:1px solid var(--line); border-radius:16px; padding:22px 20px; text-align:center; margin-top:14px;
+  }
+  .premium-feature-lock{
+    width:38px; height:38px; border-radius:50%; margin:0 auto 10px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--bg-alt); border:1px solid var(--line); color:var(--muted);
+  }
+  .premium-feature-card strong{display:block; font-size:14.5px; margin-bottom:4px;}
+  .premium-feature-card p{color:var(--muted); font-size:12.5px; margin:0;}
   .premium-lock-icon{
     width:56px; height:56px; border-radius:50%; margin:0 auto 14px;
     display:flex; align-items:center; justify-content:center;
