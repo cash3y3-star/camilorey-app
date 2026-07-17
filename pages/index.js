@@ -91,13 +91,9 @@ const TRANSLATIONS = {
 
     picksEyebrow: 'Todos los picks',
     picksTitle: 'Picks',
-    picksEnEstaCategoria: 'picks en esta categoría',
-    tabTodos: 'Todos',
-    tabPendientes: 'Pendientes',
-    tabGanados: 'Ganados',
-    tabPerdidos: 'Perdidos',
+    picksEnEstaCategoria: 'picks pendientes',
     tabExclusivos: 'Exclusivos',
-    noHayPicksCategoria: 'No hay picks en esta categoría todavía.',
+    noHayPicksCategoria: 'No hay picks pendientes todavía.',
     exclusivosLockTitle: 'Picks Exclusivos',
     exclusivosLockDesc:
       'Los picks de alta confianza con cuota de valor (1.60 o más) son solo para cuentas premium. Mejora tu plan para verlos.',
@@ -387,13 +383,9 @@ const TRANSLATIONS = {
 
     picksEyebrow: 'All picks',
     picksTitle: 'Picks',
-    picksEnEstaCategoria: 'picks in this category',
-    tabTodos: 'All',
-    tabPendientes: 'Pending',
-    tabGanados: 'Won',
-    tabPerdidos: 'Lost',
+    picksEnEstaCategoria: 'pending picks',
     tabExclusivos: 'Exclusive',
-    noHayPicksCategoria: 'No picks in this category yet.',
+    noHayPicksCategoria: 'No pending picks yet.',
     exclusivosLockTitle: 'Exclusive Picks',
     exclusivosLockDesc: 'High-confidence picks with value odds (1.60+) are premium-only. Upgrade your plan to see them.',
     exclusivosVacio: 'No active exclusive picks yet — check back later.',
@@ -681,13 +673,9 @@ const TRANSLATIONS = {
 
     picksEyebrow: 'Todos os picks',
     picksTitle: 'Picks',
-    picksEnEstaCategoria: 'picks nesta categoria',
-    tabTodos: 'Todos',
-    tabPendientes: 'Pendentes',
-    tabGanados: 'Ganhos',
-    tabPerdidos: 'Perdidos',
+    picksEnEstaCategoria: 'picks pendentes',
     tabExclusivos: 'Exclusivos',
-    noHayPicksCategoria: 'Ainda não há picks nesta categoria.',
+    noHayPicksCategoria: 'Ainda não há picks pendentes.',
     exclusivosLockTitle: 'Picks Exclusivos',
     exclusivosLockDesc: 'Os picks de alta confiança com odds de valor (1.60+) são só para contas premium. Melhore seu plano para vê-los.',
     exclusivosVacio: 'Ainda não há picks exclusivos ativos — volte mais tarde.',
@@ -2282,12 +2270,6 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
   // camiseta roja, y el visitante a la derecha con camiseta azul
   // (mismo criterio que MatchRow), sin importar a quién le apostamos.
   const leftIsFavored = pick.favoredIsA !== false;
-  const leftPlayer = leftIsFavored
-    ? { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials, hasCutout: pick.hasCutout }
-    : { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials, hasCutout: pick.opponentHasCutout };
-  const rightPlayer = leftIsFavored
-    ? { name: pick.opponent, avatarUrl: pick.opponentAvatarUrl, initials: pick.opponentInitials, hasCutout: pick.opponentHasCutout }
-    : { name: pick.player, avatarUrl: pick.avatarUrl, initials: pick.initials, hasCutout: pick.hasCutout };
 
   // El chip de H2H de la tarjeta respeta el mismo tope que el modal de
   // detalle (5 gratis, 20 premium) — si no, alguien gratis vería un
@@ -2302,17 +2284,6 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
   const cardH2HFavoredWins = cardH2HMatches.filter((m) => m.win).length;
   const cardH2HLeftWins = leftIsFavored ? cardH2HFavoredWins : cardH2HTotal - cardH2HFavoredWins;
   const cardH2H = `${cardH2HLeftWins}-${cardH2HTotal - cardH2HLeftWins}`;
-  let liveSetsWonA = null;
-  let liveSetsWonB = null;
-  if (pick.matchStatus === 'live' && live) {
-    if (live.source === 'kambi') {
-      liveSetsWonA = (live.sets || []).filter((s) => s.a > s.b).length;
-      liveSetsWonB = (live.sets || []).filter((s) => s.b > s.a).length;
-    } else if (live.source === 'tt' && live.scoreOne != null) {
-      liveSetsWonA = live.scoreOne;
-      liveSetsWonB = live.scoreTwo;
-    }
-  }
 
   return (
     <div className={`pick-card ${featured ? 'pick-card-featured' : ''}`} onClick={onClick}>
@@ -2350,30 +2321,38 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           ) : null}
         </span>
       </div>
-      <div className="pc-vs">
-        <div className="pc-player">
-          <PlayerAvatar name={leftPlayer.name} avatarUrl={leftPlayer.avatarUrl} initials={leftPlayer.initials} side="left" hasCutout={leftPlayer.hasCutout} />
-          <span className="pc-player-name">{leftPlayer.name}</span>
+      <div className="pc-hero">
+        <div className="pc-hero-photo">
+          <PlayerAvatar
+            name={pick.player}
+            avatarUrl={pick.avatarUrl}
+            initials={pick.initials}
+            side={leftIsFavored ? 'left' : 'right'}
+            className="pc-hero-avatar"
+            hasCutout={pick.hasCutout}
+          />
+          {pick.matchStatus === 'live' ? (
+            <span className="pc-hero-badge live">
+              <span className="live-dot"></span>
+            </span>
+          ) : pick.matchStatus === 'done' && pick.result === 'hit' ? (
+            <span className="pc-hero-badge hit">
+              <ProfileIcon name="check" size={14} />
+            </span>
+          ) : pick.matchStatus === 'done' && pick.result === 'miss' ? (
+            <span className="pc-hero-badge miss">✕</span>
+          ) : null}
         </div>
-        {liveSetsWonA != null ? (
-          <span className="pc-vs-badge pc-vs-live num">
-            {liveSetsWonA}-{liveSetsWonB}
+        <div className="pc-hero-info">
+          <strong className="pc-hero-name">{pick.player}</strong>
+          <span className="pc-hero-meta">
+            vs {pick.opponent} · {pick.matchStatus === 'done' && pick.score ? pick.score : pick.time}
           </span>
-        ) : pick.matchStatus === 'live' ? (
-          <span className="pc-vs-badge pc-vs-live num">···</span>
-        ) : pick.matchStatus === 'done' && pick.score ? (
-          <span
-            className="pc-vs-badge pc-vs-live num"
-            style={{ color: pick.result === 'hit' ? 'var(--hit)' : pick.result === 'miss' ? 'var(--miss)' : 'var(--court)' }}
-          >
-            {pick.score}
-          </span>
-        ) : (
-          <span className="pc-vs-badge">VS</span>
-        )}
-        <div className="pc-player">
-          <PlayerAvatar name={rightPlayer.name} avatarUrl={rightPlayer.avatarUrl} initials={rightPlayer.initials} side="right" hasCutout={rightPlayer.hasCutout} />
-          <span className="pc-player-name">{rightPlayer.name}</span>
+          <div className="pc-hero-quick">
+            <span className="pc-hero-odds num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
+            <span className="pc-hero-conf num">{pick.confidence}%</span>
+          </div>
+          <span className="pc-hero-pill">{pick.market}</span>
         </div>
       </div>
       {pick.matchStatus === 'live' && live?.source === 'kambi' && live.sets?.length > 0 ? (
@@ -5884,7 +5863,6 @@ export default function Home({
   userCount
 }) {
   const [view, setView] = useState('inicio');
-  const [pickTab, setPickTab] = useState('todos');
   const [stats, setStats] = useState(initialStats);
   const [picks, setPicks] = useState(initialPicks);
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
@@ -6396,10 +6374,6 @@ export default function Home({
     () => (canSeeExclusive ? picks : picks.filter((p) => !p.exclusive)),
     [picks, canSeeExclusive]
   );
-  const visibleResolvedPicks = useMemo(
-    () => (canSeeExclusive ? resolvedPicks : resolvedPicks.filter((p) => !p.exclusive)),
-    [resolvedPicks, canSeeExclusive]
-  );
   // Los picks exclusivos YA NO viajan en picks/resolvedPicks (esos son
   // props/JSON públicos, sin login) — se piden aparte acá abajo con el
   // token de sesión, a /api/vip-picks (mismo patrón que exclusiveBalance).
@@ -6706,15 +6680,6 @@ export default function Home({
     }
     setPremiumBusy(false);
   };
-
-  const tabPicks =
-    pickTab === 'pendientes'
-      ? visiblePicks
-      : pickTab === 'ganados'
-      ? visibleResolvedPicks.filter((p) => p.result === 'hit')
-      : pickTab === 'perdidos'
-      ? visibleResolvedPicks.filter((p) => p.result === 'miss')
-      : [...visiblePicks, ...visibleResolvedPicks];
 
   // "Mi Bankroll": mismo cálculo de Kelly que el Bankroll del admin,
   // pero corriendo solo sobre los picks que ESTA persona sigue (no
@@ -7196,25 +7161,13 @@ export default function Home({
           <span className="eyebrow">{t('picksEyebrow')}</span>
           <h1 className="page-title">{t('picksTitle')}</h1>
           <p className="page-sub">
-            {tabPicks.length} {t('picksEnEstaCategoria')}
+            {visiblePicks.length} {t('picksEnEstaCategoria')}
           </p>
-          <div className="tabs">
-            {[
-              ['todos', t('tabTodos')],
-              ['pendientes', t('tabPendientes')],
-              ['ganados', t('tabGanados')],
-              ['perdidos', t('tabPerdidos')]
-            ].map(([key, label]) => (
-              <div key={key} className={`tab ${pickTab === key ? 'active' : ''}`} onClick={() => setPickTab(key)}>
-                {label}
-              </div>
-            ))}
-          </div>
           <div className="pick-grid">
-            {tabPicks.length === 0 ? (
+            {visiblePicks.length === 0 ? (
               <p className="page-sub">{t('noHayPicksCategoria')}</p>
             ) : (
-              tabPicks.map((p) => (
+              visiblePicks.map((p) => (
                 <PickCard
                   key={p.id}
                   pick={p}
@@ -8514,6 +8467,38 @@ const CSS = `
     content:""; position:absolute; inset:0; border-radius:50%;
     background:linear-gradient(155deg, rgba(255,255,255,.16), transparent 55%);
     pointer-events:none;
+  }
+
+  /* PickCard: foto grande del jugador favorito (a quien apostamos) en
+     vez de las dos fotos lado a lado con "VS" — pedido tal cual por
+     referencia de otra app. .pc-hero-avatar sobre-escribe el .avatar
+     circular de 56px para que la foto llene el contenedor cuadrado. */
+  .pc-hero{display:flex; gap:12px; align-items:flex-start; margin-bottom:12px;}
+  .pc-hero-photo{
+    position:relative; width:84px; height:84px; border-radius:14px; flex:none; overflow:hidden;
+  }
+  .pc-hero-photo .pc-hero-avatar{
+    width:100%; height:100%; border-radius:14px; border:2px solid rgba(255,255,255,.1);
+  }
+  .pc-hero-photo .pc-hero-avatar::after{border-radius:14px;}
+  .pc-hero-badge{
+    position:absolute; top:5px; right:5px; width:20px; height:20px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:800;
+    border:2px solid rgba(255,255,255,.25); z-index:1;
+  }
+  .pc-hero-badge.hit{background:#22C55E; box-shadow:0 0 0 1px rgba(34,197,94,.35), 0 2px 8px rgba(34,197,94,.5);}
+  .pc-hero-badge.miss{background:#EF4444; box-shadow:0 0 0 1px rgba(239,68,68,.35), 0 2px 8px rgba(239,68,68,.5);}
+  .pc-hero-badge.live{background:rgba(14,13,12,.7);}
+  .pc-hero-info{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; padding-top:2px;}
+  .pc-hero-name{font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pc-hero-meta{font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .pc-hero-quick{display:flex; gap:12px; align-items:center; margin:3px 0;}
+  .pc-hero-odds{font-family:var(--font-mono); font-size:12px; color:var(--muted); font-weight:700;}
+  .pc-hero-conf{font-size:12px; font-weight:800; color:var(--court);}
+  .pc-hero-pill{
+    display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.2px;
+    padding:4px 9px; border-radius:20px; background:var(--court-soft); color:var(--court-soft-text);
+    max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:fit-content;
   }
 
   /* Seguidos: tarjeta con foto grande de un solo jugador (el
