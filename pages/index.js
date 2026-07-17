@@ -2944,8 +2944,18 @@ function LiveChat({ matchSourceId, user, profile }) {
 // dos árboles JSX separados (uno solo si minimized, otro solo si no),
 // React desmontaría y remontaría el iframe al cambiar de modo, y eso
 // reinicia el video de YouTube desde cero cada vez.
-function StreamPlayer({ videoId, minimized, onClose, onToggleMinimize }) {
-  if (!videoId) return null;
+// Acepta VARIOS videos a la vez (pedido: ver la transmisión de un
+// torneo y de otro al mismo tiempo) — se apilan uno debajo del otro,
+// cada uno con su propia X para cerrarlo. Todos los <iframe> quedan
+// SIEMPRE en el mismo lugar del árbol JSX entre modo completo/mini
+// (mismo motivo que antes: si se armaran en ramas JSX separadas,
+// React los remontaría al cambiar de modo y el video se reiniciaría).
+// Solo el último que se abrió arranca con sonido — los demás arrancan
+// mudos, para no mezclar el audio de dos partidos a la vez; cada
+// quien le puede subir el volumen a mano desde los controles propios
+// de YouTube si quiere.
+function StreamPlayer({ videoIds, minimized, onClose, onToggleMinimize }) {
+  if (!videoIds || videoIds.length === 0) return null;
   return (
     <div className={`stream-player ${minimized ? 'mini' : 'full'}`}>
       {!minimized ? <div className="stream-player-backdrop" onClick={onToggleMinimize}></div> : null}
@@ -2955,31 +2965,30 @@ function StreamPlayer({ videoId, minimized, onClose, onToggleMinimize }) {
             <button className="stream-player-btn" onClick={onToggleMinimize} title="Minimizar">
               <ProfileIcon name="chevron-down" size={16} />
             </button>
-            <button className="stream-player-btn" onClick={onClose} title="Cerrar">
-              ✕
-            </button>
           </div>
         ) : null}
-        <div className="stream-player-frame" onClick={minimized ? onToggleMinimize : undefined}>
-          <iframe
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
-            title="Transmisión en vivo"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-          {minimized ? (
-            <button
-              className="stream-player-mini-close"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
-              title="Cerrar"
-            >
-              ✕
-            </button>
-          ) : null}
+        <div className="stream-player-stack">
+          {videoIds.map((videoId, i) => (
+            <div className="stream-player-frame" key={videoId} onClick={minimized ? onToggleMinimize : undefined}>
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}?autoplay=1${i < videoIds.length - 1 ? '&mute=1' : ''}`}
+                title="Transmisión en vivo"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+              <button
+                className="stream-player-frame-close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose(videoId);
+                }}
+                title="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -6326,18 +6335,22 @@ export default function Home({
   // panel, así que no hace falta refrescarlas mientras la página
   // sigue abierta.
   const [liveStreams, setLiveStreams] = useState([]);
-  const [streamModalVideoId, setStreamModalVideoId] = useState(null);
+  // Varios streams a la vez (pedido: ver dos torneos en simultáneo) —
+  // arreglo de ids de video de YouTube, no uno solo. Tope de 3 para
+  // no llenar la pantalla ni el ancho de banda de nadie.
+  const MAX_ACTIVE_STREAMS = 3;
+  const [activeStreamIds, setActiveStreamIds] = useState([]);
   const [streamMinimized, setStreamMinimized] = useState(false);
   // "Ver stream" siempre abre a pantalla completa, incluso si ya
-  // había uno minimizado de otra mesa (por eso no solo cambia el id,
-  // también desminimiza).
+  // había uno minimizado de otra mesa (por eso no solo agrega el id,
+  // también desminimiza). Si ya estaba abierto ese mismo video, no lo
+  // duplica.
   const openStream = (videoId) => {
-    setStreamModalVideoId(videoId);
+    setActiveStreamIds((prev) => (prev.includes(videoId) ? prev : [...prev, videoId].slice(-MAX_ACTIVE_STREAMS)));
     setStreamMinimized(false);
   };
-  const closeStream = () => {
-    setStreamModalVideoId(null);
-    setStreamMinimized(false);
+  const closeStream = (videoId) => {
+    setActiveStreamIds((prev) => prev.filter((id) => id !== videoId));
   };
   useEffect(() => {
     if (!supabaseClient) return;
@@ -8889,7 +8902,7 @@ export default function Home({
       )}
 
       <StreamPlayer
-        videoId={streamModalVideoId}
+        videoIds={activeStreamIds}
         minimized={streamMinimized}
         onClose={closeStream}
         onToggleMinimize={() => setStreamMinimized((m) => !m)}
@@ -9653,10 +9666,11 @@ const CSS = `
   .stream-player{position:fixed; z-index:300;}
   .stream-player.full{inset:0; display:flex; align-items:center; justify-content:center; padding:16px;}
   .stream-player-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.75);}
-  .stream-player.full .stream-player-box{position:relative; width:100%; max-width:720px;}
+  .stream-player.full .stream-player-box{position:relative; width:100%; max-width:720px; max-height:100%; overflow-y:auto;}
+  .stream-player-stack{display:flex; flex-direction:column; gap:12px;}
   .stream-player.full .stream-player-frame{
     position:relative; width:100%; aspect-ratio:16/9; border-radius:14px; overflow:hidden;
-    background:#000; box-shadow:0 20px 50px rgba(0,0,0,.5);
+    background:#000; box-shadow:0 20px 50px rgba(0,0,0,.5); flex:none;
   }
   .stream-player-controls{position:absolute; top:-46px; right:0; z-index:2; display:flex; gap:8px;}
   .stream-player-btn{
@@ -9670,17 +9684,19 @@ const CSS = `
   @media (min-width:641px){
     .stream-player.mini{bottom:20px;}
   }
-  .stream-player.mini .stream-player-box{width:180px;}
+  .stream-player.mini .stream-player-box{width:180px; max-height:calc(100vh - 110px); overflow-y:auto;}
+  .stream-player.mini .stream-player-stack{gap:8px;}
   .stream-player.mini .stream-player-frame{
     position:relative; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden;
-    background:#000; box-shadow:0 8px 24px rgba(0,0,0,.45); border:2px solid var(--court); cursor:pointer;
+    background:#000; box-shadow:0 8px 24px rgba(0,0,0,.45); border:2px solid var(--court); cursor:pointer; flex:none;
   }
   .stream-player.mini .stream-player-frame iframe{pointer-events:none;}
-  .stream-player-mini-close{
+  .stream-player-frame-close{
     position:absolute; top:4px; right:4px; z-index:2; width:20px; height:20px; border-radius:50%;
     background:rgba(14,13,12,.7); border:none; color:#fff; font-size:11px; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
   }
+  .stream-player.full .stream-player-frame-close{width:26px; height:26px; font-size:13px;}
   .subscreen-head{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
   .subscreen-back{
     background:var(--bg-alt); border:1px solid var(--line); width:32px; height:32px; border-radius:50%;
