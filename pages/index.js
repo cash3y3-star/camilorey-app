@@ -3353,7 +3353,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             onClick={() => onToggleFollow(pick)}
           >
             <span className="pick-follow-star">
-              <HeartIcon filled={followed} size={17} />
+              {followed ? <ProfileIcon name="check" size={16} /> : <HeartIcon filled={false} size={17} />}
             </span>
             {followed ? t('siguiendoPick') : t('seguirPrediccion')}
           </button>
