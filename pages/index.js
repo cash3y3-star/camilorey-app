@@ -9666,7 +9666,7 @@ const CSS = `
   .stream-player{position:fixed; z-index:300;}
   .stream-player.full{inset:0; display:flex; align-items:center; justify-content:center; padding:16px;}
   .stream-player-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.75);}
-  .stream-player.full .stream-player-box{position:relative; width:100%; max-width:920px; max-height:100%; overflow-y:auto;}
+  .stream-player.full .stream-player-box{position:relative; width:100%; max-width:480px; max-height:100%; overflow-y:auto;}
   .stream-player-stack{display:flex; flex-direction:column; gap:12px;}
   .stream-player.full .stream-player-stack{flex-direction:row; flex-wrap:wrap; align-items:flex-start; justify-content:center;}
   .stream-player.full .stream-player-frame{
