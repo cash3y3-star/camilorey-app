@@ -8959,9 +8959,9 @@ const CSS = `
     display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; font-weight:600;
     margin:2px 0 14px;
   }
-  .followed-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+  .followed-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
   @media (min-width:641px){
-    .followed-grid{grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));}
+    .followed-grid{grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px;}
   }
   .followed-card{
     background:var(--card); border:1px solid var(--line); border-radius:14px;
@@ -8978,7 +8978,7 @@ const CSS = `
     position:relative; z-index:2;
     width:100%; height:100%; object-fit:cover; display:block;
   }
-  .followed-photo-initials{font-family:var(--font-display); font-weight:800; font-size:26px; color:#fff;}
+  .followed-photo-initials{font-family:var(--font-display); font-weight:800; font-size:20px; color:#fff;}
   .followed-watermark{
     position:absolute; z-index:1; pointer-events:none; white-space:nowrap;
     transform:translate(-50%, -50%) rotate(-18deg);
@@ -8991,40 +8991,53 @@ const CSS = `
   .followed-watermark-3{top:68%; left:20%;}
   .followed-watermark-4{top:82%; left:72%;}
   .followed-star{
-    position:absolute; top:6px; left:6px; z-index:2; margin:0;
-    width:24px; height:24px; border-radius:50%; background:rgba(14,13,12,.55);
-    display:flex; align-items:center; justify-content:center; font-size:14px;
+    position:absolute; top:5px; left:5px; z-index:2; margin:0;
+    width:19px; height:19px; border-radius:50%; background:rgba(14,13,12,.55);
+    display:flex; align-items:center; justify-content:center; font-size:11px;
   }
   .followed-flag-badge{
-    position:absolute; bottom:6px; left:6px; width:22px; height:22px; border-radius:50%;
-    background:rgba(14,13,12,.7); display:flex; align-items:center; justify-content:center; font-size:11px;
+    position:absolute; bottom:5px; left:5px; width:17px; height:17px; border-radius:50%;
+    background:rgba(14,13,12,.7); display:flex; align-items:center; justify-content:center; font-size:9px;
   }
   .followed-result-badge{
-    position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:800;
+    position:absolute; top:5px; right:5px; width:19px; height:19px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:800;
     border:2px solid rgba(255,255,255,.25);
   }
   .followed-result-badge.hit{background:#22C55E; box-shadow:0 0 0 1px rgba(34,197,94,.35), 0 2px 8px rgba(34,197,94,.5);}
   .followed-result-badge.miss{background:#EF4444; box-shadow:0 0 0 1px rgba(239,68,68,.35), 0 2px 8px rgba(239,68,68,.5);}
   .followed-result-badge.live{background:rgba(14,13,12,.7);}
-  .followed-body{padding:9px 10px;}
-  .followed-tournament{display:block; font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .followed-name{display:block; font-size:13px; font-weight:800; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .followed-meta{display:block; font-size:10.5px; color:var(--muted); margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-body{padding:7px 7px 8px;}
+  .followed-tournament{display:block; font-size:7.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.2px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-name{display:block; font-size:11px; font-weight:800; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .followed-meta{display:block; font-size:8.5px; color:var(--muted); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .followed-pill{
-    display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.2px;
-    padding:4px 8px; border-radius:20px; margin-bottom:8px; max-width:100%;
+    display:inline-block; font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.1px;
+    padding:3px 6px; border-radius:20px; margin-bottom:6px; max-width:100%;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .followed-pill.pending{background:var(--court-soft); color:var(--court-soft-text);}
   .followed-pill.hit{background:rgba(60,179,113,.16); color:var(--hit);}
   .followed-pill.miss{background:rgba(226,68,74,.16); color:var(--miss);}
-  .followed-bar-row{display:flex; align-items:center; gap:6px;}
+  .followed-bar-row{display:flex; align-items:center; gap:5px;}
   .followed-bar-track{flex:1; height:4px; border-radius:99px; background:var(--bg-alt); overflow:hidden;}
   .followed-bar-fill{height:100%; border-radius:99px; background:#E0A030;}
   .followed-bar-fill.hit{background:#22C55E;}
   .followed-bar-fill.miss{background:#EF4444;}
-  .followed-bar-val{font-size:10.5px; color:var(--muted); flex:none;}
+  .followed-bar-val{font-size:9px; color:var(--muted); flex:none;}
+  @media (min-width:641px){
+    .followed-star{top:6px; left:6px; width:24px; height:24px; font-size:14px;}
+    .followed-flag-badge{bottom:6px; left:6px; width:22px; height:22px; font-size:11px;}
+    .followed-result-badge{top:6px; right:6px; width:24px; height:24px; font-size:13px;}
+    .followed-body{padding:9px 10px;}
+    .followed-tournament{font-size:9px; letter-spacing:.3px;}
+    .followed-name{font-size:13px;}
+    .followed-meta{font-size:10.5px; margin-bottom:8px;}
+    .followed-pill{font-size:9px; letter-spacing:.2px; padding:4px 8px; margin-bottom:8px;}
+    .followed-bar-row{gap:6px;}
+    .followed-bar-val{font-size:10.5px;}
+    .followed-photo-initials{font-size:26px;}
+  }
 
   .pc-stats-row{display:flex; gap:18px; justify-content:center; margin-bottom:12px; padding:10px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
   .pc-stat{display:flex; flex-direction:column; align-items:center; gap:2px;}
