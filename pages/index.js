@@ -134,7 +134,7 @@ const TRANSLATIONS = {
     seguidosTitle: 'Seguidos',
     seguidosSub: 'Sigue un pick tocando la estrella y te avisamos con una notificación cuando termine un set o el partido.',
     iniciaSesionSeguir: 'Inicia sesión con Google (arriba a la derecha) para seguir picks.',
-    noSiguesNingunPick: 'Todavía no sigues ningún pick — toca la ☆ en cualquier tarjeta.',
+    noSiguesNingunPick: 'Todavía no sigues ningún pick — toca el ♡ en cualquier tarjeta.',
 
     miBankrollEyebrow: 'Simulador personal',
     miBankrollTitle: 'Mi Bankroll',
@@ -443,7 +443,7 @@ const TRANSLATIONS = {
     seguidosTitle: 'Following',
     seguidosSub: 'Follow a pick by tapping the star and we’ll notify you when a set or the match ends.',
     iniciaSesionSeguir: 'Sign in with Google (top right) to follow picks.',
-    noSiguesNingunPick: "You aren't following any picks yet — tap the ☆ on any card.",
+    noSiguesNingunPick: "You aren't following any picks yet — tap the ♡ on any card.",
 
     miBankrollEyebrow: 'Personal simulator',
     miBankrollTitle: 'My Bankroll',
@@ -751,7 +751,7 @@ const TRANSLATIONS = {
     seguidosTitle: 'Seguindo',
     seguidosSub: 'Siga um pick tocando na estrela e vamos te avisar quando um set ou a partida terminar.',
     iniciaSesionSeguir: 'Entre com o Google (canto superior direito) para seguir picks.',
-    noSiguesNingunPick: 'Você ainda não segue nenhum pick — toque no ☆ em qualquer cartão.',
+    noSiguesNingunPick: 'Você ainda não segue nenhum pick — toque no ♡ em qualquer cartão.',
 
     miBankrollEyebrow: 'Simulador pessoal',
     miBankrollTitle: 'Minha Banca',
@@ -2350,7 +2350,7 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
           }}
           title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
         >
-          {followed ? '★' : '☆'}
+          {followed ? '♥' : '♡'}
         </button>
       ) : null}
       <div className="pc-head">
@@ -2521,7 +2521,7 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
             }}
             title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
           >
-            {followed ? '★' : '☆'}
+            {followed ? '♥' : '♡'}
           </button>
         ) : null}
         <span className="followed-flag-badge">🇨🇿</span>
@@ -2663,7 +2663,7 @@ function MatchRow({ m, onClick, followed, onToggleFollow, live }) {
           }}
           title={followed ? 'Dejar de seguir este pick' : 'Seguir este pick'}
         >
-          {followed ? '★' : '☆'}
+          {followed ? '♥' : '♡'}
         </button>
       ) : null}
       <div className="mc-head">
@@ -3352,7 +3352,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
             className={`pick-follow-btn ${followed ? 'active' : ''}`}
             onClick={() => onToggleFollow(pick)}
           >
-            <span className="pick-follow-star">{followed ? '★' : '☆'}</span>
+            <span className="pick-follow-star">{followed ? '♥' : '♡'}</span>
             {followed ? t('siguiendoPick') : t('seguirPrediccion')}
           </button>
         ) : null}
