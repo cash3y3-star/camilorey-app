@@ -8493,7 +8493,7 @@ const CSS = `
   .pc-hero-badge.miss{background:#EF4444; box-shadow:0 0 0 1px rgba(239,68,68,.35), 0 2px 8px rgba(239,68,68,.5);}
   .pc-hero-badge.live{background:rgba(14,13,12,.7);}
   .pc-hero-pct{
-    position:absolute; bottom:5px; left:5px; z-index:1;
+    position:absolute; bottom:5px; right:5px; z-index:1;
     display:flex; align-items:center; gap:5px;
     background:rgba(14,13,12,.65); border-radius:20px; padding:3px 8px 3px 6px;
     font-size:11px; font-weight:800; color:#22C55E;
