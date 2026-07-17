@@ -84,9 +84,6 @@ const TRANSLATIONS = {
     holaSaludo: 'Hola',
     statsSistemaTitle: 'Estadísticas del Sistema',
     statsPremiumTitle: 'Estadísticas Premium',
-    statMuestra: 'Muestra',
-    statsPremiumLockTitle: 'Estadísticas Exclusivas',
-    statsPremiumLockDesc: 'Desbloquea la efectividad real de los picks Exclusivos con Premium',
     statEfectividad: 'Efectividad (últ. 30)',
     statRachaActual: 'Racha actual',
     statROI: 'ROI',
@@ -398,9 +395,6 @@ const TRANSLATIONS = {
     holaSaludo: 'Hi',
     statsSistemaTitle: 'System Stats',
     statsPremiumTitle: 'Premium Stats',
-    statMuestra: 'Sample',
-    statsPremiumLockTitle: 'Exclusive Stats',
-    statsPremiumLockDesc: "Unlock Exclusive picks' real accuracy with Premium",
     statEfectividad: 'Accuracy (last 30)',
     statRachaActual: 'Current streak',
     statROI: 'ROI',
@@ -710,9 +704,6 @@ const TRANSLATIONS = {
     holaSaludo: 'Olá',
     statsSistemaTitle: 'Estatísticas do Sistema',
     statsPremiumTitle: 'Estatísticas Premium',
-    statMuestra: 'Amostra',
-    statsPremiumLockTitle: 'Estatísticas Exclusivas',
-    statsPremiumLockDesc: 'Desbloqueie a efetividade real dos picks Exclusivos com Premium',
     statEfectividad: 'Efetividade (últ. 30)',
     statRachaActual: 'Sequência atual',
     statROI: 'ROI',
@@ -1374,7 +1365,7 @@ export async function getServerSideProps({ query }) {
   const exclusiveStatsPromise = (async () => {
     const { data: rows } = await supabase
       .from('bankroll_log')
-      .select('units, picks!inner(published, is_exclusive)')
+      .select('units, picks!inner(published, is_exclusive, odds)')
       .eq('picks.published', true)
       .eq('picks.is_exclusive', true)
       .order('created_at', { ascending: false })
@@ -1389,7 +1380,9 @@ export async function getServerSideProps({ query }) {
       else if (racha > 0 === won) racha += won ? 1 : -1;
       else break;
     }
-    return { efectividad, racha, n: hits + misses };
+    const oddsList = (rows || []).map((r) => Number(r.picks?.odds)).filter((o) => o && o > 1);
+    const cuotaProm = oddsList.length ? Math.round((oddsList.reduce((s, o) => s + o, 0) / oddsList.length) * 100) / 100 : null;
+    return { efectividad, racha, n: hits + misses, cuotaProm };
   })();
 
   const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
@@ -7686,35 +7679,22 @@ export default function Home({
           <div className="section-head">
             <h2>{t('statsPremiumTitle')}</h2>
           </div>
-          {isAdmin || isPremium ? (
-            <div className="stat-strip stat-strip-3">
-              <div className="stat-card">
-                <div className="label">{t('statEfectividad')}</div>
-                <div className="value hit num">{exclusiveStats.efectividad}%</div>
-              </div>
-              <div className="stat-card">
-                <div className="label">{t('statRachaActual')}</div>
-                <div className="value num">
-                  {exclusiveStats.racha === 0 ? '—' : `${Math.abs(exclusiveStats.racha)}${exclusiveStats.racha > 0 ? 'W' : 'L'}`}
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="label">{t('statMuestra')}</div>
-                <div className="value num">{exclusiveStats.n}</div>
+          <div className="stat-strip stat-strip-3">
+            <div className="stat-card">
+              <div className="label">{t('statEfectividad')}</div>
+              <div className="value hit num">{exclusiveStats.efectividad}%</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statRachaActual')}</div>
+              <div className="value num">
+                {exclusiveStats.racha === 0 ? '—' : `${Math.abs(exclusiveStats.racha)}${exclusiveStats.racha > 0 ? 'W' : 'L'}`}
               </div>
             </div>
-          ) : (
-            <button type="button" className="upgrade-card" onClick={() => setShowProfileModal(true)}>
-              <span className="upgrade-card-icon">
-                <ProfileIcon name="crown" />
-              </span>
-              <span className="upgrade-card-body">
-                <strong>{t('statsPremiumLockTitle')}</strong>
-                <span>{t('statsPremiumLockDesc')}</span>
-              </span>
-              <span className="upgrade-card-cta">{t('verPlanes')}</span>
-            </button>
-          )}
+            <div className="stat-card">
+              <div className="label">{t('statCuotaProm')}</div>
+              <div className="value num">{exclusiveStats.cuotaProm || '—'}</div>
+            </div>
+          </div>
 
           {featured ? (
             <>

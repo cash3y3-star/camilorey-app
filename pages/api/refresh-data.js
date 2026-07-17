@@ -637,7 +637,7 @@ export default async function handler(req, res) {
   // alimenta la tarjeta de "Estadísticas Premium" en Inicio.
   const { data: exclusiveRows } = await supabase
     .from('bankroll_log')
-    .select('units, picks!inner(published, is_exclusive)')
+    .select('units, picks!inner(published, is_exclusive, odds)')
     .eq('picks.published', true)
     .eq('picks.is_exclusive', true)
     .order('created_at', { ascending: false })
@@ -652,7 +652,11 @@ export default async function handler(req, res) {
     else if (exclusiveRacha > 0 === won) exclusiveRacha += won ? 1 : -1;
     else break;
   }
-  const exclusiveStats = { efectividad: exclusiveEfectividad, racha: exclusiveRacha, n: exHits + exMisses };
+  const exOddsList = (exclusiveRows || []).map((r) => Number(r.picks?.odds)).filter((o) => o && o > 1);
+  const exclusiveCuotaProm = exOddsList.length
+    ? Math.round((exOddsList.reduce((s, o) => s + o, 0) / exOddsList.length) * 100) / 100
+    : null;
+  const exclusiveStats = { efectividad: exclusiveEfectividad, racha: exclusiveRacha, n: exHits + exMisses, cuotaProm: exclusiveCuotaProm };
 
   // El log detallado (bankrollLog/bankrollSeries, apuesta por apuesta)
   // ya NO se manda desde este endpoint público — antes cualquiera
