@@ -8193,6 +8193,7 @@ const CSS = `
     --radius:16px;
     --shadow:0 2px 12px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.3);
     --decor-ball:#D4A24C;
+    --avatar-shade:#14100F;
   }
   /* Tema claro — mismos nombres de variable, el resto del CSS ya las
      usa en todos lados, así que basta con redefinirlas acá para que
@@ -8218,6 +8219,7 @@ const CSS = `
     --blue-dark:#1E4A73;
     --shadow:0 2px 12px rgba(20,15,12,0.08), 0 1px 2px rgba(20,15,12,0.06);
     --decor-ball:#B8860B;
+    --avatar-shade:#F5EFEC;
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
@@ -8539,7 +8541,7 @@ const CSS = `
   .followed-card:hover{border-color:var(--court); transform:translateY(-1px);}
   .followed-photo{
     position:relative; width:100%; aspect-ratio:1/1;
-    background:linear-gradient(150deg, var(--court), #14100F 130%);
+    background:linear-gradient(150deg, var(--court), var(--avatar-shade) 130%);
     display:flex; align-items:center; justify-content:center;
   }
   .followed-photo img{width:100%; height:100%; object-fit:cover; display:block;}
