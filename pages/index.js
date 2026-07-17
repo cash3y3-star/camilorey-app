@@ -2194,16 +2194,6 @@ function formatOdds(decimal, format = 'decimal') {
   return decimal.toFixed(2);
 }
 
-// Color de las barras de Índice IA según la cuota del pick (no según
-// el tier de confianza): cuotas bajas = pick más "seguro" (verde),
-// cuotas medias = naranja, cuotas altas = más riesgo (rojoanaranjado).
-function oddsBarColor(odds) {
-  if (!odds) return 'var(--muted)';
-  if (odds <= 1.7) return '#22C55E';
-  if (odds <= 1.9) return '#FF9F1C';
-  return '#E8590C';
-}
-
 // Frase corta y honesta armada a partir de los factores reales de
 // lib/confidence.js — nada inventado, solo traduce los números.
 function buildAnalysis(factors) {
@@ -2409,7 +2399,7 @@ function PickCard({ pick, onClick, followed, onToggleFollow, featured, oddsForma
         <span className="pc-ia-val num">{pick.confidence}%</span>
       </div>
       <div className="ia-bar-track">
-        <div className="ia-bar-fill" style={{ width: `${pick.confidence}%`, background: oddsBarColor(pick.odds) }}></div>
+        <div className="ia-bar-fill" style={{ width: `${pick.confidence}%` }}></div>
       </div>
       <div className="pc-foot">
         <span className="odd-mini num">{pick.odds ? formatOdds(pick.odds, oddsFormat) : 'Cuota N/D'}</span>
@@ -3331,7 +3321,7 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
                 <span className="pick-metric-label">{t('indiceIA')}</span>
                 <span className="pick-metric-value num">{pick.confidence}%</span>
                 <div className="pick-metric-bar">
-                  <div className="pick-metric-bar-fill" style={{ width: `${pick.confidence}%`, background: oddsBarColor(pick.odds) }}></div>
+                  <div className="pick-metric-bar-fill" style={{ width: `${pick.confidence}%` }}></div>
                 </div>
               </div>
               <div className="pick-metric-card">
@@ -8507,7 +8497,7 @@ const CSS = `
   .pc-hero-conf{font-size:12px; font-weight:800; color:var(--court);}
   .pc-hero-pill{
     display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.2px;
-    padding:4px 9px; border-radius:20px; background:var(--court-soft); color:var(--court-soft-text);
+    padding:4px 9px; border-radius:20px; background:rgba(34,197,94,.16); color:#22C55E;
     max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:fit-content;
   }
 
@@ -8581,7 +8571,7 @@ const CSS = `
   .pc-ia-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px;}
   .pc-ia-val{font-size:15px; font-weight:800;}
   .ia-bar-track{height:6px; border-radius:999px; background:var(--bg-alt); overflow:hidden; margin-bottom:14px;}
-  .ia-bar-fill{height:100%; border-radius:999px;}
+  .ia-bar-fill{height:100%; border-radius:999px; background:#22C55E;}
   .ia-bar-fill.tier-alta{background:var(--hit);}
 
   .pc-foot{display:flex; align-items:center; justify-content:space-between; gap:10px;}
@@ -9294,7 +9284,7 @@ const CSS = `
   .pick-metric-value{font-size:15px; font-weight:800; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .pick-metric-card-accent .pick-metric-value{color:var(--court-soft-text);}
   .pick-metric-bar{height:4px; border-radius:99px; background:rgba(0,0,0,.15); overflow:hidden; margin-top:1px;}
-  .pick-metric-bar-fill{height:100%; background:var(--court); border-radius:99px;}
+  .pick-metric-bar-fill{height:100%; background:#22C55E; border-radius:99px;}
 
   .form-bar-legend{display:flex; align-items:center; gap:16px; font-size:11.5px; color:var(--muted); font-weight:600; margin-top:12px;}
   .form-bar-legend span{display:inline-flex; align-items:center; gap:5px;}
