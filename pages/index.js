@@ -4356,17 +4356,20 @@ function PrivacyConsentModal({ onClose, lang }) {
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
-        <div className="risk-modal-head">
-          <div className="risk-modal-icon">
-            <ProfileIcon name="shield" size={22} />
+        <div className="privacy-modal-banner">
+          <div className="risk-modal-banner-row">
+            <div className="risk-modal-icon">
+              <ProfileIcon name="shield" size={22} />
+            </div>
+            <div>
+              <div className="risk-modal-eyebrow">{t('privacyEyebrow')}</div>
+              <h3 style={{ fontSize: '19px', margin: 0 }}>{t('privacyTitle')}</h3>
+            </div>
           </div>
-          <div>
-            <div className="risk-modal-eyebrow">{t('privacyEyebrow')}</div>
-            <h3 style={{ fontSize: '19px', margin: 0 }}>{t('privacyTitle')}</h3>
-          </div>
+          <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,.85)', lineHeight: 1.6, margin: '14px 0 0' }}>
+            {t('privacyIntro')}
+          </p>
         </div>
-
-        <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: 1.6, margin: '0 0 6px' }}>{t('privacyIntro')}</p>
 
         <div className="risk-tip">
           <div className="consent-tip-col">
@@ -8881,6 +8884,14 @@ const CSS = `
     color:#fff;
   }
   @media(min-width:640px){ .risk-modal-banner{border-radius:20px 20px 0 0;} }
+  .privacy-modal-banner{
+    padding:20px 22px 22px;
+    margin:-22px -22px 18px; border-radius:20px 20px 0 0;
+    background:linear-gradient(135deg, var(--court), var(--court-dark) 130%);
+    color:#fff;
+  }
+  @media(min-width:640px){ .privacy-modal-banner{border-radius:20px 20px 0 0;} }
+  .privacy-modal-banner h3{color:#fff; margin:0;}
   .risk-modal-banner-row{display:flex; align-items:center; gap:14px;}
   .risk-modal-icon{
     width:48px; height:48px; border-radius:12px; flex:none; font-size:21px;
