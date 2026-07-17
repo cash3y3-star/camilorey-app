@@ -28,9 +28,24 @@ function extractSets(event, swapped) {
     .map((s) => (swapped ? { a: s.b, b: s.a } : s));
 }
 
+// Sin fila en notification_prefs = defaults (todo activado) — mismo
+// criterio que /api/notify/new-picks.js.
+function prefAllows(prefsByUser, userId, key) {
+  const row = prefsByUser.get(userId);
+  return row ? row[key] !== false : true;
+}
+
 async function notifyFollowers(supabase, match, playerAName, playerBName, payload) {
   const { data: follows } = await supabase.from('followed_picks').select('user_id').eq('match_id', match.id);
-  const userIds = [...new Set((follows || []).map((f) => f.user_id))];
+  let userIds = [...new Set((follows || []).map((f) => f.user_id))];
+  if (userIds.length === 0) return { followers: 0, subs: 0, errors: [] };
+
+  const { data: prefs } = await supabase
+    .from('notification_prefs')
+    .select('user_id, push_enabled, pick_results')
+    .in('user_id', userIds);
+  const prefsByUser = new Map((prefs || []).map((p) => [p.user_id, p]));
+  userIds = userIds.filter((id) => prefAllows(prefsByUser, id, 'push_enabled') && prefAllows(prefsByUser, id, 'pick_results'));
   if (userIds.length === 0) return { followers: 0, subs: 0, errors: [] };
 
   const { data: subs } = await supabase.from('push_subscriptions').select('*').in('user_id', userIds);
@@ -64,6 +79,88 @@ async function notifyFollowers(supabase, match, playerAName, playerBName, payloa
   return { followers: userIds.length, subs: (subs || []).length, errors };
 }
 
+// Racha personal de cada usuario sobre SUS picks seguidos ya resueltos
+// (hit/miss), ordenados por cuándo se jugó el partido — no por cuándo
+// los siguió. Se corre una vez por cron (no por partido): recalcular
+// la racha completa es barato para el volumen que maneja esta app, y
+// evita tener que engancharse a cada resolución individual. Solo
+// avisa cuando la racha CAMBIÓ de largo desde el último aviso
+// (notified_streaks), para no repetir "llevas 3 seguidas" en cada
+// corrida mientras la racha sigue en 3.
+async function checkStreaks(supabase) {
+  const { data: follows } = await supabase.from('followed_picks').select('user_id, pick_id, match_id');
+  if (!follows || follows.length === 0) return { usersChecked: 0, notified: 0 };
+
+  const pickIds = [...new Set(follows.map((f) => f.pick_id))];
+  const matchIds = [...new Set(follows.map((f) => f.match_id))];
+  const [{ data: picks }, { data: matches }, { data: prefs }] = await Promise.all([
+    supabase.from('picks').select('id, result').in('id', pickIds),
+    supabase.from('matches').select('id, scheduled_at').in('id', matchIds),
+    supabase.from('notification_prefs').select('user_id, push_enabled, streak_alerts').in(
+      'user_id',
+      [...new Set(follows.map((f) => f.user_id))]
+    )
+  ]);
+  const resultByPick = new Map((picks || []).map((p) => [p.id, p.result]));
+  const scheduledByMatch = new Map((matches || []).map((m) => [m.id, m.scheduled_at]));
+  const prefsByUser = new Map((prefs || []).map((p) => [p.user_id, p]));
+
+  const byUser = new Map();
+  for (const f of follows) {
+    const result = resultByPick.get(f.pick_id);
+    if (result !== 'hit' && result !== 'miss') continue;
+    if (!byUser.has(f.user_id)) byUser.set(f.user_id, []);
+    byUser.get(f.user_id).push({ result, scheduledAt: scheduledByMatch.get(f.match_id) });
+  }
+
+  const { data: notifiedRows } = await supabase.from('notified_streaks').select('user_id, last_length');
+  const lastLengthByUser = new Map((notifiedRows || []).map((r) => [r.user_id, r.last_length]));
+
+  let notified = 0;
+  for (const [userId, resolved] of byUser) {
+    if (!prefAllows(prefsByUser, userId, 'push_enabled') || !prefAllows(prefsByUser, userId, 'streak_alerts')) continue;
+    resolved.sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+    let streak = 0;
+    let streakResult = null;
+    for (let i = resolved.length - 1; i >= 0; i--) {
+      if (streakResult === null) {
+        streakResult = resolved[i].result;
+        streak = 1;
+      } else if (resolved[i].result === streakResult) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    const lastNotified = lastLengthByUser.get(userId) || 0;
+    if (streak < 3 || streak === lastNotified) continue;
+
+    const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('user_id', userId);
+    if (!subs || subs.length === 0) continue;
+
+    const payload =
+      streakResult === 'hit'
+        ? { title: '🔥 Racha ganadora', body: `Llevas ${streak} picks seguidos acertados.`, tag: 'streak', renotify: true, url: '/#seguidos' }
+        : { title: '📉 Alerta de racha', body: `Llevas ${streak} picks seguidos fallados.`, tag: 'streak', renotify: true, url: '/#seguidos' };
+
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload));
+      } catch (e) {
+        const isVapidMismatch = e.statusCode === 403 && /vapid credentials/i.test(e.body || '');
+        if (e.statusCode === 404 || e.statusCode === 410 || isVapidMismatch) {
+          await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        }
+      }
+    }
+    await supabase.from('notified_streaks').upsert({ user_id: userId, last_length: streak, updated_at: new Date().toISOString() });
+    notified++;
+  }
+
+  return { usersChecked: byUser.size, notified };
+}
+
 export default async function handler(req, res) {
   const token = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
   if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
@@ -88,9 +185,22 @@ export default async function handler(req, res) {
       .eq('id', Number(req.query.reset));
   }
 
+  // Corre siempre, antes que nada de lo de abajo — las rachas dependen
+  // del historial completo de picks seguidos ya resueltos, no de si
+  // queda algún partido pendiente por avisar (que es lo único que
+  // filtran las consultas de acá abajo, y de haberlo puesto después,
+  // los "return" tempranos de esas consultas lo hubieran salteado casi
+  // siempre en régimen normal).
+  let streaks = null;
+  try {
+    streaks = await checkStreaks(supabase);
+  } catch (e) {
+    console.error('Error revisando rachas:', e.message);
+  }
+
   const { data: follows } = await supabase.from('followed_picks').select('match_id');
   const matchIds = [...new Set((follows || []).map((f) => f.match_id))];
-  if (matchIds.length === 0) return res.status(200).json({ checked: 0 });
+  if (matchIds.length === 0) return res.status(200).json({ checked: 0, streaks });
 
   const { data: matches } = await supabase
     .from('matches')
@@ -98,7 +208,7 @@ export default async function handler(req, res) {
     .in('id', matchIds)
     .eq('notified_finished', false);
 
-  if (!matches || matches.length === 0) return res.status(200).json({ checked: 0 });
+  if (!matches || matches.length === 0) return res.status(200).json({ checked: 0, streaks });
 
   const playerIds = [...new Set(matches.flatMap((m) => [m.player_a_id, m.player_b_id]).filter(Boolean))];
   const { data: players } = await supabase.from('players').select('id, name').in('id', playerIds);
@@ -196,5 +306,5 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(200).json({ checked, debug });
+  return res.status(200).json({ checked, debug, streaks });
 }

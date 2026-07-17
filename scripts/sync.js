@@ -341,7 +341,7 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel) {
     is_exclusive: isExclusiveCandidate
   });
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
-  return published;
+  return { published, highConfidence: published && pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE };
 }
 
 // Cuenta cuántos picks "exclusivos" (mismo criterio de arriba) ya
@@ -473,6 +473,7 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
   let matchesProcessed = 0;
   let picksGenerated = 0;
   let picksResolved = 0;
+  let highConfidenceGenerated = 0;
 
   for (const match of widgets.matches || []) {
     // Las fases eliminatorias (3er puesto, final) existen como filas
@@ -543,7 +544,10 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
       if (existingPick) continue;
 
       const created = await generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel);
-      if (created) picksGenerated++;
+      if (created.published) {
+        picksGenerated++;
+        if (created.highConfidence) highConfidenceGenerated++;
+      }
     } catch (e) {
       console.error(
         `Error procesando partido ${match.id} (${playerName(sideA.player)} vs ${playerName(sideB.player)}, torneo ${t.id}): ${e.message}`
@@ -551,7 +555,7 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
     }
   }
 
-  return { matchesProcessed, picksGenerated, picksResolved };
+  return { matchesProcessed, picksGenerated, picksResolved, highConfidenceGenerated };
 }
 
 // La portada (main-page-tournaments) solo muestra lo "reciente" — no
@@ -630,7 +634,7 @@ async function run() {
       : `Modelo ML de Exclusivo: solo ${mlModel.trainingCount} picks resueltos (mínimo ${MIN_TRAINING_SAMPLES}) — usando el criterio viejo (confianza>=85) mientras tanto.`
   );
 
-  const totals = { matchesProcessed: 0, picksGenerated: 0, picksResolved: 0, tournamentsUpdated: 0 };
+  const totals = { matchesProcessed: 0, picksGenerated: 0, picksResolved: 0, tournamentsUpdated: 0, highConfidenceGenerated: 0 };
 
   for (const id of tournamentIds) {
     try {
@@ -670,6 +674,7 @@ async function run() {
       totals.matchesProcessed += result.matchesProcessed;
       totals.picksGenerated += result.picksGenerated;
       totals.picksResolved += result.picksResolved;
+      totals.highConfidenceGenerated += result.highConfidenceGenerated;
     } catch (e) {
       console.error(`Error procesando torneo ${id}: ${e.message}`);
     }
@@ -686,6 +691,24 @@ async function run() {
     await updateFeaturedPick();
   } catch (e) {
     console.error(`Error actualizando pick destacado: ${e.message}`);
+  }
+
+  // Avisa a quien tenga la categoría prendida que hay picks nuevos —
+  // vive en Vercel (no acá) porque ahí ya están las llaves VAPID y
+  // web-push instalado para check-follows.js; sync.js solo dispara el
+  // aviso con el conteo de esta corrida, protegido con el mismo
+  // CRON_SECRET que usa el cron externo de resultados en vivo.
+  if (totals.picksGenerated > 0 && process.env.CRON_SECRET) {
+    try {
+      const r = await fetch('https://camilorey-app.vercel.app/api/notify/new-picks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.CRON_SECRET}` },
+        body: JSON.stringify({ newPicks: totals.picksGenerated, highConfidence: totals.highConfidenceGenerated })
+      });
+      if (!r.ok) console.error(`Aviso de picks nuevos falló: HTTP ${r.status} — ${await r.text()}`);
+    } catch (e) {
+      console.error(`Aviso de picks nuevos falló: ${e.message}`);
+    }
   }
 
   console.log('--- RESUMEN ---');

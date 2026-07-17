@@ -58,6 +58,24 @@ const TRANSLATIONS = {
     notifToca: 'Toca para activar avisos de tus picks seguidos',
     statusActivas: 'Activas',
     statusActivar: 'Activar',
+    notifSubtitulo: 'Administra tus alertas y actualizaciones',
+    notifPush: 'Notificaciones Push',
+    notifSeccionPicks: 'ALERTAS DE PICKS',
+    notifNuevosPicks: 'Nuevos Picks IA',
+    notifNuevosPicksDesc: 'Recibe notificaciones cuando haya nuevos picks',
+    notifAltaConfianza: 'Picks de Alta Confianza',
+    notifAltaConfianzaDesc: 'Solo picks con 85%+ de confianza',
+    notifSeccionResultados: 'RESULTADOS Y ACTIVIDAD',
+    notifResultados: 'Resultados de Picks',
+    notifResultadosDesc: 'Entérate cuando tus picks seguidos ganen o pierdan',
+    notifRachas: 'Alertas de Rachas',
+    notifRachasDesc: 'Recibe alertas sobre rachas ganadoras y perdedoras',
+    notifSeccionOtros: 'OTROS',
+    notifPromos: 'Promociones y Novedades',
+    notifPromosDesc: 'Actualizaciones del producto, tips y ofertas especiales',
+    notifSeccionPrivacy: 'PRIVACIDAD',
+    notifAnaliticas: 'Datos de Analíticas',
+    notifAnaliticasDesc: 'Compartir analítica de uso para mejorar CAMILOREY',
     guardar: 'Guardar',
 
     inicioEyebrow: 'Liga Pro Checa · Tenis de mesa',
@@ -350,6 +368,24 @@ const TRANSLATIONS = {
     notifToca: 'Tap to enable alerts for your followed picks',
     statusActivas: 'On',
     statusActivar: 'Enable',
+    notifSubtitulo: 'Manage your alerts and updates',
+    notifPush: 'Push Notifications',
+    notifSeccionPicks: 'PICK ALERTS',
+    notifNuevosPicks: 'New AI Picks',
+    notifNuevosPicksDesc: 'Get notified when new picks are available',
+    notifAltaConfianza: 'High Confidence Picks',
+    notifAltaConfianzaDesc: 'Only picks with 85%+ confidence',
+    notifSeccionResultados: 'RESULTS & ACTIVITY',
+    notifResultados: 'Pick Results',
+    notifResultadosDesc: 'Find out when your followed picks win or lose',
+    notifRachas: 'Streak Alerts',
+    notifRachasDesc: 'Get alerted about winning and losing streaks',
+    notifSeccionOtros: 'OTHER',
+    notifPromos: 'Promotions & News',
+    notifPromosDesc: 'Product updates, tips and special offers',
+    notifSeccionPrivacy: 'PRIVACY',
+    notifAnaliticas: 'Analytics Data',
+    notifAnaliticasDesc: 'Share usage analytics to help improve CAMILOREY',
     guardar: 'Save',
 
     inicioEyebrow: 'Czech Liga Pro · Table tennis',
@@ -640,6 +676,24 @@ const TRANSLATIONS = {
     notifToca: 'Toque para ativar avisos dos picks que você segue',
     statusActivas: 'Ativas',
     statusActivar: 'Ativar',
+    notifSubtitulo: 'Gerencie seus alertas e atualizações',
+    notifPush: 'Notificações Push',
+    notifSeccionPicks: 'ALERTAS DE PICKS',
+    notifNuevosPicks: 'Novos Picks IA',
+    notifNuevosPicksDesc: 'Receba notificações quando houver novos picks',
+    notifAltaConfianza: 'Picks de Alta Confiança',
+    notifAltaConfianzaDesc: 'Somente picks com 85%+ de confiança',
+    notifSeccionResultados: 'RESULTADOS E ATIVIDADE',
+    notifResultados: 'Resultados de Picks',
+    notifResultadosDesc: 'Saiba quando seus picks seguidos ganham ou perdem',
+    notifRachas: 'Alertas de Sequências',
+    notifRachasDesc: 'Receba alertas sobre sequências de vitórias e derrotas',
+    notifSeccionOtros: 'OUTROS',
+    notifPromos: 'Promoções e Novidades',
+    notifPromosDesc: 'Atualizações do produto, dicas e ofertas especiais',
+    notifSeccionPrivacy: 'PRIVACIDADE',
+    notifAnaliticas: 'Dados de Analytics',
+    notifAnaliticasDesc: 'Compartilhar analytics de uso para melhorar o CAMILOREY',
     guardar: 'Salvar',
 
     inicioEyebrow: 'Liga Pro Checa · Tênis de mesa',
@@ -4168,6 +4222,29 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'flame') {
+    return (
+      <svg {...common}>
+        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7.5 7.5 0 1 1-15 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+      </svg>
+    );
+  }
+  if (name === 'trophy') {
+    return (
+      <svg {...common}>
+        <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+        <path d="M7 5H3v2a4 4 0 0 0 4 4M17 5h4v2a4 4 0 0 1-4 4" />
+      </svg>
+    );
+  }
+  if (name === 'megaphone') {
+    return (
+      <svg {...common}>
+        <path d="m3 11 18-5v12L3 13v-2Z" />
+        <path d="M11.6 16.8a2.5 2.5 0 0 1-4.9-1v-3" />
+      </svg>
+    );
+  }
   return null;
 }
 
@@ -4685,6 +4762,35 @@ function PicksVipView({
   );
 }
 
+// Switch tipo iOS reutilizable — usado en la pantalla de Notificaciones
+// para cada categoría (checkbox nativo escondido + track/thumb pintados
+// a mano, mismo truco que cualquier toggle CSS-only).
+function PrefToggle({ checked, onChange, disabled }) {
+  return (
+    <label className="pref-toggle" onClick={(e) => e.stopPropagation()}>
+      <input type="checkbox" checked={!!checked} disabled={disabled} onChange={() => onChange && onChange()} />
+      <span className="pref-toggle-track"></span>
+    </label>
+  );
+}
+
+// Fila de categoría de notificación — ícono + título/desc + el switch,
+// mismo layout de .profile-row pero sin la flecha de navegación.
+function PrefRow({ icon, title, desc, checked, onChange, disabled }) {
+  return (
+    <div className="profile-row" style={{ cursor: 'default' }}>
+      <span className="profile-row-icon">
+        <ProfileIcon name={icon} size={17} />
+      </span>
+      <div className="profile-row-body">
+        <strong>{title}</strong>
+        <p>{desc}</p>
+      </div>
+      <PrefToggle checked={checked} onChange={onChange} disabled={disabled} />
+    </div>
+  );
+}
+
 function ProfileModal({
   user,
   profile,
@@ -4705,6 +4811,49 @@ function ProfileModal({
 }) {
   const t = useTranslate(lang);
   const [notifStatus, setNotifStatus] = useState('unknown');
+  // Pantalla de Notificaciones: la fila de la lista ya no activa el
+  // permiso directo al tocarla, navega acá — el toggle maestro de
+  // adentro es el que dispara handleActivateNotifs. Las categorías
+  // (notifPrefs) viven en notification_prefs; null = todavía cargando.
+  const [notificationsScreenOpen, setNotificationsScreenOpen] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState(null);
+  const [notifPrefsSaving, setNotifPrefsSaving] = useState(null);
+  useEffect(() => {
+    if (!notificationsScreenOpen || !supabaseClient) return;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/notification-prefs', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (!cancelled && r.ok) setNotifPrefs(data);
+      } catch (e) {
+        // silencioso — si falla, los toggles se quedan en null (loading) y no rompen la pantalla
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [notificationsScreenOpen]);
+  const toggleNotifPref = async (key) => {
+    if (!notifPrefs || !supabaseClient) return;
+    const nextValue = !notifPrefs[key];
+    setNotifPrefs({ ...notifPrefs, [key]: nextValue });
+    setNotifPrefsSaving(key);
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      await fetch('/api/notification-prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ [key]: nextValue })
+      });
+    } catch (e) {
+      setNotifPrefs((prev) => (prev ? { ...prev, [key]: !nextValue } : prev));
+    }
+    setNotifPrefsSaving(null);
+  };
   const [nameInput, setNameInput] = useState(displayName || '');
   const [savingName, setSavingName] = useState(false);
   // "Tema" abre una sub-pantalla aparte (con flecha de regreso) en vez
@@ -5499,6 +5648,108 @@ function ProfileModal({
     );
   }
 
+  if (notificationsScreenOpen) {
+    const prefsLoaded = !!notifPrefs;
+    const p = notifPrefs || {};
+    return (
+      <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+        <div className="modal">
+          <div className="privacy-modal-banner">
+            <div className="subscreen-head" style={{ marginBottom: '10px' }}>
+              <button className="subscreen-back" onClick={() => setNotificationsScreenOpen(false)}>
+                <ProfileIcon name="arrow-left" size={18} />
+              </button>
+            </div>
+            <div className="risk-modal-banner-row">
+              <div className="risk-modal-icon">
+                <ProfileIcon name="bell" size={22} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '19px' }}>{t('filaNotificaciones')}</h3>
+              </div>
+            </div>
+            <p style={{ fontSize: '13.5px', color: 'rgba(255,255,255,.85)', lineHeight: 1.5, margin: '14px 0 0' }}>
+              {t('notifSubtitulo')}
+            </p>
+          </div>
+
+          <div className="profile-row" style={{ border: '1px solid var(--line)', borderRadius: '14px', padding: '12px' }}>
+            <span className="profile-row-icon">
+              <ProfileIcon name="bell" />
+            </span>
+            <div className="profile-row-body">
+              <strong>{t('notifPush')}</strong>
+              <p>
+                {notifStatus === 'granted'
+                  ? t('notifActivadas')
+                  : notifStatus === 'denied'
+                  ? t('notifBloqueadas')
+                  : t('notifToca')}
+              </p>
+            </div>
+            <PrefToggle checked={notifStatus === 'granted'} onChange={handleActivateNotifs} />
+          </div>
+
+          <div className="profile-section-label">{t('notifSeccionPicks')}</div>
+          <PrefRow
+            icon="zap"
+            title={t('notifNuevosPicks')}
+            desc={t('notifNuevosPicksDesc')}
+            checked={p.new_picks}
+            disabled={!prefsLoaded}
+            onChange={() => toggleNotifPref('new_picks')}
+          />
+          <PrefRow
+            icon="flame"
+            title={t('notifAltaConfianza')}
+            desc={t('notifAltaConfianzaDesc')}
+            checked={p.high_confidence}
+            disabled={!prefsLoaded}
+            onChange={() => toggleNotifPref('high_confidence')}
+          />
+
+          <div className="profile-section-label">{t('notifSeccionResultados')}</div>
+          <PrefRow
+            icon="trophy"
+            title={t('notifResultados')}
+            desc={t('notifResultadosDesc')}
+            checked={p.pick_results}
+            disabled={!prefsLoaded}
+            onChange={() => toggleNotifPref('pick_results')}
+          />
+          <PrefRow
+            icon="trending-up"
+            title={t('notifRachas')}
+            desc={t('notifRachasDesc')}
+            checked={p.streak_alerts}
+            disabled={!prefsLoaded}
+            onChange={() => toggleNotifPref('streak_alerts')}
+          />
+
+          <div className="profile-section-label">{t('notifSeccionOtros')}</div>
+          <PrefRow
+            icon="megaphone"
+            title={t('notifPromos')}
+            desc={t('notifPromosDesc')}
+            checked={p.promotions}
+            disabled={!prefsLoaded}
+            onChange={() => toggleNotifPref('promotions')}
+          />
+
+          <div className="profile-section-label">{t('notifSeccionPrivacy')}</div>
+          <PrefRow
+            icon="chart"
+            title={t('notifAnaliticas')}
+            desc={t('notifAnaliticasDesc')}
+            checked={p.analytics_shared}
+            disabled={!prefsLoaded}
+            onChange={() => toggleNotifPref('analytics_shared')}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
       <div className="modal">
@@ -5545,7 +5796,7 @@ function ProfileModal({
 
         <div className="profile-section-label">{t('ajustes')}</div>
 
-        <div className="profile-row" onClick={handleActivateNotifs}>
+        <div className="profile-row" onClick={() => setNotificationsScreenOpen(true)}>
           <span className="profile-row-icon">
             <ProfileIcon name="bell" />
           </span>
@@ -6645,11 +6896,37 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
+  // "Datos de Analíticas" en Notificaciones — si alguien lo apaga,
+  // track() deja de mandar eventos para esa cuenta. Default true (sin
+  // fila en notification_prefs = compartiendo, igual que la tabla).
+  const [analyticsShared, setAnalyticsShared] = useState(true);
+  useEffect(() => {
+    if (!user || !supabaseClient) return;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/notification-prefs', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (!cancelled && r.ok) setAnalyticsShared(data.analytics_shared !== false);
+      } catch (e) {
+        // silencioso — si falla, se queda compartiendo (default)
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   // track(): registra un evento propio (sin IP, sin cookies de
   // rastreo, sin terceros) — se dispara y se olvida, nunca bloquea ni
-  // rompe la interfaz si falla (por eso el catch vacío).
+  // rompe la interfaz si falla (por eso el catch vacío). Respeta el
+  // toggle de "Datos de Analíticas" para cuentas logueadas; sin
+  // sesión no hay preferencia que consultar, así que sigue anónimo.
   const track = (eventName, meta = {}) => {
     if (!supabaseClient) return;
+    if (user && !analyticsShared) return;
     supabaseClient
       .from('analytics_events')
       .insert({ event_name: eventName, view: meta.view || null, user_id: user?.id || null })
@@ -6691,6 +6968,39 @@ export default function Home({
       setPremiumMsg(e.message);
     }
     setPremiumBusy(false);
+  };
+
+  // Anuncio manual (Promociones y Novedades) — el admin decide cuándo
+  // mandarlo, no hay cron. Solo llega a quien tenga esa categoría
+  // activada en notification_prefs (ver /api/notify/send-promo.js).
+  const [promoTitle, setPromoTitle] = useState('');
+  const [promoBody, setPromoBody] = useState('');
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoMsg, setPromoMsg] = useState('');
+  const sendPromo = async () => {
+    if (!promoTitle.trim() || !promoBody.trim() || !supabaseClient) return;
+    setPromoBusy(true);
+    setPromoMsg('');
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/notify/send-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ title: promoTitle.trim(), body: promoBody.trim() })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setPromoMsg(data.error || 'Error mandando la promoción.');
+      } else {
+        setPromoMsg(`Enviado a ${data.sent} suscripción${data.sent === 1 ? '' : 'es'}.`);
+        setPromoTitle('');
+        setPromoBody('');
+      }
+    } catch (e) {
+      setPromoMsg(e.message);
+    }
+    setPromoBusy(false);
   };
 
   // "Mi Bankroll": mismo cálculo de Kelly que el Bankroll del admin,
@@ -7370,6 +7680,42 @@ export default function Home({
             {premiumMsg ? (
               <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{premiumMsg}</p>
             ) : null}
+          </div>
+
+          <div className="profile-section-label" style={{ marginTop: '22px' }}>
+            PROMOCIONES Y NOVEDADES
+          </div>
+          <div className="bankroll-card">
+            <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
+              Push manual a todos los usuarios que tengan esta categoría activada en Notificaciones — vos decidís
+              cuándo mandarlo, no hay cron detrás.
+            </p>
+            <input
+              type="text"
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px' }}
+              placeholder="Título"
+              maxLength={60}
+              value={promoTitle}
+              onChange={(e) => setPromoTitle(e.target.value)}
+            />
+            <textarea
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px', minHeight: '70px', resize: 'vertical', fontFamily: 'inherit' }}
+              placeholder="Mensaje"
+              maxLength={200}
+              value={promoBody}
+              onChange={(e) => setPromoBody(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-ball"
+              disabled={promoBusy || !promoTitle.trim() || !promoBody.trim()}
+              onClick={sendPromo}
+            >
+              {promoBusy ? 'Enviando…' : 'Enviar promoción'}
+            </button>
+            {promoMsg ? <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{promoMsg}</p> : null}
           </div>
         </section>
         )}
@@ -9087,6 +9433,19 @@ const CSS = `
   .profile-row-body strong{display:block; font-size:14px; margin-bottom:2px;}
   .profile-row-body p{margin:0; font-size:12.5px; color:var(--muted); line-height:1.4;}
   .profile-row-theme{cursor:default;}
+  .pref-toggle{position:relative; display:inline-block; width:44px; height:25px; flex:none; cursor:pointer;}
+  .pref-toggle input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+  .pref-toggle-track{
+    position:absolute; inset:0; background:var(--bg-alt); border:1px solid var(--line);
+    border-radius:999px; transition:background .15s, border-color .15s;
+  }
+  .pref-toggle-track::after{
+    content:""; position:absolute; top:2px; left:2px; width:19px; height:19px; border-radius:50%;
+    background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.35); transition:transform .15s;
+  }
+  .pref-toggle input:checked + .pref-toggle-track{background:var(--court); border-color:var(--court);}
+  .pref-toggle input:checked + .pref-toggle-track::after{transform:translateX(19px);}
+  .pref-toggle input:disabled + .pref-toggle-track{opacity:.5; cursor:not-allowed;}
   .theme-option-list{display:flex; flex-direction:column; gap:8px; margin-top:12px;}
   .theme-option{
     display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px;
