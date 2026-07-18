@@ -224,7 +224,9 @@ export default async function handler(req, res) {
         score: finalScore,
         setScores: finalSetScores,
         sourceId: match.source_id,
-        tournamentId: match.tournament_id
+        tournamentId: match.tournament_id,
+        tipsterPick: Boolean(pick.tipster_pick),
+        tipsterPickAt: pick.tipster_pick_at || null
       };
       })
     )
