@@ -317,6 +317,10 @@ const TRANSLATIONS = {
     verPick: 'Ver pick',
     destacarExclusivos: 'Destacar para Exclusivos',
     destacadoParaExclusivos: 'Destacado para Exclusivos',
+    tipsterSeguidores: '{n} seguidores',
+    misPicksSeguidosStats: 'Estadísticas de tus picks seguidos',
+    sigueAlgoParaVerStats: 'Seguí un pick para empezar a ver tus estadísticas acá.',
+    statPendientes: 'Pendientes',
     sinHistorial: 'Sin historial reciente todavía.',
     sinEnfrentamientos: 'Todavía no se han enfrentado.',
     buscandoMarcador: 'Buscando marcador…',
@@ -637,6 +641,10 @@ const TRANSLATIONS = {
     verPick: 'View pick',
     destacarExclusivos: 'Feature for Exclusive',
     destacadoParaExclusivos: 'Featured for Exclusive',
+    tipsterSeguidores: '{n} followers',
+    misPicksSeguidosStats: 'Stats for the picks you follow',
+    sigueAlgoParaVerStats: 'Follow a pick to start seeing your stats here.',
+    statPendientes: 'Pending',
     sinHistorial: 'No recent history yet.',
     sinEnfrentamientos: "They haven't played each other yet.",
     buscandoMarcador: 'Looking for the score…',
@@ -958,6 +966,10 @@ const TRANSLATIONS = {
     verPick: 'Ver pick',
     destacarExclusivos: 'Destacar para Exclusivo',
     destacadoParaExclusivos: 'Destacado para Exclusivo',
+    tipsterSeguidores: '{n} seguidores',
+    misPicksSeguidosStats: 'Estatísticas dos picks que você segue',
+    sigueAlgoParaVerStats: 'Siga um pick para começar a ver suas estatísticas aqui.',
+    statPendientes: 'Pendentes',
     sinHistorial: 'Ainda sem histórico recente.',
     sinEnfrentamientos: 'Ainda não se enfrentaram.',
     buscandoMarcador: 'Buscando placar…',
@@ -4887,6 +4899,86 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
   );
 }
 
+// Perfil del tipster (CAMILOREY) — se abre al tocar su foto en la
+// tarjeta "Tipster que sigues" de Inicio. El follower count es fijo
+// (100K, pedido explícito, no es un conteo real de una tabla) — lo
+// único real acá es el seguir/dejar de seguir (persistido en
+// profiles.follows_tipster) y las estadísticas, que se arman de
+// followedDetail (los picks que ESTA cuenta sigue, mismo dato que ya
+// se usa en la pestaña Seguidos, no un cálculo aparte).
+function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onToggleFollow, followBusy, followedDetail, user }) {
+  const t = useTranslate(lang);
+  const resolved = followedDetail.filter((p) => p.result === 'hit' || p.result === 'miss');
+  const hits = resolved.filter((p) => p.result === 'hit').length;
+  const hitRate = resolved.length ? Math.round((hits / resolved.length) * 100) : null;
+  const pending = followedDetail.filter((p) => p.result === 'pending').length;
+  const sortedResolved = [...resolved].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0));
+  let racha = 0;
+  for (const p of sortedResolved) {
+    const won = p.result === 'hit';
+    if (racha === 0) racha = won ? 1 : -1;
+    else if (racha > 0 === won) racha += won ? 1 : -1;
+    else break;
+  }
+  const hasStats = user && followedDetail.length > 0;
+
+  return (
+    <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
+      <div className="modal tipster-profile-modal">
+        <div className="modal-head">
+          <span className="eyebrow">Tipster</span>
+          <button className="modal-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="tipster-profile-hero">
+          <div className="tipster-profile-avatar-lg">
+            {tipsterProfile.avatarUrl ? (
+              <img src={tipsterProfile.avatarUrl} alt="CAMILOREY" />
+            ) : (
+              <span>{tipsterProfile.avatarEmoji || 'CR'}</span>
+            )}
+          </div>
+          <div className="tipster-profile-name">CAMILOREY</div>
+          <div className="tipster-profile-followers">{t('tipsterSeguidores', { n: '100K' })}</div>
+          <button
+            type="button"
+            className={`tipster-profile-follow-btn ${isFollowing ? 'active' : ''}`}
+            disabled={followBusy}
+            onClick={onToggleFollow}
+          >
+            {isFollowing ? <ProfileIcon name="check" size={14} /> : <HeartIcon filled={false} size={15} />}
+            {isFollowing ? t('siguiendoPick') : t('seguirPrediccion')}
+          </button>
+        </div>
+
+        <div className="section-head">
+          <h2>{t('misPicksSeguidosStats')}</h2>
+        </div>
+        {!hasStats ? (
+          <p className="page-sub">{t('sigueAlgoParaVerStats')}</p>
+        ) : (
+          <div className="stat-strip stat-strip-3">
+            <div className="stat-card">
+              <div className="label">{t('statEfectividad')}</div>
+              <div className="value hit num">{hitRate != null ? `${hitRate}%` : '—'}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statRachaActual')}</div>
+              <div className="value num">{racha === 0 ? '—' : `${Math.abs(racha)}${racha > 0 ? 'W' : 'L'}`}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statPendientes')}</div>
+              <div className="value num">{pending}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // "Picks VIP" — pantalla aparte (ya no una pestaña dentro de Picks,
 // ver 2026-07-14) con acceso directo desde Inicio, al lado del saludo.
 // Junta el destacado del día + los picks exclusivos + su balance
@@ -6515,7 +6607,7 @@ export default function Home({
     let cancelled = false;
     supabaseClient
       .from('profiles')
-      .select('display_name, avatar_emoji, custom_avatar_url, premium_until')
+      .select('display_name, avatar_emoji, custom_avatar_url, premium_until, follows_tipster')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -6536,6 +6628,7 @@ export default function Home({
   const [followedDetail, setFollowedDetail] = useState([]);
   const [bankrollTab, setBankrollTab] = useState('slip');
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showTipsterProfile, setShowTipsterProfile] = useState(false);
 
   // Aviso de privacidad — una vez por navegador, la primera vez que
   // alguien inicia sesión (no antes, porque sin cuenta no guardamos
@@ -6998,6 +7091,32 @@ export default function Home({
   // vez de en cada sitio que use "picks"/"resolvedPicks" para pintar
   // algo visible a cualquiera.
   const canSeeExclusive = isAdmin || isPremium;
+
+  // Seguir/dejar de seguir al tipster (CAMILOREY) desde su tarjeta de
+  // perfil. profiles.follows_tipster es NULL hasta que alguien lo toca
+  // a mano — pedido explícito: "los usuarios automáticamente que el
+  // sistema me siga solo los del exclusivo", así que mientras nadie lo
+  // haya tocado, Exclusivo/Premium/admin arrancan siguiendo y el resto
+  // no. Una vez que alguien lo toca, esa elección manda siempre (ya no
+  // depende de si después sube o baja de plan).
+  const isFollowingTipster = myProfile?.follows_tipster != null ? myProfile.follows_tipster : canSeeExclusive;
+  const [tipsterFollowBusy, setTipsterFollowBusy] = useState(false);
+  const toggleFollowTipster = async () => {
+    if (!supabaseClient) return;
+    if (!user) {
+      setShowOnboarding(true);
+      return;
+    }
+    setTipsterFollowBusy(true);
+    const next = !isFollowingTipster;
+    const { error } = await supabaseClient.from('profiles').upsert({ id: user.id, follows_tipster: next });
+    if (error) {
+      alert('No se pudo actualizar: ' + error.message);
+    } else {
+      setMyProfile((prev) => ({ ...(prev || {}), follows_tipster: next }));
+    }
+    setTipsterFollowBusy(false);
+  };
 
   // Marca/desmarca "el pick de CAMILOREY" (ver pages/api/admin-tipster-pick.js)
   // — solo admin. Actualiza el estado local a mano (en vez de esperar
@@ -7909,19 +8028,23 @@ export default function Home({
             <h2>{t('tipsterQueSigues')}</h2>
           </div>
           <div className="tipster-follow-card">
-            <div className="tipster-follow-avatar">
+            <button type="button" className="tipster-follow-avatar" onClick={() => setShowTipsterProfile(true)}>
               {tipsterProfile.avatarUrl ? (
                 <img src={tipsterProfile.avatarUrl} alt="CAMILOREY" />
               ) : (
                 <span className="tipster-follow-initials">{tipsterProfile.avatarEmoji || 'CR'}</span>
               )}
-            </div>
+            </button>
             <div className="tipster-follow-info">
               <div className="tipster-follow-name">CAMILOREY</div>
-              <span className="tipster-follow-pill">
-                <ProfileIcon name="check" size={12} />
-                {t('siguiendoPick')}
-              </span>
+              {isFollowingTipster ? (
+                <span className="tipster-follow-pill">
+                  <ProfileIcon name="check" size={12} />
+                  {t('siguiendoPick')}
+                </span>
+              ) : (
+                <span className="tipster-follow-pill inactive">{t('seguirPrediccion')}</span>
+              )}
             </div>
           </div>
           {tipsterHighlight ? (
@@ -9129,6 +9252,19 @@ export default function Home({
         />
       )}
 
+      {showTipsterProfile && (
+        <TipsterProfileModal
+          onClose={() => setShowTipsterProfile(false)}
+          lang={lang}
+          tipsterProfile={tipsterProfile}
+          isFollowing={isFollowingTipster}
+          onToggleFollow={toggleFollowTipster}
+          followBusy={tipsterFollowBusy}
+          followedDetail={followedDetail}
+          user={user}
+        />
+      )}
+
       {showPremiumWelcome && (
         <PremiumWelcomeModal
           onClose={() => setShowPremiumWelcome(false)}
@@ -9342,7 +9478,7 @@ const CSS = `
     width:48px; height:48px; border-radius:50%; flex:none; overflow:hidden;
     background:linear-gradient(150deg, var(--court), #14100F 130%);
     display:flex; align-items:center; justify-content:center;
-    border:2px solid var(--court);
+    border:2px solid var(--court); padding:0; cursor:pointer; font-family:inherit;
   }
   .tipster-follow-avatar img{width:100%; height:100%; object-fit:cover;}
   .tipster-follow-initials{color:#fff; font-weight:800; font-size:15px;}
@@ -9353,6 +9489,26 @@ const CSS = `
     background:rgba(22,163,74,.14); color:var(--court);
     border-radius:999px; padding:3px 10px; font-size:11.5px; font-weight:700;
   }
+  .tipster-follow-pill.inactive{background:var(--bg-alt); color:var(--muted);}
+
+  .tipster-profile-hero{display:flex; flex-direction:column; align-items:center; text-align:center; padding:8px 0 18px; gap:8px;}
+  .tipster-profile-avatar-lg{
+    width:76px; height:76px; border-radius:50%; overflow:hidden;
+    background:linear-gradient(150deg, var(--court), #14100F 130%);
+    display:flex; align-items:center; justify-content:center;
+    border:3px solid var(--court); color:#fff; font-weight:800; font-size:22px;
+  }
+  .tipster-profile-avatar-lg img{width:100%; height:100%; object-fit:cover;}
+  .tipster-profile-name{font-weight:800; font-size:18px;}
+  .tipster-profile-followers{font-size:13px; color:var(--muted);}
+  .tipster-profile-follow-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:999px;
+    padding:10px 22px; margin-top:4px; font-size:14px; font-weight:700; color:var(--muted);
+    cursor:pointer;
+  }
+  .tipster-profile-follow-btn.active{background:rgba(22,163,74,.14); border-color:var(--court); color:var(--court);}
+  .tipster-profile-follow-btn:disabled{opacity:.6; cursor:default;}
   .tipster-pick-notice{
     display:flex; align-items:center; gap:10px; width:100%;
     background:var(--bg-alt); border:1px solid var(--line); border-radius:14px;
