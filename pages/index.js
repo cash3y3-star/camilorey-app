@@ -7681,6 +7681,38 @@ export default function Home({
     setPremiumBusy(false);
   };
 
+  // Reiniciar "Mi Bankroll" de una cuenta a mano — pedido explícito
+  // del admin, para cuando alguien quiere arrancar de cero su
+  // simulador personal. Borra user_bankroll_settings; el cliente
+  // vuelve solo a los valores por defecto ($2.000.000, equilibrado).
+  const [bankResetEmail, setBankResetEmail] = useState('');
+  const [bankResetBusy, setBankResetBusy] = useState(false);
+  const [bankResetMsg, setBankResetMsg] = useState('');
+  const resetSubBankroll = async () => {
+    if (!bankResetEmail.trim() || !supabaseClient) return;
+    setBankResetBusy(true);
+    setBankResetMsg('');
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/admin-reset-bankroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ email: bankResetEmail.trim() })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setBankResetMsg(data.error || 'Error reiniciando el bankroll.');
+      } else {
+        setBankResetMsg(`Listo — se reinició Mi Bankroll de ${data.email}.`);
+        setBankResetEmail('');
+      }
+    } catch (e) {
+      setBankResetMsg(e.message);
+    }
+    setBankResetBusy(false);
+  };
+
   // Anuncio manual (Promociones y Novedades) — el admin decide cuándo
   // mandarlo, no hay cron. Solo llega a quien tenga esa categoría
   // activada en notification_prefs (ver /api/notify/send-promo.js).
@@ -8546,6 +8578,35 @@ export default function Home({
             </div>
             {premiumMsg ? (
               <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{premiumMsg}</p>
+            ) : null}
+          </div>
+
+          <div className="profile-section-label" style={{ marginTop: '22px' }}>
+            MI BANKROLL DE SUBS
+          </div>
+          <div className="bankroll-card">
+            <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
+              Reinicia "Mi Bankroll" de una cuenta a los valores por defecto ($2.000.000, riesgo equilibrado) —
+              útil si alguien quiere arrancar de cero su simulador personal.
+            </p>
+            <input
+              type="email"
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px' }}
+              placeholder="correo@ejemplo.com"
+              value={bankResetEmail}
+              onChange={(e) => setBankResetEmail(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-ball"
+              disabled={bankResetBusy || !bankResetEmail.trim()}
+              onClick={resetSubBankroll}
+            >
+              Reiniciar Mi Bankroll
+            </button>
+            {bankResetMsg ? (
+              <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{bankResetMsg}</p>
             ) : null}
           </div>
 
