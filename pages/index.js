@@ -4,6 +4,15 @@ import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 import { logError } from '../lib/logError';
 
+// getServerSideProps de esta página dispara bastantes consultas a
+// Supabase (picks/matches/torneos/forma reciente/H2H/estadísticas) —
+// el límite por defecto de Vercel para una función serverless es 10s,
+// y con todo lo que se fue sumando en esta sesión a veces se pasa de
+// eso (504 GATEWAY_TIMEOUT / FUNCTION_INVOCATION_TIMEOUT real,
+// reportado con captura). 30s da margen real sin ser excesivo — sigue
+// entrando en el límite del plan Hobby de Vercel (60s tope).
+export const config = { maxDuration: 30 };
+
 const VIEWS = [
   'inicio',
   'calendario',
@@ -5017,6 +5026,48 @@ function TipsterProfileModal({
           </button>
         </div>
 
+        {myLastFollowed.length > 0 ? (
+          <>
+            <div className="section-head">
+              <h2>{t('misUltimosSeguidos')}</h2>
+            </div>
+            <div className="form-list">
+              {myLastFollowed.map((p) => (
+                <div
+                  key={p.id}
+                  className="form-list-row form-list-row-clickable"
+                  onClick={() => onPickClick && onPickClick(p)}
+                >
+                  <div className="form-list-meta">
+                    <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
+                    <span className="form-list-ft">
+                      {p.scheduledAt
+                        ? new Intl.DateTimeFormat('es-CO', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                            timeZone: 'America/Bogota'
+                          }).format(new Date(p.scheduledAt))
+                        : ''}
+                    </span>
+                  </div>
+                  <div className="form-list-opp">
+                    {p.market || 'Pick'}
+                    <span className="form-list-score num">{Math.round(p.confidence)}%</span>
+                  </div>
+                  {p.result === 'hit' || p.result === 'miss' ? (
+                    <span className={`form-list-badge ${p.result === 'hit' ? 'win' : 'loss'}`}>
+                      {p.result === 'hit' ? 'W' : 'L'}
+                    </span>
+                  ) : (
+                    <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+
         {recentPicksSorted.length > 0 ? (
           <>
             <div className="section-head">
@@ -5076,48 +5127,6 @@ function TipsterProfileModal({
             </div>
           </div>
         )}
-
-        {myLastFollowed.length > 0 ? (
-          <>
-            <div className="section-head">
-              <h2>{t('misUltimosSeguidos')}</h2>
-            </div>
-            <div className="form-list">
-              {myLastFollowed.map((p) => (
-                <div
-                  key={p.id}
-                  className="form-list-row form-list-row-clickable"
-                  onClick={() => onPickClick && onPickClick(p)}
-                >
-                  <div className="form-list-meta">
-                    <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
-                    <span className="form-list-ft">
-                      {p.scheduledAt
-                        ? new Intl.DateTimeFormat('es-CO', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false,
-                            timeZone: 'America/Bogota'
-                          }).format(new Date(p.scheduledAt))
-                        : ''}
-                    </span>
-                  </div>
-                  <div className="form-list-opp">
-                    {p.market || 'Pick'}
-                    <span className="form-list-score num">{Math.round(p.confidence)}%</span>
-                  </div>
-                  {p.result === 'hit' || p.result === 'miss' ? (
-                    <span className={`form-list-badge ${p.result === 'hit' ? 'win' : 'loss'}`}>
-                      {p.result === 'hit' ? 'W' : 'L'}
-                    </span>
-                  ) : (
-                    <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
-        ) : null}
 
         {pendingPicks.length > 0 ? (
           <>
@@ -7572,17 +7581,19 @@ export default function Home({
   // exclusivePicks (autenticado, ver arriba).
   const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
 
-  // "Picks recientes de CAMILOREY" del perfil del tipster: resolvedPicks
-  // (público) nunca incluye picks Exclusivos (ver getServerSideProps —
-  // ese candado es a propósito). Para quien SÍ tiene Exclusivo, se
-  // suman los ya resueltos de exclusivePicks (autenticado) — si no, un
-  // pick destacado para Exclusivos que resultó Exclusivo (el caso más
-  // común, son justo los que vale la pena destacar) nunca aparecía acá
-  // aunque hubiera acertado. Para quien no tiene Exclusivo, la lista
-  // sigue siendo solo la pública, sin cambios.
-  const tipsterRecentPicks = canSeeExclusive
+  // "Picks recientes de CAMILOREY" del perfil del tipster — pedido
+  // explícito: no es "todo lo que resolvió el modelo", es la curaduría
+  // real del tipster (picks.tipster_pick, los que el admin destacó a
+  // mano para Exclusivos — ver pages/api/admin-tipster-pick.js).
+  // resolvedPicks (público) nunca incluye picks Exclusivos (candado a
+  // propósito en getServerSideProps); para quien SÍ tiene Exclusivo se
+  // suman también los resueltos de exclusivePicks (autenticado), ya
+  // que un destacado suele terminar siendo Exclusivo. Quien no tiene
+  // Exclusivo solo ve los destacados que además eran públicos.
+  const tipsterRecentPicks = (canSeeExclusive
     ? [...resolvedPicks, ...exclusivePicks.filter((p) => p.result === 'hit' || p.result === 'miss')]
-    : resolvedPicks;
+    : resolvedPicks
+  ).filter((p) => p.tipsterPick);
 
   // Al tocar una notificación push (nuevo pick VIP, pick destacado por
   // el tipster, "arrancó"/"set cerrado"/"acertaste-fallaste" de un
