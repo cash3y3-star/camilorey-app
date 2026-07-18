@@ -219,19 +219,38 @@ export default async function handler(req, res) {
     const allIds = [...new Set(pairs.flatMap((p) => [p.favoredId, p.opponentId]).filter(Boolean))];
     if (allIds.length === 0) return result;
 
-    const rawHistoryByPlayer = new Map();
+    // Antes era UNA consulta POR JUGADOR en paralelo — con semanas de
+    // picks acumulados eso ya son decenas/cientos de conexiones
+    // simultáneas a Supabase (causa real de un 504 en producción, ver
+    // refresh-data.js/pages/index.js). Ahora en lotes de hasta 20
+    // jugadores por consulta, agrupado/recortado a 20 por jugador acá
+    // (dedupeado por id — un mismo partido puede volver en más de un
+    // lote si sus dos jugadores cayeron en lotes distintos).
+    const rawHistoryByPlayer = new Map(allIds.map((id) => [id, []]));
+    const PLAYER_CHUNK = 20;
+    const playerChunks = [];
+    for (let i = 0; i < allIds.length; i += PLAYER_CHUNK) playerChunks.push(allIds.slice(i, i + PLAYER_CHUNK));
     await Promise.all(
-      allIds.map(async (id) => {
+      playerChunks.map(async (ids) => {
+        const orClause = ids.map((id) => `player_a_id.eq.${id},player_b_id.eq.${id}`).join(',');
         const { data } = await supabase
           .from('matches')
-          .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
+          .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
           .eq('status', 'finished')
-          .or(`player_a_id.eq.${id},player_b_id.eq.${id}`)
+          .or(orClause)
           .order('scheduled_at', { ascending: false })
-          .limit(20);
-        rawHistoryByPlayer.set(id, data || []);
+          .limit(1000);
+        for (const m of data || []) {
+          if (rawHistoryByPlayer.has(m.player_a_id)) rawHistoryByPlayer.get(m.player_a_id).push(m);
+          if (rawHistoryByPlayer.has(m.player_b_id)) rawHistoryByPlayer.get(m.player_b_id).push(m);
+        }
       })
     );
+    for (const [id, rows] of rawHistoryByPlayer) {
+      const deduped = [...new Map(rows.map((m) => [m.id, m])).values()];
+      deduped.sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
+      rawHistoryByPlayer.set(id, deduped.slice(0, 20));
+    }
 
     const missingOpponentIds = [
       ...new Set([...rawHistoryByPlayer.values()].flat().flatMap((m) => [m.player_a_id, m.player_b_id]))
