@@ -328,7 +328,6 @@ const TRANSLATIONS = {
     statMeGustaLabel: 'Me gusta',
     picksRecientesTipster: 'Picks recientes de CAMILOREY',
     misPicksSeguidosStats: 'Estadísticas de tus picks seguidos',
-    misUltimosSeguidos: 'Tus últimos seguidos',
     sigueAlgoParaVerStats: 'Seguí un pick para empezar a ver tus estadísticas acá.',
     statPendientes: 'Pendientes',
     sinHistorial: 'Sin historial reciente todavía.',
@@ -652,7 +651,6 @@ const TRANSLATIONS = {
     statMeGustaLabel: 'Likes',
     picksRecientesTipster: "CAMILOREY's recent picks",
     misPicksSeguidosStats: 'Stats for the picks you follow',
-    misUltimosSeguidos: 'Your latest follows',
     sigueAlgoParaVerStats: 'Follow a pick to start seeing your stats here.',
     statPendientes: 'Pending',
     sinHistorial: 'No recent history yet.',
@@ -977,7 +975,6 @@ const TRANSLATIONS = {
     statMeGustaLabel: 'Curtidas',
     picksRecientesTipster: 'Picks recentes da CAMILOREY',
     misPicksSeguidosStats: 'Estatísticas dos picks que você segue',
-    misUltimosSeguidos: 'Seus últimos seguidos',
     sigueAlgoParaVerStats: 'Siga um pick para começar a ver suas estatísticas aqui.',
     statPendientes: 'Pendentes',
     sinHistorial: 'Ainda sem histórico recente.',
@@ -4946,23 +4943,12 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
 // tarjeta "Tipster que sigues" de Inicio. El follower count es fijo
 // (100K, pedido explícito, no es un conteo real de una tabla) — lo
 // único real acá es el seguir/dejar de seguir (persistido en
-// profiles.follows_tipster), el historial público de picks
-// (recentPicks, mismo "resolvedPicks" público que ya se muestra en
-// otras pestañas, visible sin login) y las estadísticas PERSONALES,
-// que se arman de followedDetail (los picks que ESTA cuenta sigue,
-// mismo dato que ya se usa en la pestaña Seguidos).
-function TipsterProfileModal({
-  onClose,
-  lang,
-  tipsterProfile,
-  isFollowing,
-  onToggleFollow,
-  followBusy,
-  followedDetail,
-  user,
-  onPickClick,
-  recentPicks = []
-}) {
+// profiles.follows_tipster) y todo lo demás, que se arma de
+// followedDetail (los picks que ESTA cuenta sigue, mismo dato que ya
+// se usa en la pestaña Seguidos). "Picks recientes de CAMILOREY"
+// muestra los últimos seguidos (pedido explícito: no el track record
+// general del modelo, es la actividad real de esta cuenta).
+function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onToggleFollow, followBusy, followedDetail, user, onPickClick }) {
   const t = useTranslate(lang);
   const resolved = followedDetail.filter((p) => p.result === 'hit' || p.result === 'miss');
   const hits = resolved.filter((p) => p.result === 'hit').length;
@@ -4979,18 +4965,11 @@ function TipsterProfileModal({
   }
   const hasStats = user && followedDetail.length > 0;
   // Últimos 4 picks que ESTA cuenta sigue (cualquier estado — pendiente
-  // o ya resuelto), de más reciente a más antiguo — pedido explícito:
-  // "mira mis seguidos, esos últimos 4, quiero que pongas en mi perfil
-  // de tipster". followedDetail ya viene ordenado por fecha del
-  // partido descendente (ver /api/followed-detail.js), pero se ordena
-  // de nuevo acá para no depender de eso.
+  // o ya resuelto), de más reciente a más antiguo — se muestran bajo
+  // "Picks recientes de CAMILOREY" y también fijan el número de
+  // "Picks" de la fila de estadísticas (cuenta exactamente lo que se
+  // ve en la lista de abajo).
   const myLastFollowed = [...followedDetail].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0)).slice(0, 4);
-  // "Picks" en la fila de estadísticas cuenta EXACTAMENTE lo que sale
-  // en "Picks recientes de CAMILOREY" de abajo (pedido explícito: no
-  // el total histórico publicado, que no coincide con nada que la
-  // persona pueda ver/contar en la pantalla) — se arma acá una sola
-  // vez y se reusa tanto para el número como para la lista.
-  const recentPicksSorted = [...recentPicks].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0)).slice(0, 10);
 
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
@@ -5020,7 +4999,7 @@ function TipsterProfileModal({
               <div className="tipster-profile-stat-label">{t('statSeguidoresLabel')}</div>
             </div>
             <div className="tipster-profile-stat">
-              <div className="tipster-profile-stat-val num">{recentPicksSorted.length}</div>
+              <div className="tipster-profile-stat-val num">{myLastFollowed.length}</div>
               <div className="tipster-profile-stat-label">{t('statPicksLabel')}</div>
             </div>
             <div className="tipster-profile-stat">
@@ -5043,7 +5022,7 @@ function TipsterProfileModal({
         {myLastFollowed.length > 0 ? (
           <>
             <div className="section-head">
-              <h2>{t('misUltimosSeguidos')}</h2>
+              <h2>{t('picksRecientesTipster')}</h2>
             </div>
             <div className="form-list">
               {myLastFollowed.map((p) => (
@@ -5076,44 +5055,6 @@ function TipsterProfileModal({
                   ) : (
                     <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
                   )}
-                </div>
-              ))}
-            </div>
-          </>
-        ) : null}
-
-        {recentPicksSorted.length > 0 ? (
-          <>
-            <div className="section-head">
-              <h2>{t('picksRecientesTipster')}</h2>
-            </div>
-            <div className="form-list">
-              {recentPicksSorted.map((p) => (
-                <div
-                  key={p.id}
-                  className="form-list-row form-list-row-clickable"
-                  onClick={() => onPickClick && onPickClick(p)}
-                >
-                  <div className="form-list-meta">
-                    <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
-                    <span className="form-list-ft">
-                      {p.scheduledAt
-                        ? new Intl.DateTimeFormat('es-CO', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false,
-                            timeZone: 'America/Bogota'
-                          }).format(new Date(p.scheduledAt))
-                        : ''}
-                    </span>
-                  </div>
-                  <div className="form-list-opp">
-                    {p.market || 'Pick'}
-                    <span className="form-list-score num">{p.confidence}%</span>
-                  </div>
-                  <span className={`form-list-badge ${p.result === 'hit' ? 'win' : 'loss'}`}>
-                    {p.result === 'hit' ? 'W' : 'L'}
-                  </span>
                 </div>
               ))}
             </div>
@@ -7595,20 +7536,6 @@ export default function Home({
   // exclusivePicks (autenticado, ver arriba).
   const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
 
-  // "Picks recientes de CAMILOREY" del perfil del tipster — pedido
-  // explícito: no es "todo lo que resolvió el modelo", es la curaduría
-  // real del tipster (picks.tipster_pick, los que el admin destacó a
-  // mano para Exclusivos — ver pages/api/admin-tipster-pick.js).
-  // resolvedPicks (público) nunca incluye picks Exclusivos (candado a
-  // propósito en getServerSideProps); para quien SÍ tiene Exclusivo se
-  // suman también los resueltos de exclusivePicks (autenticado), ya
-  // que un destacado suele terminar siendo Exclusivo. Quien no tiene
-  // Exclusivo solo ve los destacados que además eran públicos.
-  const tipsterRecentPicks = (canSeeExclusive
-    ? [...resolvedPicks, ...exclusivePicks.filter((p) => p.result === 'hit' || p.result === 'miss')]
-    : resolvedPicks
-  ).filter((p) => p.tipsterPick);
-
   // Al tocar una notificación push (nuevo pick VIP, pick destacado por
   // el tipster, "arrancó"/"set cerrado"/"acertaste-fallaste" de un
   // pick seguido), el service worker abre la app en /#pick-{id} — acá
@@ -9503,7 +9430,6 @@ export default function Home({
           onToggleFollow={toggleFollowTipster}
           followBusy={tipsterFollowBusy}
           followedDetail={followedDetail}
-          recentPicks={tipsterRecentPicks}
           user={user}
           onPickClick={(p) => {
             setShowTipsterProfile(false);
