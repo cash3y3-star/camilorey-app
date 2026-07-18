@@ -4950,10 +4950,16 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
 // general del modelo, es la actividad real de esta cuenta).
 function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onToggleFollow, followBusy, followedDetail, user, onPickClick }) {
   const t = useTranslate(lang);
-  const resolved = followedDetail.filter((p) => p.result === 'hit' || p.result === 'miss');
+  // Últimos 4 picks que ESTA cuenta sigue (cualquier estado — pendiente
+  // o ya resuelto), de más reciente a más antiguo. Pedido explícito:
+  // TODO en este perfil (el número de "Picks", las estadísticas de
+  // efectividad/racha/pendientes, y la lista de abajo) sale de estos
+  // mismos 4 — no del historial completo de seguidos de la cuenta.
+  const myLastFollowed = [...followedDetail].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0)).slice(0, 4);
+  const resolved = myLastFollowed.filter((p) => p.result === 'hit' || p.result === 'miss');
   const hits = resolved.filter((p) => p.result === 'hit').length;
   const hitRate = resolved.length ? Math.round((hits / resolved.length) * 100) : null;
-  const pendingPicks = followedDetail.filter((p) => p.result === 'pending').sort((a, b) => (a.scheduledAt || 0) - (b.scheduledAt || 0));
+  const pendingPicks = myLastFollowed.filter((p) => p.result === 'pending').sort((a, b) => (a.scheduledAt || 0) - (b.scheduledAt || 0));
   const pending = pendingPicks.length;
   const sortedResolved = [...resolved].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0));
   let racha = 0;
@@ -4963,13 +4969,7 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
     else if (racha > 0 === won) racha += won ? 1 : -1;
     else break;
   }
-  const hasStats = user && followedDetail.length > 0;
-  // Últimos 4 picks que ESTA cuenta sigue (cualquier estado — pendiente
-  // o ya resuelto), de más reciente a más antiguo — se muestran bajo
-  // "Picks recientes de CAMILOREY" y también fijan el número de
-  // "Picks" de la fila de estadísticas (cuenta exactamente lo que se
-  // ve en la lista de abajo).
-  const myLastFollowed = [...followedDetail].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0)).slice(0, 4);
+  const hasStats = user && myLastFollowed.length > 0;
 
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
