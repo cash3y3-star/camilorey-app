@@ -312,6 +312,11 @@ const TRANSLATIONS = {
     siguiendoPick: 'Siguiendo',
     unaPersonaSigue: '1 persona sigue este pick',
     personasSiguen: '{n} personas siguen este pick',
+    tipsterQueSigues: 'Tipster que sigues',
+    tipsterAcabaDePublicar: 'acaba de publicar un pick',
+    verPick: 'Ver pick',
+    destacarExclusivos: 'Destacar para Exclusivos',
+    destacadoParaExclusivos: 'Destacado para Exclusivos',
     sinHistorial: 'Sin historial reciente todavía.',
     sinEnfrentamientos: 'Todavía no se han enfrentado.',
     buscandoMarcador: 'Buscando marcador…',
@@ -627,6 +632,11 @@ const TRANSLATIONS = {
     siguiendoPick: 'Following',
     unaPersonaSigue: '1 person is following this pick',
     personasSiguen: '{n} people are following this pick',
+    tipsterQueSigues: 'Tipster you follow',
+    tipsterAcabaDePublicar: 'just posted a pick',
+    verPick: 'View pick',
+    destacarExclusivos: 'Feature for Exclusive',
+    destacadoParaExclusivos: 'Featured for Exclusive',
     sinHistorial: 'No recent history yet.',
     sinEnfrentamientos: "They haven't played each other yet.",
     buscandoMarcador: 'Looking for the score…',
@@ -943,6 +953,11 @@ const TRANSLATIONS = {
     siguiendoPick: 'Seguindo',
     unaPersonaSigue: '1 pessoa segue este pick',
     personasSiguen: '{n} pessoas seguem este pick',
+    tipsterQueSigues: 'Tipster que você segue',
+    tipsterAcabaDePublicar: 'acabou de publicar um pick',
+    verPick: 'Ver pick',
+    destacarExclusivos: 'Destacar para Exclusivo',
+    destacadoParaExclusivos: 'Destacado para Exclusivo',
     sinHistorial: 'Ainda sem histórico recente.',
     sinEnfrentamientos: 'Ainda não se enfrentaram.',
     buscandoMarcador: 'Buscando placar…',
@@ -1405,6 +1420,13 @@ export async function getServerSideProps({ query }) {
 
   const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
 
+  // Foto/nombre del admin para la tarjeta "Tipster que sigues" de
+  // Inicio — CAMILOREY es un solo tipster (el sitio mismo), no una
+  // lista de varios, así que solo hace falta este único perfil.
+  const tipsterProfilePromise = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+    ? supabase.from('profiles').select('custom_avatar_url, avatar_emoji').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
+    : Promise.resolve({ data: null });
+
   // Igual que windowMatchesPromise/bankrollPromise arriba: no depende
   // de nada de la cadena de pendingPicks/players/tournaments de abajo,
   // así que se dispara ya (sin esperar) en vez de recién después de
@@ -1797,7 +1819,9 @@ export async function getServerSideProps({ query }) {
       score: null,
       setScores: null,
       result: 'pending',
-      followersCount: followersCountByPickId.get(pick.id) || 0
+      followersCount: followersCountByPickId.get(pick.id) || 0,
+      tipsterPick: Boolean(pick.tipster_pick),
+      tipsterPickAt: pick.tipster_pick_at || null
     };
   });
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
@@ -1851,7 +1875,9 @@ export async function getServerSideProps({ query }) {
       setScores,
       result: pick.result,
       matchStatus: 'done',
-      followersCount: followersCountByPickId.get(pick.id) || 0
+      followersCount: followersCountByPickId.get(pick.id) || 0,
+      tipsterPick: Boolean(pick.tipster_pick),
+      tipsterPickAt: pick.tipster_pick_at || null
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
@@ -1860,6 +1886,13 @@ export async function getServerSideProps({ query }) {
   // código fuente") — un pick exclusivo NUNCA puede viajar acá, ni
   // resuelto. Solo sale por /api/vip-picks, con el JWT verificado.
   const publicResolvedPicks = resolvedPicks.filter((p) => !p.exclusive);
+
+  // "El pick de CAMILOREY" — marcado a mano por el admin (ver
+  // pages/api/admin-tipster-pick.js), no calculado acá. Si el pick
+  // marcado es Exclusivo, queda afuera de esta versión pública a
+  // propósito (mismo candado que arriba) — solo lo ven quien tenga
+  // Exclusivo, vía /api/vip-picks en el cliente.
+  const tipsterPick = [...publicPicks, ...publicResolvedPicks].find((p) => p.tipsterPick) || null;
 
   // Tabla de grupo por torneo — igual a como tt.league-pro.com la
   // muestra dentro de cada torneo: los jugadores de ESE grupo se
@@ -2167,6 +2200,11 @@ export async function getServerSideProps({ query }) {
 
   const { count: userCount } = await userCountPromise;
   const exclusiveStats = await exclusiveStatsPromise;
+  const { data: tipsterProfileRow } = await tipsterProfilePromise;
+  const tipsterProfile = {
+    avatarUrl: tipsterProfileRow?.custom_avatar_url || null,
+    avatarEmoji: tipsterProfileRow?.avatar_emoji || null
+  };
 
   return {
     props: {
@@ -2182,7 +2220,9 @@ export async function getServerSideProps({ query }) {
       prevDateStr,
       nextDateStr,
       isToday: !selectedDate,
-      userCount: userCount || 0
+      userCount: userCount || 0,
+      tipsterPick,
+      tipsterProfile
     }
   };
   } catch (err) {
@@ -2212,7 +2252,9 @@ export async function getServerSideProps({ query }) {
         prevDateStr: fallbackDate,
         nextDateStr: fallbackDate,
         isToday: true,
-        userCount: 0
+        userCount: 0,
+        tipsterPick: null,
+        tipsterProfile: { avatarUrl: null, avatarEmoji: null }
       }
     };
   }
@@ -3409,7 +3451,17 @@ function buildRichAnalysis(pick, t) {
 // Análisis (el texto de por qué es favorito) y H2H (cruce directo
 // partido por partido). Todo lo que se muestra sale de datos reales
 // que ya calculamos — no se inventa ningún número.
-function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFullHistory = false, followed = false, onToggleFollow }) {
+function PickDetailModal({
+  pick,
+  onClose,
+  oddsFormat = 'decimal',
+  lang,
+  canSeeFullHistory = false,
+  followed = false,
+  onToggleFollow,
+  isAdmin = false,
+  onToggleTipsterPick
+}) {
   const t = useTranslate(lang);
   const [tab, setTab] = useState('resumen');
   // "Estadísticas" ahora es un solo tab con 3 botones (local/H2H/
@@ -3538,6 +3590,17 @@ function PickDetailModal({ pick, onClose, oddsFormat = 'decimal', lang, canSeeFu
               {followed ? <ProfileIcon name="check" size={16} /> : <HeartIcon filled={false} size={17} />}
             </span>
             {followed ? t('siguiendoPick') : t('seguirPrediccion')}
+          </button>
+        ) : null}
+
+        {isAdmin && onToggleTipsterPick && !isDone ? (
+          <button
+            type="button"
+            className={`tipster-pick-btn ${pick.tipsterPick ? 'active' : ''}`}
+            onClick={() => onToggleTipsterPick(pick)}
+          >
+            <ProfileIcon name="bell" size={15} />
+            {pick.tipsterPick ? t('destacadoParaExclusivos') : t('destacarExclusivos')}
           </button>
         ) : null}
 
@@ -6368,13 +6431,16 @@ export default function Home({
   hotPlayers: initialHotPlayers = [],
   matches: initialMatches,
   currentDateStr,
-  userCount
+  userCount,
+  tipsterPick: initialTipsterPick = null,
+  tipsterProfile = { avatarUrl: null, avatarEmoji: null }
 }) {
   const [view, setView] = useState('inicio');
   const [stats, setStats] = useState(initialStats);
   const [exclusiveStats, setExclusiveStats] = useState(initialExclusiveStats || { efectividad: 0, racha: 0, n: 0 });
   const [picks, setPicks] = useState(initialPicks);
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
+  const [tipsterPick, setTipsterPick] = useState(initialTipsterPick);
   const [tournamentGroups, setTournamentGroups] = useState(initialTournamentGroups);
   const [matches, setMatches] = useState(initialMatches);
   const [hotPlayers, setHotPlayers] = useState(initialHotPlayers);
@@ -6666,6 +6732,7 @@ export default function Home({
         if (data.resolvedPicks) setResolvedPicks(data.resolvedPicks);
         if (data.tournamentGroups) setTournamentGroups(data.tournamentGroups);
         if (data.hotPlayers) setHotPlayers(data.hotPlayers);
+        setTipsterPick(data.tipsterPick || null);
       } catch (e) {
         console.error('Error actualizando Inicio/Picks/Bankroll/Calientes:', e);
       }
@@ -6921,6 +6988,34 @@ export default function Home({
   // vez de en cada sitio que use "picks"/"resolvedPicks" para pintar
   // algo visible a cualquiera.
   const canSeeExclusive = isAdmin || isPremium;
+
+  // Marca/desmarca "el pick de CAMILOREY" (ver pages/api/admin-tipster-pick.js)
+  // — solo admin. Actualiza el estado local a mano (en vez de esperar
+  // el próximo poll de 20s) para que el botón y el aviso en Inicio
+  // reflejen el cambio al toque.
+  const toggleTipsterPick = async (pick) => {
+    if (!supabaseClient) return;
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/admin-tipster-pick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ pickId: pick.id })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        alert(data.error || 'Error marcando el pick.');
+        return;
+      }
+      const nextValue = Boolean(data.tipsterPick);
+      setModalPick((prev) => (prev && prev.id === pick.id ? { ...prev, tipsterPick: nextValue } : prev));
+      setTipsterPick(nextValue ? { ...pick, tipsterPick: true } : null);
+      setExclusivePicks((prev) => prev.map((p) => ({ ...p, tipsterPick: p.id === pick.id ? nextValue : false })));
+    } catch (e) {
+      alert(e.message);
+    }
+  };
   // Pedido 2026-07-17: usuarios gratis solo ven los 20 picks de mayor
   // confianza del día — no la lista completa. Exclusivo/Premium/Admin
   // sigue viendo todo, sin tope (ya de por sí ven también los picks
@@ -7113,7 +7208,11 @@ export default function Home({
   const [exclusivePicks, setExclusivePicks] = useState([]);
   const [exclusivePicksError, setExclusivePicksError] = useState(null);
   useEffect(() => {
-    if (view !== 'picksvip' || !canSeeExclusive || !supabaseClient) return undefined;
+    // También en Inicio (no solo Picks VIP): "el pick de CAMILOREY" que
+    // se muestra ahí puede ser un pick Exclusivo, y esos nunca viajan
+    // por los props/poll públicos — hace falta esta fuente autenticada
+    // para que quien tiene Exclusivo lo vea en Inicio.
+    if ((view !== 'picksvip' && view !== 'inicio') || !canSeeExclusive || !supabaseClient) return undefined;
     let cancelled = false;
 
     async function load() {
@@ -7141,6 +7240,13 @@ export default function Home({
       clearInterval(interval);
     };
   }, [view, canSeeExclusive]);
+
+  // "El pick de CAMILOREY" a mostrar en Inicio: si es un pick público
+  // ya viene por tipsterPick (props/poll). Si es Exclusivo, ese campo
+  // público queda en null a propósito (ver getServerSideProps) — para
+  // quien SÍ tiene Exclusivo, se busca la misma marca dentro de
+  // exclusivePicks (autenticado, ver arriba).
+  const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
 
   // Errores de la app (getServerSideProps, rutas API) — mismo patrón
   // que Modelo: solo se consulta al entrar a esa pestaña.
@@ -7772,6 +7878,37 @@ export default function Home({
             </div>
             <span className="tg-banner-cta">Entrar →</span>
           </a>
+
+          <div className="section-head">
+            <h2>{t('tipsterQueSigues')}</h2>
+          </div>
+          <div className="tipster-follow-card">
+            <div className="tipster-follow-avatar">
+              {tipsterProfile.avatarUrl ? (
+                <img src={tipsterProfile.avatarUrl} alt="CAMILOREY" />
+              ) : (
+                <span className="tipster-follow-initials">{tipsterProfile.avatarEmoji || 'CR'}</span>
+              )}
+            </div>
+            <div className="tipster-follow-info">
+              <div className="tipster-follow-name">CAMILOREY</div>
+              <span className="tipster-follow-pill">
+                <ProfileIcon name="check" size={12} />
+                {t('siguiendoPick')}
+              </span>
+            </div>
+          </div>
+          {tipsterHighlight ? (
+            <button type="button" className="tipster-pick-notice" onClick={() => setModalPick(tipsterHighlight)}>
+              <span className="tipster-pick-notice-icon">
+                <ProfileIcon name="bell" size={16} />
+              </span>
+              <span className="tipster-pick-notice-text">
+                <strong>CAMILOREY</strong> {t('tipsterAcabaDePublicar')}
+              </span>
+              <span className="tipster-pick-notice-cta">{t('verPick')} →</span>
+            </button>
+          ) : null}
 
           <div className="section-head">
             <h2>{t('statsPremiumTitle')}</h2>
@@ -8960,6 +9097,8 @@ export default function Home({
           canSeeFullHistory={canSeeExclusive}
           followed={followedPickIds.has(modalPick.id)}
           onToggleFollow={modalPick.result === 'pending' ? toggleFollow : undefined}
+          isAdmin={isAdmin}
+          onToggleTipsterPick={toggleTipsterPick}
         />
       )}
 
@@ -9166,6 +9305,48 @@ const CSS = `
     font-size:13px; font-weight:700; background:rgba(255,255,255,.2);
     border-radius:999px; padding:8px 16px; flex:none; white-space:nowrap;
   }
+
+  .tipster-follow-card{
+    display:flex; align-items:center; gap:12px;
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:12px 16px; margin-bottom:12px;
+  }
+  .tipster-follow-avatar{
+    width:48px; height:48px; border-radius:50%; flex:none; overflow:hidden;
+    background:linear-gradient(150deg, var(--court), #14100F 130%);
+    display:flex; align-items:center; justify-content:center;
+    border:2px solid var(--court);
+  }
+  .tipster-follow-avatar img{width:100%; height:100%; object-fit:cover;}
+  .tipster-follow-initials{color:#fff; font-weight:800; font-size:15px;}
+  .tipster-follow-info{display:flex; flex-direction:column; gap:4px;}
+  .tipster-follow-name{font-weight:800; font-size:15px;}
+  .tipster-follow-pill{
+    display:inline-flex; align-items:center; gap:4px; width:fit-content;
+    background:rgba(22,163,74,.14); color:var(--court);
+    border-radius:999px; padding:3px 10px; font-size:11.5px; font-weight:700;
+  }
+  .tipster-pick-notice{
+    display:flex; align-items:center; gap:10px; width:100%;
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:22px; text-align:left; cursor:pointer;
+    font-family:inherit; color:inherit;
+  }
+  .tipster-pick-notice-icon{
+    width:32px; height:32px; border-radius:50%; flex:none;
+    background:rgba(22,163,74,.14); color:var(--court);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tipster-pick-notice-text{flex:1; font-size:13px;}
+  .tipster-pick-notice-cta{font-size:12.5px; font-weight:700; color:var(--court); white-space:nowrap;}
+
+  .tipster-pick-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:12px;
+    padding:12px; margin-top:8px; font-size:14px; font-weight:700; color:var(--muted);
+    cursor:pointer;
+  }
+  .tipster-pick-btn.active{background:rgba(22,163,74,.14); border-color:var(--court); color:var(--court);}
 
   main{max-width:980px; margin:0 auto; padding:24px 20px 60px;}
 

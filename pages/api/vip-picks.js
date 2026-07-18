@@ -375,7 +375,9 @@ export default async function handler(req, res) {
       result: 'pending',
       matchStatus,
       sourceId: match.source_id,
-      tournamentId: match.tournament_id
+      tournamentId: match.tournament_id,
+      tipsterPick: Boolean(pick.tipster_pick),
+      tipsterPickAt: pick.tipster_pick_at || null
     };
   });
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
@@ -415,7 +417,9 @@ export default async function handler(req, res) {
       score,
       setScores,
       result: pick.result,
-      matchStatus: 'done'
+      matchStatus: 'done',
+      tipsterPick: Boolean(pick.tipster_pick),
+      tipsterPickAt: pick.tipster_pick_at || null
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);

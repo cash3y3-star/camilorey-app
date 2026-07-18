@@ -442,7 +442,9 @@ export default async function handler(req, res) {
       matchStatus,
       sourceId: match.source_id,
       tournamentId: match.tournament_id,
-      followersCount: followersCountByPickId.get(pick.id) || 0
+      followersCount: followersCountByPickId.get(pick.id) || 0,
+      tipsterPick: Boolean(pick.tipster_pick),
+      tipsterPickAt: pick.tipster_pick_at || null
     };
   });
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
@@ -495,13 +497,17 @@ export default async function handler(req, res) {
       setScores,
       result: pick.result,
       matchStatus: 'done',
-      followersCount: followersCountByPickId.get(pick.id) || 0
+      followersCount: followersCountByPickId.get(pick.id) || 0,
+      tipsterPick: Boolean(pick.tipster_pick),
+      tipsterPickAt: pick.tipster_pick_at || null
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
   // Mismo motivo que publicPicks arriba: este endpoint es público y sin
   // login — un pick exclusivo nunca puede viajar acá, ni resuelto.
   const publicResolvedPicks = resolvedPicks.filter((p) => !p.exclusive);
+  // "El pick de CAMILOREY" — mismo criterio que getServerSideProps.
+  const tipsterPick = [...publicPicks, ...publicResolvedPicks].find((p) => p.tipsterPick) || null;
 
   const tournamentGroups = (
     await Promise.all(
@@ -685,6 +691,7 @@ export default async function handler(req, res) {
     picks: publicPicks,
     resolvedPicks: publicResolvedPicks,
     tournamentGroups,
-    hotPlayers
+    hotPlayers,
+    tipsterPick
   });
 }
