@@ -1451,13 +1451,13 @@ export async function getServerSideProps({ query }) {
     ? supabase.from('profiles').select('custom_avatar_url, avatar_emoji').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
     : Promise.resolve({ data: null });
 
-  // Fila de estadísticas estilo TikTok en el perfil del tipster
-  // (Seguidores/Picks/Me gusta) — Picks y Me gusta son conteos reales
-  // (no inventados como el de seguidores, que es fijo a pedido): Picks
-  // = cuántos picks publicó el sitio en total; Me gusta = cuántas
-  // veces, en total, alguien siguió un pick (una fila de followed_picks
-  // = un "me gusta" real).
-  const tipsterPicksCountPromise = supabase.from('picks').select('id', { count: 'exact', head: true }).eq('published', true);
+  // "Me gusta" de la fila de estadísticas estilo TikTok del perfil del
+  // tipster — conteo real (no inventado como el de seguidores, que es
+  // fijo a pedido): cuántas veces, en total, alguien siguió un pick
+  // (una fila de followed_picks = un "me gusta" real). "Picks" de esa
+  // misma fila NO sale de acá — pedido explícito: cuenta exactamente lo
+  // que aparece en la lista "Picks recientes" de abajo, se calcula en
+  // el propio componente a partir de recentPicks.
   const tipsterLikesCountPromise = supabase.from('followed_picks').select('id', { count: 'exact', head: true });
 
   // Igual que windowMatchesPromise/bankrollPromise arriba: no depende
@@ -2242,12 +2242,10 @@ export async function getServerSideProps({ query }) {
   const { count: userCount } = await userCountPromise;
   const exclusiveStats = await exclusiveStatsPromise;
   const { data: tipsterProfileRow } = await tipsterProfilePromise;
-  const { count: tipsterPicksCount } = await tipsterPicksCountPromise;
   const { count: tipsterLikesCount } = await tipsterLikesCountPromise;
   const tipsterProfile = {
     avatarUrl: tipsterProfileRow?.custom_avatar_url || null,
     avatarEmoji: tipsterProfileRow?.avatar_emoji || null,
-    picksCount: tipsterPicksCount || 0,
     likesCount: tipsterLikesCount || 0
   };
 
@@ -2299,7 +2297,7 @@ export async function getServerSideProps({ query }) {
         isToday: true,
         userCount: 0,
         tipsterPick: null,
-        tipsterProfile: { avatarUrl: null, avatarEmoji: null, picksCount: 0, likesCount: 0 }
+        tipsterProfile: { avatarUrl: null, avatarEmoji: null, likesCount: 0 }
       }
     };
   }
@@ -4284,6 +4282,14 @@ function ProfileIcon({ name, size = 20 }) {
       </svg>
     );
   }
+  if (name === 'verified') {
+    return (
+      <svg viewBox="0 0 24 24" width={size} height={size} fill="none">
+        <circle cx="12" cy="12" r="10" fill="#3B82F6" />
+        <path d="M8 12.5l2.5 2.5L16 9.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
   if (name === 'bell') {
     return (
       <svg {...common}>
@@ -4960,6 +4966,12 @@ function TipsterProfileModal({
     else break;
   }
   const hasStats = user && followedDetail.length > 0;
+  // "Picks" en la fila de estadísticas cuenta EXACTAMENTE lo que sale
+  // en "Picks recientes de CAMILOREY" de abajo (pedido explícito: no
+  // el total histórico publicado, que no coincide con nada que la
+  // persona pueda ver/contar en la pantalla) — se arma acá una sola
+  // vez y se reusa tanto para el número como para la lista.
+  const recentPicksSorted = [...recentPicks].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0)).slice(0, 10);
 
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
@@ -4979,7 +4991,9 @@ function TipsterProfileModal({
               <span>{tipsterProfile.avatarEmoji || 'CR'}</span>
             )}
           </div>
-          <div className="tipster-profile-name">CAMILOREY</div>
+          <div className="tipster-profile-name">
+            CAMILOREY <ProfileIcon name="verified" size={16} />
+          </div>
 
           <div className="tipster-profile-stats-row">
             <div className="tipster-profile-stat">
@@ -4987,7 +5001,7 @@ function TipsterProfileModal({
               <div className="tipster-profile-stat-label">{t('statSeguidoresLabel')}</div>
             </div>
             <div className="tipster-profile-stat">
-              <div className="tipster-profile-stat-val num">{(tipsterProfile.picksCount || 0).toLocaleString('es-CO')}</div>
+              <div className="tipster-profile-stat-val num">{recentPicksSorted.length}</div>
               <div className="tipster-profile-stat-label">{t('statPicksLabel')}</div>
             </div>
             <div className="tipster-profile-stat">
@@ -5007,16 +5021,13 @@ function TipsterProfileModal({
           </button>
         </div>
 
-        {recentPicks.length > 0 ? (
+        {recentPicksSorted.length > 0 ? (
           <>
             <div className="section-head">
               <h2>{t('picksRecientesTipster')}</h2>
             </div>
             <div className="form-list">
-              {[...recentPicks]
-                .sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0))
-                .slice(0, 10)
-                .map((p) => (
+              {recentPicksSorted.map((p) => (
                 <div
                   key={p.id}
                   className="form-list-row form-list-row-clickable"
@@ -6656,7 +6667,7 @@ export default function Home({
   currentDateStr,
   userCount,
   tipsterPick: initialTipsterPick = null,
-  tipsterProfile = { avatarUrl: null, avatarEmoji: null, picksCount: 0, likesCount: 0 }
+  tipsterProfile = { avatarUrl: null, avatarEmoji: null, likesCount: 0 }
 }) {
   const [view, setView] = useState('inicio');
   const [stats, setStats] = useState(initialStats);
@@ -8176,7 +8187,9 @@ export default function Home({
               )}
             </button>
             <div className="tipster-follow-info">
-              <div className="tipster-follow-name">CAMILOREY</div>
+              <div className="tipster-follow-name">
+                CAMILOREY <ProfileIcon name="verified" size={13} />
+              </div>
               {isFollowingTipster ? (
                 <span className="tipster-follow-pill">
                   <ProfileIcon name="check" size={12} />
@@ -9629,7 +9642,7 @@ const CSS = `
   .tipster-follow-avatar img{width:100%; height:100%; object-fit:cover;}
   .tipster-follow-initials{color:#fff; font-weight:800; font-size:15px;}
   .tipster-follow-info{display:flex; flex-direction:column; gap:4px;}
-  .tipster-follow-name{font-weight:800; font-size:15px;}
+  .tipster-follow-name{display:inline-flex; align-items:center; gap:4px; font-weight:800; font-size:15px;}
   .tipster-follow-pill{
     display:inline-flex; align-items:center; gap:4px; width:fit-content;
     background:rgba(22,163,74,.14); color:var(--court);
@@ -9645,7 +9658,7 @@ const CSS = `
     border:3px solid var(--court); color:#fff; font-weight:800; font-size:22px;
   }
   .tipster-profile-avatar-lg img{width:100%; height:100%; object-fit:cover;}
-  .tipster-profile-name{font-weight:800; font-size:18px;}
+  .tipster-profile-name{display:inline-flex; align-items:center; gap:5px; font-weight:800; font-size:18px;}
   .tipster-profile-followers{font-size:13px; color:var(--muted);}
   .tipster-profile-stats-row{display:flex; gap:28px; margin:6px 0 2px;}
   .tipster-profile-stat{display:flex; flex-direction:column; align-items:center; gap:2px;}
