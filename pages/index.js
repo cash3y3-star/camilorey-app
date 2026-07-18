@@ -318,6 +318,7 @@ const TRANSLATIONS = {
     destacarExclusivos: 'Destacar para Exclusivos',
     destacadoParaExclusivos: 'Destacado para Exclusivos',
     tipsterSeguidores: '{n} seguidores',
+    picksRecientesTipster: 'Picks recientes de CAMILOREY',
     misPicksSeguidosStats: 'Estadísticas de tus picks seguidos',
     sigueAlgoParaVerStats: 'Seguí un pick para empezar a ver tus estadísticas acá.',
     statPendientes: 'Pendientes',
@@ -642,6 +643,7 @@ const TRANSLATIONS = {
     destacarExclusivos: 'Feature for Exclusive',
     destacadoParaExclusivos: 'Featured for Exclusive',
     tipsterSeguidores: '{n} followers',
+    picksRecientesTipster: "CAMILOREY's recent picks",
     misPicksSeguidosStats: 'Stats for the picks you follow',
     sigueAlgoParaVerStats: 'Follow a pick to start seeing your stats here.',
     statPendientes: 'Pending',
@@ -967,6 +969,7 @@ const TRANSLATIONS = {
     destacarExclusivos: 'Destacar para Exclusivo',
     destacadoParaExclusivos: 'Destacado para Exclusivo',
     tipsterSeguidores: '{n} seguidores',
+    picksRecientesTipster: 'Picks recentes da CAMILOREY',
     misPicksSeguidosStats: 'Estatísticas dos picks que você segue',
     sigueAlgoParaVerStats: 'Siga um pick para começar a ver suas estatísticas aqui.',
     statPendientes: 'Pendentes',
@@ -4903,10 +4906,23 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
 // tarjeta "Tipster que sigues" de Inicio. El follower count es fijo
 // (100K, pedido explícito, no es un conteo real de una tabla) — lo
 // único real acá es el seguir/dejar de seguir (persistido en
-// profiles.follows_tipster) y las estadísticas, que se arman de
-// followedDetail (los picks que ESTA cuenta sigue, mismo dato que ya
-// se usa en la pestaña Seguidos, no un cálculo aparte).
-function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onToggleFollow, followBusy, followedDetail, user, onPickClick }) {
+// profiles.follows_tipster), el historial público de picks
+// (recentPicks, mismo "resolvedPicks" público que ya se muestra en
+// otras pestañas, visible sin login) y las estadísticas PERSONALES,
+// que se arman de followedDetail (los picks que ESTA cuenta sigue,
+// mismo dato que ya se usa en la pestaña Seguidos).
+function TipsterProfileModal({
+  onClose,
+  lang,
+  tipsterProfile,
+  isFollowing,
+  onToggleFollow,
+  followBusy,
+  followedDetail,
+  user,
+  onPickClick,
+  recentPicks = []
+}) {
   const t = useTranslate(lang);
   const resolved = followedDetail.filter((p) => p.result === 'hit' || p.result === 'miss');
   const hits = resolved.filter((p) => p.result === 'hit').length;
@@ -4953,6 +4969,34 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
             {isFollowing ? t('siguiendoPick') : t('seguirPrediccion')}
           </button>
         </div>
+
+        {recentPicks.length > 0 ? (
+          <>
+            <div className="section-head">
+              <h2>{t('picksRecientesTipster')}</h2>
+            </div>
+            <div className="form-list">
+              {recentPicks.slice(0, 10).map((p) => (
+                <div
+                  key={p.id}
+                  className="form-list-row form-list-row-clickable"
+                  onClick={() => onPickClick && onPickClick(p)}
+                >
+                  <div className="form-list-meta">
+                    <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
+                  </div>
+                  <div className="form-list-opp">
+                    {p.market || 'Pick'}
+                    <span className="form-list-score num">{p.confidence}%</span>
+                  </div>
+                  <span className={`form-list-badge ${p.result === 'hit' ? 'win' : 'loss'}`}>
+                    {p.result === 'hit' ? 'W' : 'L'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
 
         <div className="section-head">
           <h2>{t('misPicksSeguidosStats')}</h2>
@@ -9298,6 +9342,7 @@ export default function Home({
           onToggleFollow={toggleFollowTipster}
           followBusy={tipsterFollowBusy}
           followedDetail={followedDetail}
+          recentPicks={resolvedPicks}
           user={user}
           onPickClick={(p) => {
             setShowTipsterProfile(false);
