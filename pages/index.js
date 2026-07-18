@@ -7525,6 +7525,18 @@ export default function Home({
   // exclusivePicks (autenticado, ver arriba).
   const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
 
+  // "Picks recientes de CAMILOREY" del perfil del tipster: resolvedPicks
+  // (público) nunca incluye picks Exclusivos (ver getServerSideProps —
+  // ese candado es a propósito). Para quien SÍ tiene Exclusivo, se
+  // suman los ya resueltos de exclusivePicks (autenticado) — si no, un
+  // pick destacado para Exclusivos que resultó Exclusivo (el caso más
+  // común, son justo los que vale la pena destacar) nunca aparecía acá
+  // aunque hubiera acertado. Para quien no tiene Exclusivo, la lista
+  // sigue siendo solo la pública, sin cambios.
+  const tipsterRecentPicks = canSeeExclusive
+    ? [...resolvedPicks, ...exclusivePicks.filter((p) => p.result === 'hit' || p.result === 'miss')]
+    : resolvedPicks;
+
   // Al tocar una notificación push (nuevo pick VIP, pick destacado por
   // el tipster, "arrancó"/"set cerrado"/"acertaste-fallaste" de un
   // pick seguido), el service worker abre la app en /#pick-{id} — acá
@@ -9419,7 +9431,7 @@ export default function Home({
           onToggleFollow={toggleFollowTipster}
           followBusy={tipsterFollowBusy}
           followedDetail={followedDetail}
-          recentPicks={resolvedPicks}
+          recentPicks={tipsterRecentPicks}
           user={user}
           onPickClick={(p) => {
             setShowTipsterProfile(false);
