@@ -317,7 +317,6 @@ const TRANSLATIONS = {
     verPick: 'Ver pick',
     destacarExclusivos: 'Destacar para Exclusivos',
     destacadoParaExclusivos: 'Destacado para Exclusivos',
-    tipsterSeguidores: '{n} seguidores',
     statSeguidoresLabel: 'Seguidores',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Me gusta',
@@ -645,7 +644,6 @@ const TRANSLATIONS = {
     verPick: 'View pick',
     destacarExclusivos: 'Feature for Exclusive',
     destacadoParaExclusivos: 'Featured for Exclusive',
-    tipsterSeguidores: '{n} followers',
     statSeguidoresLabel: 'Followers',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Likes',
@@ -974,7 +972,6 @@ const TRANSLATIONS = {
     verPick: 'Ver pick',
     destacarExclusivos: 'Destacar para Exclusivo',
     destacadoParaExclusivos: 'Destacado para Exclusivo',
-    tipsterSeguidores: '{n} seguidores',
     statSeguidoresLabel: 'Seguidores',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Curtidas',
@@ -2368,10 +2365,10 @@ function findStreamForTournament(tournamentName, streams) {
   );
 }
 
-// Bankroll en pesos colombianos, banco inicial $2.000.000 (ver
-// scripts/convert-bankroll-to-pesos.js). withSign se usa para
-// ganancia/pérdida de una apuesta puntual; el balance total no lleva
-// signo (siempre positivo salvo que el banco se acabe del todo).
+// Bankroll en pesos colombianos, banco inicial $2.000.000. withSign se
+// usa para ganancia/pérdida de una apuesta puntual; el balance total
+// no lleva signo (siempre positivo salvo que el banco se acabe del
+// todo).
 function formatCOP(n, withSign = false) {
   const abs = Math.round(Math.abs(n)).toLocaleString('es-CO');
   const sign = withSign ? (n >= 0 ? '+' : '-') : '';
@@ -5036,6 +5033,16 @@ function TipsterProfileModal({
                 >
                   <div className="form-list-meta">
                     <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
+                    <span className="form-list-ft">
+                      {p.scheduledAt
+                        ? new Intl.DateTimeFormat('es-CO', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                            timeZone: 'America/Bogota'
+                          }).format(new Date(p.scheduledAt))
+                        : ''}
+                    </span>
                   </div>
                   <div className="form-list-opp">
                     {p.market || 'Pick'}
@@ -9675,7 +9682,6 @@ const CSS = `
   }
   .tipster-profile-avatar-lg img{width:100%; height:100%; object-fit:cover;}
   .tipster-profile-name{display:inline-flex; align-items:center; gap:5px; font-weight:800; font-size:18px;}
-  .tipster-profile-followers{font-size:13px; color:var(--muted);}
   .tipster-profile-stats-row{display:flex; gap:28px; margin:6px 0 2px;}
   .tipster-profile-stat{display:flex; flex-direction:column; align-items:center; gap:2px;}
   .tipster-profile-stat-val{font-weight:800; font-size:16px;}

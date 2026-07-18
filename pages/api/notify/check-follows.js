@@ -296,6 +296,12 @@ export default async function handler(req, res) {
   const { data: players } = await supabase.from('players').select('id, name').in('id', playerIds);
   const playersById = new Map((players || []).map((p) => [p.id, p]));
 
+  // Un solo round-trip para el pick de CADA partido de este lote, en
+  // vez de uno por partido dentro del loop de abajo — mismo criterio
+  // que ya se aplicó en refresh-data.js (evitar N+1 consultas).
+  const { data: matchPicks } = await supabase.from('picks').select('id, match_id').in('match_id', matches.map((m) => m.id));
+  const pickIdByMatchId = new Map((matchPicks || []).map((p) => [p.match_id, p.id]));
+
   let liveEvents = [];
   try {
     liveEvents = await fetchLiveTableTennis();
@@ -320,8 +326,8 @@ export default async function handler(req, res) {
     // El pick de este partido — se usa para mandar a cada aviso directo
     // al detalle de ESE pick (/#pick-{id}) en vez de a una pestaña
     // genérica, así tocar la notificación abre justo lo que avisó.
-    const { data: matchPick } = await supabase.from('picks').select('id').eq('match_id', match.id).maybeSingle();
-    const pickUrl = matchPick?.id ? `/#pick-${matchPick.id}` : '/#seguidos';
+    const matchPickId = pickIdByMatchId.get(match.id);
+    const pickUrl = matchPickId ? `/#pick-${matchPickId}` : '/#seguidos';
 
     if (found && found.event.event?.state === 'STARTED') {
       if (!match.notified_started) {
