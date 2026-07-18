@@ -157,12 +157,20 @@ export default async function handler(req, res) {
     .map((pick) => {
       const match = matchesById.get(pick.match_id);
       if (!match) return null;
-      if (match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS) return null;
+      // "El pick de CAMILOREY" (pick.tipster_pick) nunca se oculta por
+      // estas dos reglas — si no, en cuanto el partido arrancara (o
+      // estuviera por arrancar) el aviso/destacado desaparecía de
+      // Inicio hasta que el próximo sync lo resolviera del todo, a
+      // veces varios minutos después (bug real reportado: "se marca,
+      // llega la notificación, pero al minuto se quita").
+      const isTipsterPick = Boolean(pick.tipster_pick);
+      if (!isTipsterPick && match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS)
+        return null;
       // El partido ya terminó pero el pick sigue "pending" — hueco
       // entre que el partido cierra y que el próximo sync corre
       // resolvePick(). No se muestra como pendiente mientras tanto; en
       // el próximo sync pasa a resueltos directamente.
-      if (match.status === 'finished') return null;
+      if (!isTipsterPick && match.status === 'finished') return null;
       const playerA = playersById.get(match.player_a_id);
       const playerB = playersById.get(match.player_b_id);
       const favored = playersById.get(pick.predicted_winner_id);
