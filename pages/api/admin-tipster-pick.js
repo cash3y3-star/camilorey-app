@@ -116,7 +116,7 @@ export default async function handler(req, res) {
             body: `${favoredPlayer?.name ? favoredPlayer.name + ' — ' : ''}${pick.market}${oddsTxt}`,
             tag: 'tipster-pick',
             renotify: true,
-            url: '/#picks'
+            url: `/#pick-${pickId}`
           });
           await Promise.all(
             eligibleSubs.map((sub) =>

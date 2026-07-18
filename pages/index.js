@@ -318,6 +318,9 @@ const TRANSLATIONS = {
     destacarExclusivos: 'Destacar para Exclusivos',
     destacadoParaExclusivos: 'Destacado para Exclusivos',
     tipsterSeguidores: '{n} seguidores',
+    statSeguidoresLabel: 'Seguidores',
+    statPicksLabel: 'Picks',
+    statMeGustaLabel: 'Me gusta',
     picksRecientesTipster: 'Picks recientes de CAMILOREY',
     misPicksSeguidosStats: 'Estadísticas de tus picks seguidos',
     sigueAlgoParaVerStats: 'Seguí un pick para empezar a ver tus estadísticas acá.',
@@ -643,6 +646,9 @@ const TRANSLATIONS = {
     destacarExclusivos: 'Feature for Exclusive',
     destacadoParaExclusivos: 'Featured for Exclusive',
     tipsterSeguidores: '{n} followers',
+    statSeguidoresLabel: 'Followers',
+    statPicksLabel: 'Picks',
+    statMeGustaLabel: 'Likes',
     picksRecientesTipster: "CAMILOREY's recent picks",
     misPicksSeguidosStats: 'Stats for the picks you follow',
     sigueAlgoParaVerStats: 'Follow a pick to start seeing your stats here.',
@@ -969,6 +975,9 @@ const TRANSLATIONS = {
     destacarExclusivos: 'Destacar para Exclusivo',
     destacadoParaExclusivos: 'Destacado para Exclusivo',
     tipsterSeguidores: '{n} seguidores',
+    statSeguidoresLabel: 'Seguidores',
+    statPicksLabel: 'Picks',
+    statMeGustaLabel: 'Curtidas',
     picksRecientesTipster: 'Picks recentes da CAMILOREY',
     misPicksSeguidosStats: 'Estatísticas dos picks que você segue',
     sigueAlgoParaVerStats: 'Siga um pick para começar a ver suas estatísticas aqui.',
@@ -1441,6 +1450,15 @@ export async function getServerSideProps({ query }) {
   const tipsterProfilePromise = process.env.NEXT_PUBLIC_ADMIN_EMAIL
     ? supabase.from('profiles').select('custom_avatar_url, avatar_emoji').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
     : Promise.resolve({ data: null });
+
+  // Fila de estadísticas estilo TikTok en el perfil del tipster
+  // (Seguidores/Picks/Me gusta) — Picks y Me gusta son conteos reales
+  // (no inventados como el de seguidores, que es fijo a pedido): Picks
+  // = cuántos picks publicó el sitio en total; Me gusta = cuántas
+  // veces, en total, alguien siguió un pick (una fila de followed_picks
+  // = un "me gusta" real).
+  const tipsterPicksCountPromise = supabase.from('picks').select('id', { count: 'exact', head: true }).eq('published', true);
+  const tipsterLikesCountPromise = supabase.from('followed_picks').select('id', { count: 'exact', head: true });
 
   // Igual que windowMatchesPromise/bankrollPromise arriba: no depende
   // de nada de la cadena de pendingPicks/players/tournaments de abajo,
@@ -2224,9 +2242,13 @@ export async function getServerSideProps({ query }) {
   const { count: userCount } = await userCountPromise;
   const exclusiveStats = await exclusiveStatsPromise;
   const { data: tipsterProfileRow } = await tipsterProfilePromise;
+  const { count: tipsterPicksCount } = await tipsterPicksCountPromise;
+  const { count: tipsterLikesCount } = await tipsterLikesCountPromise;
   const tipsterProfile = {
     avatarUrl: tipsterProfileRow?.custom_avatar_url || null,
-    avatarEmoji: tipsterProfileRow?.avatar_emoji || null
+    avatarEmoji: tipsterProfileRow?.avatar_emoji || null,
+    picksCount: tipsterPicksCount || 0,
+    likesCount: tipsterLikesCount || 0
   };
 
   return {
@@ -2277,7 +2299,7 @@ export async function getServerSideProps({ query }) {
         isToday: true,
         userCount: 0,
         tipsterPick: null,
-        tipsterProfile: { avatarUrl: null, avatarEmoji: null }
+        tipsterProfile: { avatarUrl: null, avatarEmoji: null, picksCount: 0, likesCount: 0 }
       }
     };
   }
@@ -4958,7 +4980,22 @@ function TipsterProfileModal({
             )}
           </div>
           <div className="tipster-profile-name">CAMILOREY</div>
-          <div className="tipster-profile-followers">{t('tipsterSeguidores', { n: '100K' })}</div>
+
+          <div className="tipster-profile-stats-row">
+            <div className="tipster-profile-stat">
+              <div className="tipster-profile-stat-val num">100K</div>
+              <div className="tipster-profile-stat-label">{t('statSeguidoresLabel')}</div>
+            </div>
+            <div className="tipster-profile-stat">
+              <div className="tipster-profile-stat-val num">{(tipsterProfile.picksCount || 0).toLocaleString('es-CO')}</div>
+              <div className="tipster-profile-stat-label">{t('statPicksLabel')}</div>
+            </div>
+            <div className="tipster-profile-stat">
+              <div className="tipster-profile-stat-val num">{(tipsterProfile.likesCount || 0).toLocaleString('es-CO')}</div>
+              <div className="tipster-profile-stat-label">{t('statMeGustaLabel')}</div>
+            </div>
+          </div>
+
           <button
             type="button"
             className={`tipster-profile-follow-btn ${isFollowing ? 'active' : ''}`}
@@ -4976,7 +5013,10 @@ function TipsterProfileModal({
               <h2>{t('picksRecientesTipster')}</h2>
             </div>
             <div className="form-list">
-              {recentPicks.slice(0, 10).map((p) => (
+              {[...recentPicks]
+                .sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0))
+                .slice(0, 10)
+                .map((p) => (
                 <div
                   key={p.id}
                   className="form-list-row form-list-row-clickable"
@@ -6616,7 +6656,7 @@ export default function Home({
   currentDateStr,
   userCount,
   tipsterPick: initialTipsterPick = null,
-  tipsterProfile = { avatarUrl: null, avatarEmoji: null }
+  tipsterProfile = { avatarUrl: null, avatarEmoji: null, picksCount: 0, likesCount: 0 }
 }) {
   const [view, setView] = useState('inicio');
   const [stats, setStats] = useState(initialStats);
@@ -7472,6 +7512,26 @@ export default function Home({
   // quien SÍ tiene Exclusivo, se busca la misma marca dentro de
   // exclusivePicks (autenticado, ver arriba).
   const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
+
+  // Al tocar una notificación push (nuevo pick VIP, pick destacado por
+  // el tipster, "arrancó"/"set cerrado"/"acertaste-fallaste" de un
+  // pick seguido), el service worker abre la app en /#pick-{id} — acá
+  // se detecta ese hash y se abre directo el detalle de ESE pick, en
+  // vez de dejar a la persona en una pestaña genérica a buscarlo.
+  // picks/resolvedPicks/exclusivePicks se cargan de a poco (SSR +
+  // polls), así que esto se re-intenta cada vez que cualquiera de los
+  // tres cambia, no solo una vez al montar.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const match = window.location.hash.match(/^#pick-(\d+)$/);
+    if (!match) return;
+    const pickId = Number(match[1]);
+    const found =
+      picks.find((p) => p.id === pickId) ||
+      resolvedPicks.find((p) => p.id === pickId) ||
+      exclusivePicks.find((p) => p.id === pickId);
+    if (found) setModalPick(found);
+  }, [picks, resolvedPicks, exclusivePicks]);
 
   // Errores de la app (getServerSideProps, rutas API) — mismo patrón
   // que Modelo: solo se consulta al entrar a esa pestaña.
@@ -9587,6 +9647,10 @@ const CSS = `
   .tipster-profile-avatar-lg img{width:100%; height:100%; object-fit:cover;}
   .tipster-profile-name{font-weight:800; font-size:18px;}
   .tipster-profile-followers{font-size:13px; color:var(--muted);}
+  .tipster-profile-stats-row{display:flex; gap:28px; margin:6px 0 2px;}
+  .tipster-profile-stat{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .tipster-profile-stat-val{font-weight:800; font-size:16px;}
+  .tipster-profile-stat-label{font-size:11.5px; color:var(--muted);}
   .tipster-profile-follow-btn{
     display:flex; align-items:center; justify-content:center; gap:8px;
     background:var(--bg-alt); border:1px solid var(--line); border-radius:999px;

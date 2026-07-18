@@ -43,14 +43,15 @@ function prefAllows(prefsByUser, userId, key) {
 // el aviso genérico de siempre — no se bloquea la notificación
 // esperando la resolución.
 async function buildFinishedPayload(supabase, match, label) {
-  const { data: pick } = await supabase.from('picks').select('result').eq('match_id', match.id).maybeSingle();
+  const { data: pick } = await supabase.from('picks').select('id, result').eq('match_id', match.id).maybeSingle();
+  const url = pick?.id ? `/#pick-${pick.id}` : '/#seguidos';
   if (pick?.result === 'hit') {
-    return { title: '🎉 ¡Pick acertado!', body: `${label} — tu pick ganó.`, resolved: true };
+    return { title: '🎉 ¡Pick acertado!', body: `${label} — tu pick ganó.`, resolved: true, url };
   }
   if (pick?.result === 'miss') {
-    return { title: 'Pick fallado', body: `${label} — esta vez no se dio.`, resolved: true };
+    return { title: 'Pick fallado', body: `${label} — esta vez no se dio.`, resolved: true, url };
   }
-  return { title: 'Partido finalizado', body: label, resolved: false };
+  return { title: 'Partido finalizado', body: label, resolved: false, url };
 }
 
 // Segunda pasada, siempre corre (como checkStreaks): partidos que ya
@@ -85,7 +86,7 @@ async function checkPendingResults(supabase) {
 
   let resolved = 0;
   for (const match of relevantMatches) {
-    const { data: pick } = await supabase.from('picks').select('result').eq('match_id', match.id).maybeSingle();
+    const { data: pick } = await supabase.from('picks').select('id, result').eq('match_id', match.id).maybeSingle();
     if (pick?.result !== 'hit' && pick?.result !== 'miss') continue;
 
     const playerA = playersById.get(match.player_a_id);
@@ -100,7 +101,7 @@ async function checkPendingResults(supabase) {
       ...payload,
       tag: `match-${match.id}`,
       renotify: true,
-      url: '/#seguidos'
+      url: pick.id ? `/#pick-${pick.id}` : '/#seguidos'
     });
     await supabase.from('matches').update({ notified_result: true }).eq('id', match.id);
     resolved++;
@@ -316,6 +317,11 @@ export default async function handler(req, res) {
     const label = `${playerA.name} vs ${playerB.name}`;
 
     const found = findLiveEvent(liveEvents, playerA.name, playerB.name);
+    // El pick de este partido — se usa para mandar a cada aviso directo
+    // al detalle de ESE pick (/#pick-{id}) en vez de a una pestaña
+    // genérica, así tocar la notificación abre justo lo que avisó.
+    const { data: matchPick } = await supabase.from('picks').select('id').eq('match_id', match.id).maybeSingle();
+    const pickUrl = matchPick?.id ? `/#pick-${matchPick.id}` : '/#seguidos';
 
     if (found && found.event.event?.state === 'STARTED') {
       if (!match.notified_started) {
@@ -323,7 +329,7 @@ export default async function handler(req, res) {
           title: '¡Comenzó el partido!',
           body: label,
           tag: `match-${match.id}`,
-          url: '/#seguidos'
+          url: pickUrl
         });
         await supabase.from('matches').update({ notified_started: true }).eq('id', match.id);
         debug.push({ matchId: match.id, label, found: true, event: 'partido arrancó', ...r });
@@ -339,7 +345,7 @@ export default async function handler(req, res) {
           title: 'Set terminado',
           body: `${label} · Set ${closedSets.length}: ${lastSet.a}-${lastSet.b}`,
           tag: `match-${match.id}`,
-          url: '/#calendario'
+          url: pickUrl
         });
         await supabase.from('matches').update({ notified_sets_count: closedSets.length }).eq('id', match.id);
         debug.push({ matchId: match.id, label, found: true, event: 'set cerrado', ...r });
@@ -362,8 +368,7 @@ export default async function handler(req, res) {
       const { resolved, ...finishedPayload } = await buildFinishedPayload(supabase, match, label);
       const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
         ...finishedPayload,
-        tag: `match-${match.id}`,
-        url: '/#seguidos'
+        tag: `match-${match.id}`
       });
       await supabase.from('matches').update({ notified_finished: true, notified_result: resolved }).eq('id', match.id);
       debug.push({ matchId: match.id, label, found: true, event: 'partido terminado (kambi)', ...r });
@@ -377,8 +382,7 @@ export default async function handler(req, res) {
       const { resolved, ...finishedPayload } = await buildFinishedPayload(supabase, match, label);
       const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
         ...finishedPayload,
-        tag: `match-${match.id}`,
-        url: '/#seguidos'
+        tag: `match-${match.id}`
       });
       await supabase.from('matches').update({ notified_finished: true, notified_result: resolved }).eq('id', match.id);
       debug.push({ matchId: match.id, label, found: false, event: 'partido terminado (no en kambi)', ...r });

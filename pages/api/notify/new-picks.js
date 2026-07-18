@@ -86,7 +86,9 @@ export default async function handler(req, res) {
   const payload = picks.length === 1 ? formatSinglePick(picks[0]) : formatMultiPick(picks);
   payload.tag = 'new-picks';
   payload.renotify = true;
-  payload.url = '/#picks';
+  // Con un solo pick nuevo, manda directo a su detalle — con varios no
+  // hay un único pick al que apuntar, así que cae a la pestaña VIP.
+  payload.url = picks.length === 1 && picks[0].id ? `/#pick-${picks[0].id}` : '/#picksvip';
 
   let sent = 0;
   const errors = [];

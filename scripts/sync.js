@@ -329,28 +329,35 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
     if (countToday >= MAX_EXCLUSIVE_PER_DAY) published = false;
   }
 
-  const { error } = await supabase.from('picks').insert({
-    match_id: matchRow.id,
-    market: `${playerName(favored)} gana`,
-    confidence: pickConfidence,
-    factors,
-    predicted_winner_id: favored.id,
-    odds: favoredOdds,
-    result: 'pending',
-    published,
-    ml_confidence: mlConfidence,
-    is_exclusive: isExclusiveCandidate
-  });
+  const { data: insertedPick, error } = await supabase
+    .from('picks')
+    .insert({
+      match_id: matchRow.id,
+      market: `${playerName(favored)} gana`,
+      confidence: pickConfidence,
+      factors,
+      predicted_winner_id: favored.id,
+      odds: favoredOdds,
+      result: 'pending',
+      published,
+      ml_confidence: mlConfidence,
+      is_exclusive: isExclusiveCandidate
+    })
+    .select('id')
+    .single();
   if (error) throw new Error(`insert picks(match_id=${matchRow.id}): ${error.message}`);
   return {
     published,
     highConfidence: published && pickConfidence >= EXCLUSIVE_MIN_CONFIDENCE,
     // Detalle real del pick solo cuando es Exclusivo — es lo único que
     // avisa /api/notify/new-picks.js (pedido 2026-07-16: "solo va
-    // avisar de picks vips a los usuarios exclusivos").
+    // avisar de picks vips a los usuarios exclusivos"). id: para que
+    // tocar la notificación (si es un solo pick nuevo) abra directo su
+    // detalle en vez de la pestaña genérica.
     exclusivePick:
       published && isExclusiveCandidate
         ? {
+            id: insertedPick.id,
             player: playerName(favored),
             opponent: playerName(rival),
             market: `${playerName(favored)} gana`,
