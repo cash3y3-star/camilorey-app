@@ -1480,9 +1480,18 @@ export async function getServerSideProps({ query }) {
     .order('scheduled_at', { ascending: false })
     .limit(400);
 
+  // players sin límite (traía la tabla ENTERA en cada carga de
+  // página) era otra causa real de lentitud/504 — con semanas de
+  // historial esa tabla ya tiene cientos o miles de filas. sync.js
+  // actualiza updated_at cada vez que ve a un jugador de nuevo, así
+  // que ordenar por eso y acotar trae justo a los que estuvieron
+  // activos hace poco (los que de verdad hacen falta para picks/
+  // matches recientes) — cualquiera que falte lo completan los
+  // fallbacks de missingIds/missingOpponentIds que ya existen más
+  // abajo (tournamentGroups, buildFormAndH2H).
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
-    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
-    supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false })
+    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating').order('updated_at', { ascending: false }).limit(1500),
+    supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false }).limit(300)
   ]);
 
   const playersById = new Map((players || []).map((p) => [p.id, p]));

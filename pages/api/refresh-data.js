@@ -76,9 +76,13 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+  // Igual que getServerSideProps: sin límite traía la tabla ENTERA de
+  // players en cada poll (cada 20s mientras el sitio está abierto) —
+  // acotado a los más activos hace poco, con los mismos fallbacks de
+  // missingIds/missingOpponentIds para cubrir cualquiera que falte.
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
-    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
-    supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false })
+    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating').order('updated_at', { ascending: false }).limit(1500),
+    supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false }).limit(300)
   ]);
 
   const playersById = new Map((players || []).map((p) => [p.id, p]));

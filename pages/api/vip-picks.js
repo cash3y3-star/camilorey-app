@@ -93,8 +93,10 @@ export default async function handler(req, res) {
     if (!isPremium) return res.status(403).json({ error: 'función exclusiva para cuentas premium' });
   }
 
+  // players sin límite traía la tabla ENTERA en cada carga — mismo
+  // arreglo que getServerSideProps/refresh-data.js.
   const [{ data: players }, { data: pendingPicks }] = await Promise.all([
-    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating'),
+    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating').order('updated_at', { ascending: false }).limit(1500),
     supabase
       .from('picks')
       .select('*')
