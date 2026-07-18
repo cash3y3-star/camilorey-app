@@ -286,7 +286,7 @@ export default async function handler(req, res) {
 
   const { data: matches } = await supabase
     .from('matches')
-    .select('id, source_id, player_a_id, player_b_id, scheduled_at, notified_started, notified_sets_count, notified_finished')
+    .select('id, source_id, player_a_id, player_b_id, scheduled_at, status, notified_started, notified_sets_count, notified_finished')
     .in('id', matchIds)
     .eq('notified_finished', false);
 
@@ -381,10 +381,25 @@ export default async function handler(req, res) {
       continue;
     }
 
-    const scheduledMs = new Date(match.scheduled_at).getTime();
-    const startedLongAgo = Date.now() - scheduledMs > STARTED_GRACE_MS;
+    // Kambi no lo tiene en el tablero — antes de asumir "terminó", hace
+    // falta algo más que "ya pasó bastante tiempo desde scheduled_at":
+    // en un torneo con mesas corridas, un partido arranca tarde muy
+    // seguido (espera a que termine el anterior en esa mesa), así que
+    // scheduled_at NO es de fiar para saber si ya jugó — esa era la
+    // causa real de un bug reportado (llegaba "partido finalizado"
+    // apenas arrancaba de verdad). match.status SÍ es de fiar: lo
+    // actualiza sync.js leyendo tt.league-pro.com directo, no depende
+    // de cuándo Kambi decidió listar el partido. Solo se manda
+    // "terminó" cuando: ya lo vimos en vivo por Kambi y ahora
+    // desapareció del tablero (wasSeenLive, sin cambios), O nuestro
+    // propio sync ya lo marcó 'finished'. startedLongAgo queda solo
+    // como último respaldo, bien generoso, para el caso raro de un
+    // partido que Kambi nunca listó Y que sync.js tampoco vio cerrar.
     const wasSeenLive = match.notified_sets_count > 0;
-    if (wasSeenLive || startedLongAgo) {
+    const ourDataSaysFinished = match.status === 'finished';
+    const scheduledMs = new Date(match.scheduled_at).getTime();
+    const wayPastSchedule = Date.now() - scheduledMs > STARTED_GRACE_MS * 3;
+    if (wasSeenLive || ourDataSaysFinished || wayPastSchedule) {
       const { resolved, ...finishedPayload } = await buildFinishedPayload(supabase, match, label);
       const r = await notifyFollowers(supabase, match, playerA.name, playerB.name, {
         ...finishedPayload,
