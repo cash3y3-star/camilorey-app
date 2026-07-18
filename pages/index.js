@@ -350,7 +350,6 @@ const TRANSLATIONS = {
     onboardingSiguiente: 'Siguiente',
     onboardingSaltar: 'Saltar',
     onboardingFinalCta: 'Continuar con Google',
-    onboardingFinalCtaMicrosoft: 'Continuar con Microsoft',
     onboardingSinCuenta: 'Seguir sin cuenta',
     onboardingTerminos: 'Al continuar aceptás nuestros Términos y Política de Privacidad.',
     onboardingGanado: 'Ganado'
@@ -666,7 +665,6 @@ const TRANSLATIONS = {
     onboardingSiguiente: 'Next',
     onboardingSaltar: 'Skip',
     onboardingFinalCta: 'Continue with Google',
-    onboardingFinalCtaMicrosoft: 'Continue with Microsoft',
     onboardingSinCuenta: 'Continue without an account',
     onboardingTerminos: 'By continuing you accept our Terms and Privacy Policy.',
     onboardingGanado: 'Won'
@@ -983,7 +981,6 @@ const TRANSLATIONS = {
     onboardingSiguiente: 'Próximo',
     onboardingSaltar: 'Pular',
     onboardingFinalCta: 'Continuar com Google',
-    onboardingFinalCtaMicrosoft: 'Continuar com Microsoft',
     onboardingSinCuenta: 'Continuar sem conta',
     onboardingTerminos: 'Ao continuar você aceita nossos Termos e Política de Privacidade.'
   }
@@ -4515,19 +4512,6 @@ function GoogleGIcon({ size = 20 }) {
   );
 }
 
-// Logo de 4 cuadros de Microsoft — para "Continuar con Microsoft"
-// (cubre Hotmail/Outlook/Live, todos son la misma cuenta Microsoft).
-function MicrosoftIcon({ size = 20 }) {
-  return (
-    <svg viewBox="0 0 21 21" width={size} height={size}>
-      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
-      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-    </svg>
-  );
-}
-
 // Mini-onboarding de 3 pantallas — se muestra UNA vez por navegador
 // en la primera visita (con o sin sesión, a diferencia del aviso de
 // privacidad de abajo), explicando qué es CAMILOREY, qué es el
@@ -4580,7 +4564,7 @@ function TableTennisTrajectory() {
 // reconoce si ya existe) está SIEMPRE visible desde el primer momento,
 // para que quien no quiera leer pueda entrar ya — la persona decide si
 // sigue mirando o entra de una vez, no se lo hacemos elegir.
-function OnboardingModal({ onClose, onLogin, onLoginMicrosoft, lang, resolvedPicks }) {
+function OnboardingModal({ onClose, onLogin, lang, resolvedPicks }) {
   const t = useTranslate(lang);
   const [step, setStep] = useState(0);
   const current = ONBOARDING_SLIDES[step];
@@ -4665,16 +4649,6 @@ function OnboardingModal({ onClose, onLogin, onLoginMicrosoft, lang, resolvedPic
             }}
           >
             <GoogleGIcon size={18} /> {t('onboardingFinalCta')}
-          </button>
-          <button
-            type="button"
-            className="onboarding-cta-pill onboarding-cta-pill-secondary"
-            onClick={() => {
-              onLoginMicrosoft();
-              onClose();
-            }}
-          >
-            <MicrosoftIcon size={16} /> {t('onboardingFinalCtaMicrosoft')}
           </button>
           <button
             type="button"
@@ -6830,15 +6804,6 @@ export default function Home({
   const loginWithGoogle = () => {
     if (!supabaseClient) return;
     supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
-  };
-  // Cubre Hotmail/Outlook/Live — todas son la misma cuenta Microsoft
-  // por detrás, un solo proveedor ('azure') las cubre a todas. Hace
-  // falta configurar el proveedor Azure en Supabase (Authentication →
-  // Providers) con un Client ID/Secret de Azure AD antes de que este
-  // botón funcione de verdad — sin eso, Supabase devuelve error.
-  const loginWithMicrosoft = () => {
-    if (!supabaseClient) return;
-    supabaseClient.auth.signInWithOAuth({ provider: 'azure', options: { redirectTo: window.location.origin } });
   };
   const logout = () => supabaseClient?.auth.signOut();
 
@@ -9047,13 +9012,7 @@ export default function Home({
 
       {showPrivacyConsent && <PrivacyConsentModal onClose={dismissPrivacyConsent} lang={lang} />}
       {showOnboarding && (
-        <OnboardingModal
-          onClose={dismissOnboarding}
-          onLogin={loginWithGoogle}
-          onLoginMicrosoft={loginWithMicrosoft}
-          lang={lang}
-          resolvedPicks={resolvedPicks}
-        />
+        <OnboardingModal onClose={dismissOnboarding} onLogin={loginWithGoogle} lang={lang} resolvedPicks={resolvedPicks} />
       )}
     </>
   );
@@ -10193,10 +10152,6 @@ const CSS = `
     width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
     background:var(--ink); color:var(--bg); border:none; border-radius:999px;
     padding:16px; font-family:var(--font-body); font-weight:800; font-size:15px; cursor:pointer;
-  }
-  .onboarding-cta-pill-secondary{
-    background:rgba(255,255,255,.12); color:var(--ink); border:1px solid rgba(255,255,255,.3);
-    padding:13px; font-size:14px; margin-top:8px;
   }
   .onboarding-next-btn{
     width:100%; display:flex; align-items:center; justify-content:center;
