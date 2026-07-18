@@ -47,7 +47,12 @@ export default async function handler(req, res) {
     return res.status(200).json({ tipsterPick: false });
   }
 
-  await supabase.from('picks').update({ tipster_pick: false, tipster_pick_at: null }).eq('tipster_pick', true);
+  // Solo se limpia el pick PENDIENTE que estuviera activo antes — uno
+  // que ya se resolvió conserva el tipster_pick que tenía (mismo
+  // criterio que picks.featured en sync.js), así queda como historial
+  // real de qué se destacó para Exclusivos y cómo salió, en vez de
+  // perderse cada vez que se marca uno nuevo.
+  await supabase.from('picks').update({ tipster_pick: false, tipster_pick_at: null }).eq('tipster_pick', true).eq('result', 'pending');
   const nowIso = new Date().toISOString();
   const { error: setErr } = await supabase.from('picks').update({ tipster_pick: true, tipster_pick_at: nowIso }).eq('id', pickId);
   if (setErr) return res.status(500).json({ error: setErr.message });

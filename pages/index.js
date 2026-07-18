@@ -4906,12 +4906,13 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
 // profiles.follows_tipster) y las estadísticas, que se arman de
 // followedDetail (los picks que ESTA cuenta sigue, mismo dato que ya
 // se usa en la pestaña Seguidos, no un cálculo aparte).
-function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onToggleFollow, followBusy, followedDetail, user }) {
+function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onToggleFollow, followBusy, followedDetail, user, onPickClick }) {
   const t = useTranslate(lang);
   const resolved = followedDetail.filter((p) => p.result === 'hit' || p.result === 'miss');
   const hits = resolved.filter((p) => p.result === 'hit').length;
   const hitRate = resolved.length ? Math.round((hits / resolved.length) * 100) : null;
-  const pending = followedDetail.filter((p) => p.result === 'pending').length;
+  const pendingPicks = followedDetail.filter((p) => p.result === 'pending').sort((a, b) => (a.scheduledAt || 0) - (b.scheduledAt || 0));
+  const pending = pendingPicks.length;
   const sortedResolved = [...resolved].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0));
   let racha = 0;
   for (const p of sortedResolved) {
@@ -4974,6 +4975,42 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
             </div>
           </div>
         )}
+
+        {pendingPicks.length > 0 ? (
+          <>
+            <div className="section-head">
+              <h2>{t('statPendientes')}</h2>
+            </div>
+            <div className="form-list">
+              {pendingPicks.map((p) => (
+                <div
+                  key={p.id}
+                  className="form-list-row form-list-row-clickable"
+                  onClick={() => onPickClick && onPickClick(p)}
+                >
+                  <div className="form-list-meta">
+                    <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
+                    <span className="form-list-ft">
+                      {p.scheduledAt
+                        ? new Intl.DateTimeFormat('es-CO', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                            timeZone: 'America/Bogota'
+                          }).format(new Date(p.scheduledAt))
+                        : ''}
+                    </span>
+                  </div>
+                  <div className="form-list-opp">
+                    {p.market || 'Pick'}
+                    <span className="form-list-score num">{Math.round(p.confidence)}%</span>
+                  </div>
+                  <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );
@@ -8887,7 +8924,8 @@ export default function Home({
           <span className="eyebrow">Solo tú ves esto</span>
           <h1 className="page-title">{t('navHistorialVip')}</h1>
           <p className="page-sub">
-            Todo lo que salió alguna vez en Picks VIP (elegido por el modelo de ML + cuota≥1.60), pendiente o resuelto.
+            Todo lo que salió alguna vez en Picks VIP (elegido por el modelo de ML + cuota≥1.60, o destacado a mano para
+            Exclusivos), pendiente o resuelto.
           </p>
           {vipHistoryError ? (
             <p className="page-sub">Error: {vipHistoryError}</p>
@@ -9262,6 +9300,10 @@ export default function Home({
           followBusy={tipsterFollowBusy}
           followedDetail={followedDetail}
           user={user}
+          onPickClick={(p) => {
+            setShowTipsterProfile(false);
+            setModalPick(p);
+          }}
         />
       )}
 

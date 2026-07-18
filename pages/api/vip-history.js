@@ -1,9 +1,13 @@
 // ============================================================
 // CAMILOREY — historial de todo lo que salió alguna vez en "Picks VIP"
-// (solo admin). Un pick es "exclusivo"/VIP si picks.is_exclusive es
-// true — decidido una sola vez al generarse, por el modelo de ML de
-// lib/ml-exclusive.js (o el criterio viejo confidence>=85+odds>=1.60
-// mientras la muestra de entrenamiento sea chica), ver sync.js.
+// (solo admin). Un pick cuenta acá si is_exclusive=true (decidido una
+// sola vez al generarse, por el modelo de ML de lib/ml-exclusive.js —
+// o el criterio viejo confidence>=85+odds>=1.60 mientras la muestra de
+// entrenamiento sea chica, ver sync.js) O si tipster_pick=true (el
+// admin lo destacó a mano para Exclusivos, ver
+// pages/api/admin-tipster-pick.js — aunque no haya calificado como
+// exclusivo por el modelo, si se avisó a Exclusivos como su pick,
+// cuenta en este historial igual).
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -26,8 +30,8 @@ export default async function handler(req, res) {
 
   const { data: picks, error } = await supabase
     .from('picks')
-    .select('id, market, confidence, ml_confidence, odds, result, created_at')
-    .eq('is_exclusive', true)
+    .select('id, market, confidence, ml_confidence, odds, result, created_at, is_exclusive, tipster_pick')
+    .or('is_exclusive.eq.true,tipster_pick.eq.true')
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) return res.status(500).json({ error: error.message });
