@@ -11,7 +11,7 @@ import { logError } from '../lib/logError';
 // eso (504 GATEWAY_TIMEOUT / FUNCTION_INVOCATION_TIMEOUT real,
 // reportado con captura). 30s da margen real sin ser excesivo — sigue
 // entrando en el límite del plan Hobby de Vercel (60s tope).
-export const config = { maxDuration: 30 };
+export const config = { maxDuration: 60 };
 
 const VIEWS = [
   'inicio',
