@@ -2167,6 +2167,7 @@ export async function getServerSideProps({ query }) {
     return {
       matchId: m.id,
       pickId: pendingPickIdByMatchId.get(m.id) || null,
+      scheduledAt: m.scheduled_at ? new Date(m.scheduled_at).getTime() : null,
       time: timeLabel(m.scheduled_at),
       tournament: t?.name || 'Torneo',
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
@@ -7883,9 +7884,12 @@ export default function Home({
   const isStillLive = (m) => m.status === 'live' && liveScores[m.sourceId]?.status !== 'finished';
   const liveMatches = matches.filter(isStillLive);
   const calendarioMatches = matches.filter((m) => m.status !== 'live');
+  // "Finalizados" pedido explícito de más reciente a más antiguo — al
+  // revés de "Próximos"/"Todos", donde el orden cronológico normal
+  // (que ya trae calendarioMatches desde el server) tiene más sentido.
   const filteredMatches =
     matchFilter === 'finalizados'
-      ? calendarioMatches.filter((m) => m.status === 'done')
+      ? calendarioMatches.filter((m) => m.status === 'done').sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0))
       : matchFilter === 'proximos'
       ? calendarioMatches.filter((m) => m.status === 'soon')
       : calendarioMatches;
