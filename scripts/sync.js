@@ -740,6 +740,26 @@ async function run() {
     }
   }
 
+  // Revisa los partidos que alguien esté siguiendo (arrancó / set
+  // cerrado / terminó, con acierto o fallo) y avisa por push a quien
+  // los sigue — pages/api/notify/check-follows.js. El plan original
+  // era que esto lo disparara un cronjob externo aparte (cron-job.org)
+  // cada 30-60s, pero nunca se llegó a configurar, así que esa
+  // notificación nunca salía. Se engancha acá, al final de cada
+  // corrida de sync (que sí dispara un cronjob externo cada pocos
+  // minutos, confirmado con GitHub Actions), en vez de necesitar
+  // configurar otro cronjob más.
+  if (process.env.CRON_SECRET) {
+    try {
+      const r = await fetch('https://camilorey-app.vercel.app/api/notify/check-follows', {
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` }
+      });
+      if (!r.ok) console.error(`check-follows falló: HTTP ${r.status} — ${await r.text()}`);
+    } catch (e) {
+      console.error(`check-follows falló: ${e.message}`);
+    }
+  }
+
   console.log('--- RESUMEN ---');
   console.log(totals);
 }
