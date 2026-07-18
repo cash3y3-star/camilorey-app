@@ -1,13 +1,25 @@
 // ============================================================
 // CAMILOREY — el admin marca a mano "el pick de CAMILOREY" (el
 // tipster del sitio) sobre un partido puntual. Solo puede haber uno
-// activo a la vez — marcar uno nuevo reemplaza al anterior; marcar el
-// mismo que ya estaba activo lo desmarca (sin avisar a nadie). Al
-// marcar uno nuevo, dispara push a Exclusivo/Premium — mismo criterio
-// de audiencia que /api/notify/new-picks.js (premium_until vigente +
-// notification_prefs.push_enabled) — y queda visible en Inicio, salvo
-// que el pick sea is_exclusive=true, en cuyo caso solo lo ve quien
-// tenga Exclusivo (mismo candado que el resto del sitio).
+// activo a la vez (pendiente) — marcar uno nuevo reemplaza al
+// anterior, salvo que ya se haya resuelto (ese conserva la marca como
+// historial). Al marcar uno nuevo, dispara push a Exclusivo/Premium —
+// mismo criterio de audiencia que /api/notify/new-picks.js
+// (premium_until vigente + notification_prefs.push_enabled) — y queda
+// visible en Inicio, salvo que el pick sea is_exclusive=true, en cuyo
+// caso solo lo ve quien tenga Exclusivo (mismo candado que el resto
+// del sitio).
+//
+// El body manda el ESTADO DESTINO explícito ({ pickId, tipsterPick:
+// true|false }), no un "toggle" que el servidor decide leyendo la fila
+// actual — a propósito: un toggle server-side no es seguro ante una
+// petición duplicada (doble tap, reintento de red porque esta misma
+// función tarda unos segundos mandando los push antes de responder,
+// dos pestañas abiertas, etc.) — la segunda llamada, al ver que ya
+// quedó marcado por la primera, lo desmarcaba sola (bug real
+// reportado: "se siguen desmarcando los picks que le doy destacar").
+// Con el estado destino explícito, una llamada duplicada pide lo
+// MISMO de nuevo — no-op, sin importar cuántas veces llegue.
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -30,7 +42,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'solo el admin puede hacer esto' });
   }
 
-  const { pickId } = req.body || {};
+  const { pickId, tipsterPick: wantMarked } = req.body || {};
   if (!pickId) return res.status(400).json({ error: 'falta el pick' });
 
   const { data: pick, error: pickErr } = await supabase
@@ -41,10 +53,18 @@ export default async function handler(req, res) {
   if (pickErr) return res.status(500).json({ error: pickErr.message });
   if (!pick) return res.status(404).json({ error: 'pick no encontrado' });
 
-  if (pick.tipster_pick) {
-    const { error } = await supabase.from('picks').update({ tipster_pick: false, tipster_pick_at: null }).eq('id', pickId);
-    if (error) return res.status(500).json({ error: error.message });
+  if (!wantMarked) {
+    if (pick.tipster_pick) {
+      const { error } = await supabase.from('picks').update({ tipster_pick: false, tipster_pick_at: null }).eq('id', pickId);
+      if (error) return res.status(500).json({ error: error.message });
+    }
     return res.status(200).json({ tipsterPick: false });
+  }
+
+  // Ya estaba marcado — una llamada duplicada no debe reenviar el push
+  // ni tocar nada de nuevo.
+  if (pick.tipster_pick) {
+    return res.status(200).json({ tipsterPick: true });
   }
 
   // Solo se limpia el pick PENDIENTE que estuviera activo antes — uno

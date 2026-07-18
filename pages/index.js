@@ -7156,41 +7156,40 @@ export default function Home({
   };
 
   // Marca/desmarca "el pick de CAMILOREY" (ver pages/api/admin-tipster-pick.js)
-  // — solo admin. Actualiza el estado local a mano (en vez de esperar
-  // el próximo poll de 20s) para que el botón y el aviso en Inicio
-  // reflejen el cambio al toque. tipsterPickBusyRef bloquea toques
-  // repetidos mientras la petición está en vuelo — sin esto, un doble
-  // toque (muy común en celular) mandaba dos POST seguidos: el primero
-  // marcaba el pick, y el segundo, como ya llegaba viéndolo marcado, lo
-  // desmarcaba al toque — bug real reportado ("le doy destacar y se
-  // quita"). Es un ref (no solo el estado tipsterPickBusy de abajo,
-  // que solo sirve para deshabilitar el botón visualmente) porque un
-  // doble toque muy rápido puede disparar el segundo click ANTES de
-  // que React vuelva a renderizar con el estado ya en true — el ref
-  // se actualiza al toque, sin esperar ese render.
+  // — solo admin. Manda el ESTADO DESTINO explícito (nextValue), no un
+  // toggle que el servidor decida solo — así una petición duplicada
+  // (doble toque, reintento de red porque esta función tarda unos
+  // segundos mandando los push antes de responder, dos pestañas
+  // abiertas) pide lo MISMO de nuevo en vez de revertirlo. Bug real
+  // reportado dos veces con la versión anterior (toggle server-side):
+  // "le doy destacar y se quita" / "se siguen desmarcando los picks".
+  // tipsterPickBusyRef (además del estado tipsterPickBusy, que solo
+  // deshabilita el botón visualmente) bloquea toques repetidos MIENTRAS
+  // hay una petición en vuelo, sin esperar a que React re-renderice.
   const tipsterPickBusyRef = useRef(false);
   const [tipsterPickBusy, setTipsterPickBusy] = useState(false);
   const toggleTipsterPick = async (pick) => {
     if (!supabaseClient || tipsterPickBusyRef.current) return;
     tipsterPickBusyRef.current = true;
     setTipsterPickBusy(true);
+    const nextValue = !pick.tipsterPick;
     try {
       const { data: sessionData } = await supabaseClient.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
       const r = await fetch('/api/admin-tipster-pick', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ pickId: pick.id })
+        body: JSON.stringify({ pickId: pick.id, tipsterPick: nextValue })
       });
       const data = await r.json();
       if (!r.ok) {
         alert(data.error || 'Error marcando el pick.');
         return;
       }
-      const nextValue = Boolean(data.tipsterPick);
-      setModalPick((prev) => (prev && prev.id === pick.id ? { ...prev, tipsterPick: nextValue } : prev));
-      setTipsterPick(nextValue ? { ...pick, tipsterPick: true } : null);
-      setExclusivePicks((prev) => prev.map((p) => ({ ...p, tipsterPick: p.id === pick.id ? nextValue : false })));
+      const confirmed = Boolean(data.tipsterPick);
+      setModalPick((prev) => (prev && prev.id === pick.id ? { ...prev, tipsterPick: confirmed } : prev));
+      setTipsterPick(confirmed ? { ...pick, tipsterPick: true } : null);
+      setExclusivePicks((prev) => prev.map((p) => ({ ...p, tipsterPick: p.id === pick.id ? confirmed : false })));
     } catch (e) {
       alert(e.message);
     } finally {
