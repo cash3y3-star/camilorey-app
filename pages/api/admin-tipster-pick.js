@@ -60,14 +60,22 @@ export default async function handler(req, res) {
         ? await supabase.from('players').select('name').eq('id', pick.predicted_winner_id).maybeSingle()
         : { data: null };
 
-      const [{ data: premiumProfiles }, { data: subs }, { data: prefs }] = await Promise.all([
+      const [{ data: premiumProfiles }, { data: subs }, { data: prefs }, { data: adminUser }] = await Promise.all([
         supabase.from('profiles').select('id').gt('premium_until', nowIso),
         supabase.from('push_subscriptions').select('*'),
-        supabase.from('notification_prefs').select('user_id, push_enabled')
+        supabase.from('notification_prefs').select('user_id, push_enabled'),
+        process.env.NEXT_PUBLIC_ADMIN_EMAIL
+          ? supabase.from('profiles').select('id').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
+          : Promise.resolve({ data: null })
       ]);
 
       if (subs && subs.length) {
+        // Mismo criterio que /api/notify/new-picks.js: el admin también
+        // entra en la audiencia (aunque su perfil no tenga premium_until)
+        // para poder ver el aviso real al probarlo, sin tener que
+        // activarse premium a sí mismo.
         const premiumUserIds = new Set((premiumProfiles || []).map((p) => p.id));
+        if (adminUser?.id) premiumUserIds.add(adminUser.id);
         const prefsByUser = new Map((prefs || []).map((p) => [p.user_id, p]));
         const pushAllowed = (userId) => {
           const row = prefsByUser.get(userId);

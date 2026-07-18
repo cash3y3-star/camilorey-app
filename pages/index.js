@@ -3460,7 +3460,8 @@ function PickDetailModal({
   followed = false,
   onToggleFollow,
   isAdmin = false,
-  onToggleTipsterPick
+  onToggleTipsterPick,
+  tipsterPickBusy = false
 }) {
   const t = useTranslate(lang);
   const [tab, setTab] = useState('resumen');
@@ -3597,6 +3598,7 @@ function PickDetailModal({
           <button
             type="button"
             className={`tipster-pick-btn ${pick.tipsterPick ? 'active' : ''}`}
+            disabled={tipsterPickBusy}
             onClick={() => onToggleTipsterPick(pick)}
           >
             <ProfileIcon name="bell" size={15} />
@@ -6992,9 +6994,22 @@ export default function Home({
   // Marca/desmarca "el pick de CAMILOREY" (ver pages/api/admin-tipster-pick.js)
   // — solo admin. Actualiza el estado local a mano (en vez de esperar
   // el próximo poll de 20s) para que el botón y el aviso en Inicio
-  // reflejen el cambio al toque.
+  // reflejen el cambio al toque. tipsterPickBusyRef bloquea toques
+  // repetidos mientras la petición está en vuelo — sin esto, un doble
+  // toque (muy común en celular) mandaba dos POST seguidos: el primero
+  // marcaba el pick, y el segundo, como ya llegaba viéndolo marcado, lo
+  // desmarcaba al toque — bug real reportado ("le doy destacar y se
+  // quita"). Es un ref (no solo el estado tipsterPickBusy de abajo,
+  // que solo sirve para deshabilitar el botón visualmente) porque un
+  // doble toque muy rápido puede disparar el segundo click ANTES de
+  // que React vuelva a renderizar con el estado ya en true — el ref
+  // se actualiza al toque, sin esperar ese render.
+  const tipsterPickBusyRef = useRef(false);
+  const [tipsterPickBusy, setTipsterPickBusy] = useState(false);
   const toggleTipsterPick = async (pick) => {
-    if (!supabaseClient) return;
+    if (!supabaseClient || tipsterPickBusyRef.current) return;
+    tipsterPickBusyRef.current = true;
+    setTipsterPickBusy(true);
     try {
       const { data: sessionData } = await supabaseClient.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
@@ -7014,6 +7029,9 @@ export default function Home({
       setExclusivePicks((prev) => prev.map((p) => ({ ...p, tipsterPick: p.id === pick.id ? nextValue : false })));
     } catch (e) {
       alert(e.message);
+    } finally {
+      tipsterPickBusyRef.current = false;
+      setTipsterPickBusy(false);
     }
   };
   // Pedido 2026-07-17: usuarios gratis solo ven los 20 picks de mayor
@@ -9099,6 +9117,7 @@ export default function Home({
           onToggleFollow={modalPick.result === 'pending' ? toggleFollow : undefined}
           isAdmin={isAdmin}
           onToggleTipsterPick={toggleTipsterPick}
+          tipsterPickBusy={tipsterPickBusy}
         />
       )}
 
@@ -9347,6 +9366,7 @@ const CSS = `
     cursor:pointer;
   }
   .tipster-pick-btn.active{background:rgba(22,163,74,.14); border-color:var(--court); color:var(--court);}
+  .tipster-pick-btn:disabled{opacity:.6; cursor:default;}
 
   main{max-width:980px; margin:0 auto; padding:24px 20px 60px;}
 
