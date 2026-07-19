@@ -1467,6 +1467,17 @@ export async function getServerSideProps({ query }) {
     .order('created_at', { ascending: false })
     .limit(60);
 
+  // Los destacados (picks.tipster_pick) resueltos NO pueden depender
+  // del límite de arriba (últimos 60 resueltos en general) — con
+  // muchos partidos resolviéndose de golpe (ej. al ponerse al día
+  // después de una caída), un destacado viejo quedaba empujado fuera
+  // de esa ventana y desaparecía de "Picks recientes de CAMILOREY"
+  // aunque siguiera marcado de verdad en la base (bug real reportado:
+  // "se activa pero no aparece", incluso para el admin). Se trae
+  // aparte, sin límite de recencia, y se mezcla con resolvedPicksRaw
+  // más abajo.
+  const tipsterDestacadosPromise = supabase.from('picks').select('*').eq('tipster_pick', true).neq('result', 'pending');
+
   // Para el Top 10 de jugadores en racha (pestaña "Calientes") — se
   // recalcula en cada carga de página (nada se guarda en la base),
   // así que siempre refleja los partidos más recientes ya jugados.
@@ -1560,7 +1571,11 @@ export async function getServerSideProps({ query }) {
   // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
   // sección Picks). Se trae antes de armar "picks"/"resolvedPicks"
   // porque ambos comparten UNA sola consulta de forma/H2H más abajo.
-  const { data: resolvedPicksRaw } = await resolvedPicksPromise;
+  const [{ data: resolvedPicksRecent }, { data: tipsterDestacadosResolved }] = await Promise.all([
+    resolvedPicksPromise,
+    tipsterDestacadosPromise
+  ]);
+  const resolvedPicksRaw = [...new Map([...(resolvedPicksRecent || []), ...(tipsterDestacadosResolved || [])].map((p) => [p.id, p])).values()];
 
   const resolvedMatchIds = [...new Set((resolvedPicksRaw || []).map((p) => p.match_id))];
   const { data: resolvedMatchesRaw } = resolvedMatchIds.length

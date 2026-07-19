@@ -120,14 +120,26 @@ export default async function handler(req, res) {
     : { data: [] };
   const tournamentsById = new Map((tournaments || []).map((t) => [t.id, t]));
 
-  const { data: resolvedPicksRaw } = await supabase
-    .from('picks')
-    .select('*')
-    .neq('result', 'pending')
-    .eq('published', true)
-    .eq('is_exclusive', true)
-    .order('created_at', { ascending: false })
-    .limit(30);
+  // Los destacados (tipster_pick) resueltos no pueden depender del
+  // límite de "últimos 30 resueltos" de abajo — con muchos partidos
+  // resolviéndose de golpe, un destacado viejo quedaba empujado fuera
+  // de esa ventana y desaparecía de "Picks recientes de CAMILOREY"
+  // aunque siguiera marcado de verdad en la base. Se trae aparte, sin
+  // límite de recencia, y se mezcla.
+  const [{ data: resolvedPicksRecent }, { data: tipsterDestacadosResolved }] = await Promise.all([
+    supabase
+      .from('picks')
+      .select('*')
+      .neq('result', 'pending')
+      .eq('published', true)
+      .eq('is_exclusive', true)
+      .order('created_at', { ascending: false })
+      .limit(30),
+    supabase.from('picks').select('*').eq('tipster_pick', true).eq('is_exclusive', true).neq('result', 'pending')
+  ]);
+  const resolvedPicksRaw = [
+    ...new Map([...(resolvedPicksRecent || []), ...(tipsterDestacadosResolved || [])].map((p) => [p.id, p])).values()
+  ];
 
   const resolvedMatchIds = [...new Set((resolvedPicksRaw || []).map((p) => p.match_id))];
   const { data: resolvedMatchesRaw } = resolvedMatchIds.length

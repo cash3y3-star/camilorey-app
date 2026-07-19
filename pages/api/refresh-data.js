@@ -152,13 +152,18 @@ export default async function handler(req, res) {
     : { data: [] };
   const tournamentsById = new Map((tournaments || []).map((t) => [t.id, t]));
 
-  const { data: resolvedPicksRaw } = await supabase
-    .from('picks')
-    .select('*')
-    .neq('result', 'pending')
-    .eq('published', true)
-    .order('created_at', { ascending: false })
-    .limit(60);
+  // Los destacados (tipster_pick) resueltos no pueden depender del
+  // límite de "últimos 60 resueltos" de abajo — mismo motivo que
+  // getServerSideProps: con muchos partidos resolviéndose de golpe,
+  // uno viejo quedaba empujado fuera de la ventana y desaparecía de
+  // "Picks recientes de CAMILOREY" aunque siguiera marcado de verdad.
+  const [{ data: resolvedPicksRecent }, { data: tipsterDestacadosResolved }] = await Promise.all([
+    supabase.from('picks').select('*').neq('result', 'pending').eq('published', true).order('created_at', { ascending: false }).limit(60),
+    supabase.from('picks').select('*').eq('tipster_pick', true).neq('result', 'pending')
+  ]);
+  const resolvedPicksRaw = [
+    ...new Map([...(resolvedPicksRecent || []), ...(tipsterDestacadosResolved || [])].map((p) => [p.id, p])).values()
+  ];
 
   const resolvedMatchIds = [...new Set((resolvedPicksRaw || []).map((p) => p.match_id))];
   const { data: resolvedMatchesRaw } = resolvedMatchIds.length
