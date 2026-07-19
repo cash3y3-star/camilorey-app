@@ -24,8 +24,22 @@ const STATEMENTS = [
 ];
 
 async function run() {
+  const raw = process.env.SUPABASE_DB_URL || '';
+  // Debug: muestra el string SIN la contraseña (todo lo demás sí, para
+  // confirmar que el host/usuario/formato son los correctos) — se
+  // quita apenas se resuelva el problema de autenticación.
+  try {
+    const masked = new URL(raw);
+    const pass = masked.password;
+    masked.password = pass ? `***(${pass.length} caracteres)` : '(vacía)';
+    console.log('Connection string recibida:', masked.toString().replace(masked.username, `${masked.username}`));
+    console.log('Largo total del string:', raw.length, '— usuario:', JSON.stringify(masked.username));
+  } catch (e) {
+    console.log('No se pudo parsear como URL:', e.message, '— largo del string recibido:', raw.length);
+  }
+
   const client = new Client({
-    connectionString: process.env.SUPABASE_DB_URL,
+    connectionString: raw,
     ssl: { rejectUnauthorized: false }
   });
   await client.connect();
