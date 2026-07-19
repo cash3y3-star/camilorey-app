@@ -22,6 +22,7 @@ const { computeStake } = require('../lib/staking');
 const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 const { ensureAvatarCutout } = require('../lib/avatarCutout');
 const { fetchNuxtData } = require('../lib/tt');
+const { logError } = require('../lib/logError');
 const {
   trainLogisticRegression,
   predictProbability,
@@ -576,9 +577,19 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
         if (created.exclusivePick) newExclusivePicks.push(created.exclusivePick);
       }
     } catch (e) {
-      console.error(
-        `Error procesando partido ${match.id} (${playerName(sideA.player)} vs ${playerName(sideB.player)}, torneo ${t.id}): ${e.message}`
-      );
+      const label = `partido ${match.id} (${playerName(sideA.player)} vs ${playerName(sideB.player)}, torneo ${t.id})`;
+      console.error(`Error procesando ${label}: ${e.message}`);
+      // Antes esto solo quedaba en el log de GitHub Actions (que nadie
+      // puede leer sin loguearse ahí) — un partido que fallaba acá se
+      // quedaba para siempre sin pick, en silencio, sin que quedara
+      // registro visible desde el sitio. Ahora también se guarda en
+      // error_log, visible en el panel Admin → Errores.
+      await logError(supabase, {
+        source: 'sync.js',
+        message: `Error procesando ${label}: ${e.message}`,
+        stack: e.stack,
+        context: { matchId: match.id, tournamentId: t.id }
+      });
     }
   }
 
