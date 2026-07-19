@@ -23,7 +23,7 @@ const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 const { ensureAvatarCutout } = require('../lib/avatarCutout');
 const { fetchNuxtData } = require('../lib/tt');
 const { logError } = require('../lib/logError');
-const { sendTelegramPhoto, buildPickCardUrl } = require('../lib/telegram');
+const { sendTelegramPhoto, buildPickCardUrl, buildPickCaption } = require('../lib/telegram');
 const {
   trainLogisticRegression,
   predictProbability,
@@ -813,7 +813,6 @@ async function run() {
   // Telegram del admin — pedido 2026-07-19. Un mensaje por pick, uno
   // detrás de otro (no hace falta agruparlos, son pocos por corrida).
   for (const pick of totals.newPublishedPicks) {
-    const tourTxt = pick.tournament ? `\n${pick.tournament}` : '';
     const label = pick.isExclusive ? '🔒 Pick Exclusivo' : '🏓 Pick nuevo';
     const cardUrl = buildPickCardUrl({
       favName: pick.player,
@@ -824,7 +823,8 @@ async function run() {
       confidence: pick.confidence,
       odds: pick.odds
     });
-    await sendTelegramPhoto(cardUrl, `${label}${tourTxt}`);
+    const caption = buildPickCaption({ label, favName: pick.player, rivalName: pick.opponent, odds: pick.odds });
+    await sendTelegramPhoto(cardUrl, caption);
   }
 
   // Revisa los partidos que alguien esté siguiendo (arrancó / set

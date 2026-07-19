@@ -24,7 +24,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
-import { sendTelegramPhoto, buildPickCardUrl } from '../../lib/telegram';
+import { sendTelegramPhoto, buildPickCardUrl, buildPickCaption } from '../../lib/telegram';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -116,7 +116,13 @@ export default async function handler(req, res) {
         confidence: pick.confidence,
         odds: pick.odds
       });
-      await sendTelegramPhoto(cardUrl, '🎯 CAMILOREY destacó un pick');
+      const caption = buildPickCaption({
+        label: '🎯 CAMILOREY destacó un pick',
+        favName: favoredPlayer?.name,
+        rivalName: rivalPlayer?.name,
+        odds: pick.odds
+      });
+      await sendTelegramPhoto(cardUrl, caption);
 
       if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
         const [{ data: premiumProfiles }, { data: subs }, { data: prefs }, { data: adminUser }] = await Promise.all([
