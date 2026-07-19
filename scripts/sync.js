@@ -507,11 +507,34 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
     // antes de que se definan sus participantes reales, y usan el
     // mismo side_id en ambos lados como placeholder — no es un partido
     // real todavía.
-    if (match.side_one_id === match.side_two_id) continue;
+    if (match.side_one_id === match.side_two_id) {
+      await logError(supabase, {
+        source: 'sync.js:skip',
+        message: `Partido ${match.id} salteado: side_one_id === side_two_id (todavía placeholder)`,
+        context: { matchId: match.id, tournamentId: t.id, sideId: match.side_one_id }
+      });
+      continue;
+    }
 
     const sideA = sidesById.get(match.side_one_id);
     const sideB = sidesById.get(match.side_two_id);
-    if (!sideA?.player || !sideB?.player) continue;
+    if (!sideA?.player || !sideB?.player) {
+      await logError(supabase, {
+        source: 'sync.js:skip',
+        message: `Partido ${match.id} salteado: falta jugador en side A o B`,
+        context: {
+          matchId: match.id,
+          tournamentId: t.id,
+          sideAId: match.side_one_id,
+          sideBId: match.side_two_id,
+          sideAFound: Boolean(sideA),
+          sideAHasPlayer: Boolean(sideA?.player),
+          sideBFound: Boolean(sideB),
+          sideBHasPlayer: Boolean(sideB?.player)
+        }
+      });
+      continue;
+    }
 
     // Aislado por partido — antes un error generando el pick de UN
     // partido (ej. una consulta que fallara para un jugador puntual)
