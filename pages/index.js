@@ -7268,10 +7268,20 @@ export default function Home({
         alert(data.error || 'Error marcando el pick.');
         return;
       }
+      // Actualiza TODOS los arrays de donde puede venir el pick (no
+      // solo modalPick/exclusivePicks) — si no, "Picks recientes de
+      // CAMILOREY" en el perfil del tipster (que arma su lista a
+      // partir de picks/resolvedPicks/exclusivePicks) se quedaba
+      // mostrando la versión vieja hasta el próximo poll de 20s, aunque
+      // el botón ya se viera marcado. Bug real reportado: "se activan
+      // pero no aparecen".
       const confirmed = Boolean(data.tipsterPick);
+      const patch = (p) => (p.id === pick.id ? { ...p, tipsterPick: confirmed } : p);
       setModalPick((prev) => (prev && prev.id === pick.id ? { ...prev, tipsterPick: confirmed } : prev));
       setTipsterPick(confirmed ? { ...pick, tipsterPick: true } : null);
-      setExclusivePicks((prev) => prev.map((p) => ({ ...p, tipsterPick: p.id === pick.id ? confirmed : false })));
+      setPicks((prev) => prev.map(patch));
+      setResolvedPicks((prev) => prev.map(patch));
+      setExclusivePicks((prev) => prev.map(patch));
     } catch (e) {
       alert(e.message);
     } finally {
