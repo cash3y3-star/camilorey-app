@@ -537,32 +537,48 @@ export default async function handler(req, res) {
   // "El pick de CAMILOREY" — mismo criterio que getServerSideProps.
   const tipsterPick = [...publicPicks, ...publicResolvedPicks].find((p) => p.tipsterPick) || null;
 
-  const tournamentGroups = (
-    await Promise.all(
-      tournamentIds.map(async (tId) => {
-        const { data: groupMatches } = await supabase
-          .from('matches')
-          .select('player_a_id, player_b_id, sets_a, sets_b, set_scores, status, scheduled_at')
-          .eq('tournament_id', tId);
-        if (!groupMatches || groupMatches.length === 0) return null;
+  // Antes era UNA consulta POR TORNEO (con picks pendientes en 20-40
+  // torneos a la vez, eso son 20-40 conexiones simultáneas SOLO para
+  // chequear cuáles están en vivo) — mismo problema que ya se arregló
+  // en buildFormAndH2H/players, y este endpoint se repite cada 20s
+  // mientras el sitio está abierto, así que era el más grave de todos.
+  // Ahora se trae TODO en una sola consulta y se agrupa acá.
+  const tournamentMatchesById = new Map(tournamentIds.map((id) => [id, []]));
+  if (tournamentIds.length) {
+    const { data: allGroupMatches } = await supabase
+      .from('matches')
+      .select('tournament_id, player_a_id, player_b_id, sets_a, sets_b, set_scores, status, scheduled_at')
+      .in('tournament_id', tournamentIds);
+    for (const m of allGroupMatches || []) {
+      if (tournamentMatchesById.has(m.tournament_id)) tournamentMatchesById.get(m.tournament_id).push(m);
+    }
+  }
 
-        const now = Date.now();
-        const isLive = groupMatches.some(
-          (m) => m.status === 'live' || (m.status !== 'finished' && m.scheduled_at && new Date(m.scheduled_at).getTime() <= now)
-        );
-        if (!isLive) return null;
+  const now0 = Date.now();
+  const liveTournamentIds = tournamentIds.filter((tId) => {
+    const ms = tournamentMatchesById.get(tId) || [];
+    return ms.some((m) => m.status === 'live' || (m.status !== 'finished' && m.scheduled_at && new Date(m.scheduled_at).getTime() <= now0));
+  });
+  const groupMissingIds = [
+    ...new Set(
+      liveTournamentIds.flatMap((tId) => (tournamentMatchesById.get(tId) || []).flatMap((m) => [m.player_a_id, m.player_b_id]))
+    )
+  ].filter((id) => id && !playersById.has(id));
+  if (groupMissingIds.length) {
+    const { data: extra } = await supabase
+      .from('players')
+      .select('id, name, avatar_url, avatar_cutout_url, rating')
+      .in('id', groupMissingIds);
+    for (const p of extra || []) playersById.set(p.id, p);
+  }
 
-        const groupPlayerIds = [...new Set(groupMatches.flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(Boolean);
-        if (groupPlayerIds.length < 3) return null;
+  const tournamentGroups = liveTournamentIds
+    .map((tId) => {
+      const groupMatches = tournamentMatchesById.get(tId) || [];
+      if (groupMatches.length === 0) return null;
 
-        const missingIds = groupPlayerIds.filter((id) => !playersById.has(id));
-        if (missingIds.length) {
-          const { data: extra } = await supabase
-            .from('players')
-            .select('id, name, avatar_url, avatar_cutout_url, rating')
-            .in('id', missingIds);
-          for (const p of extra || []) playersById.set(p.id, p);
-        }
+      const groupPlayerIds = [...new Set(groupMatches.flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(Boolean);
+      if (groupPlayerIds.length < 3) return null;
 
         const matchupByPlayer = new Map(groupPlayerIds.map((id) => [id, new Map()]));
         const ballsByPlayer = new Map(groupPlayerIds.map((id) => [id, { for: 0, against: 0, hasData: false }]));
@@ -630,9 +646,7 @@ export default async function handler(req, res) {
 
         const tournament = tournamentsById.get(tId);
         return { tournamentId: tId, name: tournament?.name || 'Torneo', players: rows, matchup };
-      })
-    )
-  )
+    })
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
