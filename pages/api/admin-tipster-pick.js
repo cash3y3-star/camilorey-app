@@ -24,7 +24,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
-import { sendTelegramMessage } from '../../lib/telegram';
+import { sendTelegramPhoto } from '../../lib/telegram';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -87,13 +87,14 @@ export default async function handler(req, res) {
   try {
     if (pick.result === 'pending') {
       const { data: favoredPlayer } = pick.predicted_winner_id
-        ? await supabase.from('players').select('name').eq('id', pick.predicted_winner_id).maybeSingle()
+        ? await supabase.from('players').select('name, avatar_url').eq('id', pick.predicted_winner_id).maybeSingle()
         : { data: null };
 
       // Telegram va aparte del push — no depende de VAPID ni de que
       // haya suscriptores, es "mejor esfuerzo" propio.
       const oddsTxtTelegram = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
-      sendTelegramMessage(
+      await sendTelegramPhoto(
+        favoredPlayer?.avatar_url || null,
         `🎯 CAMILOREY destacó un pick\n<b>${favoredPlayer?.name ? favoredPlayer.name + ' — ' : ''}${pick.market}</b>${oddsTxtTelegram}`
       );
 

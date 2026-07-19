@@ -23,7 +23,7 @@ const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 const { ensureAvatarCutout } = require('../lib/avatarCutout');
 const { fetchNuxtData } = require('../lib/tt');
 const { logError } = require('../lib/logError');
-const { sendTelegramMessage } = require('../lib/telegram');
+const { sendTelegramPhoto } = require('../lib/telegram');
 const {
   trainLogisticRegression,
   predictProbability,
@@ -381,7 +381,8 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
           confidence: pickConfidence,
           odds: favoredOdds,
           tournament: tournamentName || null,
-          isExclusive: isExclusiveCandidate
+          isExclusive: isExclusiveCandidate,
+          avatarUrl: favored.avatar ? `${MEDIA_BASE}${favored.avatar}` : null
         }
       : null
   };
@@ -802,7 +803,8 @@ async function run() {
     const oddsTxt = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
     const tourTxt = pick.tournament ? `\n${pick.tournament}` : '';
     const label = pick.isExclusive ? '🔒 Pick Exclusivo' : '🏓 Pick nuevo';
-    await sendTelegramMessage(
+    await sendTelegramPhoto(
+      pick.avatarUrl,
       `${label}\n<b>${pick.market}</b>\n${pick.confidence}% Índice IA${oddsTxt}${tourTxt}`
     );
   }
