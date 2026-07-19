@@ -12,3 +12,8 @@
 
 create index if not exists idx_matches_player_a on matches(player_a_id);
 create index if not exists idx_matches_player_b on matches(player_b_id);
+
+-- Mismo problema, misma causa: la tabla de posiciones de cada torneo
+-- en vivo (tournamentGroups) filtra matches por tournament_id, sin
+-- índice tampoco.
+create index if not exists idx_matches_tournament on matches(tournament_id);
