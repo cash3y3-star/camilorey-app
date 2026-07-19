@@ -47,7 +47,7 @@ export default async function handler(req, res) {
 
   const { data: pick, error: pickErr } = await supabase
     .from('picks')
-    .select('id, market, odds, predicted_winner_id, tipster_pick')
+    .select('id, market, odds, predicted_winner_id, tipster_pick, result')
     .eq('id', pickId)
     .maybeSingle();
   if (pickErr) return res.status(500).json({ error: pickErr.message });
@@ -78,9 +78,13 @@ export default async function handler(req, res) {
   if (setErr) return res.status(500).json({ error: setErr.message });
 
   // El aviso push es "mejor esfuerzo" — si falla, el pick ya quedó
-  // marcado igual, no se revierte por esto.
+  // marcado igual, no se revierte por esto. Si el pick YA estaba
+  // resuelto (marcado a mano después, para recuperar historial —
+  // ej. uno que se destacó antes del arreglo que preserva destacados
+  // resueltos, y perdió la marca), no tiene sentido avisar "pick
+  // nuevo" de un partido que ya terminó hace rato.
   try {
-    if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    if (pick.result === 'pending' && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
       const { data: favoredPlayer } = pick.predicted_winner_id
         ? await supabase.from('players').select('name').eq('id', pick.predicted_winner_id).maybeSingle()
         : { data: null };

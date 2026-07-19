@@ -327,8 +327,8 @@ const TRANSLATIONS = {
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Me gusta',
     picksRecientesTipster: 'Picks recientes de CAMILOREY',
-    misPicksSeguidosStats: 'Estadísticas de tus picks seguidos',
-    sigueAlgoParaVerStats: 'Seguí un pick para empezar a ver tus estadísticas acá.',
+    misPicksSeguidosStats: 'Estadísticas de los destacados',
+    sigueAlgoParaVerStats: 'Todavía no hay picks destacados para Exclusivos.',
     statPendientes: 'Pendientes',
     sinHistorial: 'Sin historial reciente todavía.',
     sinEnfrentamientos: 'Todavía no se han enfrentado.',
@@ -650,8 +650,8 @@ const TRANSLATIONS = {
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Likes',
     picksRecientesTipster: "CAMILOREY's recent picks",
-    misPicksSeguidosStats: 'Stats for the picks you follow',
-    sigueAlgoParaVerStats: 'Follow a pick to start seeing your stats here.',
+    misPicksSeguidosStats: 'Featured picks stats',
+    sigueAlgoParaVerStats: 'No featured Exclusive picks yet.',
     statPendientes: 'Pending',
     sinHistorial: 'No recent history yet.',
     sinEnfrentamientos: "They haven't played each other yet.",
@@ -974,8 +974,8 @@ const TRANSLATIONS = {
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Curtidas',
     picksRecientesTipster: 'Picks recentes da CAMILOREY',
-    misPicksSeguidosStats: 'Estatísticas dos picks que você segue',
-    sigueAlgoParaVerStats: 'Siga um pick para começar a ver suas estatísticas aqui.',
+    misPicksSeguidosStats: 'Estatísticas dos destacados',
+    sigueAlgoParaVerStats: 'Ainda não há picks destacados para Exclusivos.',
     statPendientes: 'Pendentes',
     sinHistorial: 'Ainda sem histórico recente.',
     sinEnfrentamientos: 'Ainda não se enfrentaram.',
@@ -3655,7 +3655,7 @@ function PickDetailModal({
           </button>
         ) : null}
 
-        {isAdmin && onToggleTipsterPick && !isDone ? (
+        {isAdmin && onToggleTipsterPick ? (
           <button
             type="button"
             className={`tipster-pick-btn ${pick.tipsterPick ? 'active' : ''}`}
@@ -4950,35 +4950,27 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
 
 // Perfil del tipster (CAMILOREY) — se abre al tocar su foto en la
 // tarjeta "Tipster que sigues" de Inicio. El follower count es fijo
-// (100K, pedido explícito, no es un conteo real de una tabla) — lo
-// único real acá es el seguir/dejar de seguir (persistido en
-// profiles.follows_tipster) y todo lo demás, que se arma de
-// followedDetail (los picks que ESTA cuenta sigue, mismo dato que ya
-// se usa en la pestaña Seguidos). "Picks recientes de CAMILOREY"
-// muestra los últimos seguidos (pedido explícito: no el track record
-// general del modelo, es la actividad real de esta cuenta).
-function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onToggleFollow, followBusy, followedDetail, user, onPickClick }) {
+// (100K, pedido explícito, no es un conteo real de una tabla) — todo
+// lo demás (Picks/estadísticas/la lista) sale de recentPicks, que son
+// específicamente los picks que el admin destacó a mano
+// (picks.tipster_pick — ver pages/api/admin-tipster-pick.js). Pedido
+// explícito: acá NO va nada que el admin no haya destacado, ni
+// aunque sea un pick que la propia cuenta siga.
+function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onToggleFollow, followBusy, recentPicks = [], onPickClick }) {
   const t = useTranslate(lang);
-  // Últimos 4 picks que ESTA cuenta sigue (cualquier estado — pendiente
-  // o ya resuelto), de más reciente a más antiguo. Pedido explícito:
-  // TODO en este perfil (el número de "Picks", las estadísticas de
-  // efectividad/racha/pendientes, y la lista de abajo) sale de estos
-  // mismos 4 — no del historial completo de seguidos de la cuenta.
-  const myLastFollowed = [...followedDetail].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0)).slice(0, 4);
-  const resolved = myLastFollowed.filter((p) => p.result === 'hit' || p.result === 'miss');
+  const sortedPicks = [...recentPicks].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0));
+  const resolved = sortedPicks.filter((p) => p.result === 'hit' || p.result === 'miss');
   const hits = resolved.filter((p) => p.result === 'hit').length;
   const hitRate = resolved.length ? Math.round((hits / resolved.length) * 100) : null;
-  const pendingPicks = myLastFollowed.filter((p) => p.result === 'pending').sort((a, b) => (a.scheduledAt || 0) - (b.scheduledAt || 0));
-  const pending = pendingPicks.length;
-  const sortedResolved = [...resolved].sort((a, b) => (b.scheduledAt || 0) - (a.scheduledAt || 0));
+  const pending = sortedPicks.filter((p) => p.result === 'pending').length;
   let racha = 0;
-  for (const p of sortedResolved) {
+  for (const p of resolved) {
     const won = p.result === 'hit';
     if (racha === 0) racha = won ? 1 : -1;
     else if (racha > 0 === won) racha += won ? 1 : -1;
     else break;
   }
-  const hasStats = user && myLastFollowed.length > 0;
+  const hasStats = sortedPicks.length > 0;
 
   return (
     <div id="overlay" className="show" onClick={(e) => e.target.id === 'overlay' && onClose()}>
@@ -5008,7 +5000,7 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
               <div className="tipster-profile-stat-label">{t('statSeguidoresLabel')}</div>
             </div>
             <div className="tipster-profile-stat">
-              <div className="tipster-profile-stat-val num">{myLastFollowed.length}</div>
+              <div className="tipster-profile-stat-val num">{sortedPicks.length}</div>
               <div className="tipster-profile-stat-label">{t('statPicksLabel')}</div>
             </div>
             <div className="tipster-profile-stat">
@@ -5028,13 +5020,13 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
           </button>
         </div>
 
-        {myLastFollowed.length > 0 ? (
+        {sortedPicks.length > 0 ? (
           <>
             <div className="section-head">
               <h2>{t('picksRecientesTipster')}</h2>
             </div>
             <div className="form-list">
-              {myLastFollowed.map((p) => (
+              {sortedPicks.map((p) => (
                 <div
                   key={p.id}
                   className="form-list-row form-list-row-clickable"
@@ -5091,42 +5083,6 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
             </div>
           </div>
         )}
-
-        {pendingPicks.length > 0 ? (
-          <>
-            <div className="section-head">
-              <h2>{t('statPendientes')}</h2>
-            </div>
-            <div className="form-list">
-              {pendingPicks.map((p) => (
-                <div
-                  key={p.id}
-                  className="form-list-row form-list-row-clickable"
-                  onClick={() => onPickClick && onPickClick(p)}
-                >
-                  <div className="form-list-meta">
-                    <span className="form-list-date">{p.scheduledAt ? shortDate(p.scheduledAt) : '—'}</span>
-                    <span className="form-list-ft">
-                      {p.scheduledAt
-                        ? new Intl.DateTimeFormat('es-CO', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false,
-                            timeZone: 'America/Bogota'
-                          }).format(new Date(p.scheduledAt))
-                        : ''}
-                    </span>
-                  </div>
-                  <div className="form-list-opp">
-                    {p.market || 'Pick'}
-                    <span className="form-list-score num">{Math.round(p.confidence)}%</span>
-                  </div>
-                  <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : null}
       </div>
     </div>
   );
@@ -7545,6 +7501,16 @@ export default function Home({
   // exclusivePicks (autenticado, ver arriba).
   const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
 
+  // "Picks recientes de CAMILOREY" del perfil del tipster — pedido
+  // explícito: SOLO los que el admin destacó a mano (picks.tipster_pick,
+  // ver pages/api/admin-tipster-pick.js), pendientes o resueltos, nunca
+  // "lo que la cuenta sigue". picks/resolvedPicks (público) y
+  // exclusivePicks (autenticado, para quien tiene Exclusivo) no se
+  // pisan entre sí — is_exclusive los separa de antemano.
+  const tipsterRecentPicks = [...picks, ...resolvedPicks, ...(canSeeExclusive ? exclusivePicks : [])].filter(
+    (p) => p.tipsterPick
+  );
+
   // Al tocar una notificación push (nuevo pick VIP, pick destacado por
   // el tipster, "arrancó"/"set cerrado"/"acertaste-fallaste" de un
   // pick seguido), el service worker abre la app en /#pick-{id} — acá
@@ -9499,8 +9465,7 @@ export default function Home({
           isFollowing={isFollowingTipster}
           onToggleFollow={toggleFollowTipster}
           followBusy={tipsterFollowBusy}
-          followedDetail={followedDetail}
-          user={user}
+          recentPicks={tipsterRecentPicks}
           onPickClick={(p) => {
             setShowTipsterProfile(false);
             setModalPick(p);
