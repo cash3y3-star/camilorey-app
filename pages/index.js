@@ -7714,7 +7714,9 @@ export default function Home({
       if (!r.ok) {
         setBankResetMsg(data.error || 'Error reiniciando el bankroll.');
       } else {
-        setBankResetMsg(`Listo — se reinició Mi Bankroll de ${data.email}.`);
+        setBankResetMsg(
+          `Listo — se reinició Mi Bankroll de ${data.email} y se le quitaron ${data.followsRemoved} picks seguidos.`
+        );
         setBankResetEmail('');
       }
     } catch (e) {
@@ -8596,8 +8598,8 @@ export default function Home({
           </div>
           <div className="bankroll-card">
             <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
-              Reinicia "Mi Bankroll" de una cuenta a los valores por defecto ($2.000.000, riesgo equilibrado) —
-              útil si alguien quiere arrancar de cero su simulador personal.
+              Reinicia "Mi Bankroll" de una cuenta a los valores por defecto ($2.000.000, riesgo equilibrado) Y le
+              borra todos sus picks seguidos — queda como si esa cuenta nunca hubiera usado el sitio.
             </p>
             <input
               type="email"

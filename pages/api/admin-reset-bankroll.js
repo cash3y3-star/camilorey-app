@@ -1,12 +1,15 @@
 // ============================================================
 // CAMILOREY — el admin reinicia a mano "Mi Bankroll" de una cuenta
-// (solo admin). "Mi Bankroll" no guarda una bitácora propia — el
-// balance/evolución siempre se recalcula en el cliente a partir de
-// followed_picks + picks (ver pages/index.js) — lo único que se
-// guarda por cuenta es el banco inicial y el nivel de riesgo elegidos
-// (user_bankroll_settings). "Reiniciar" es simplemente borrar esa
-// fila: sin ella, el cliente vuelve a sus valores por defecto
-// ($2.000.000, equilibrado) apenas la persona entra de nuevo.
+// (solo admin), dejándola como si nunca la hubiera usado. "Mi
+// Bankroll" no guarda una bitácora propia — el balance/evolución
+// siempre se recalcula en el cliente a partir de followed_picks +
+// picks (ver pages/index.js), así que reiniciarlo de verdad significa
+// DOS cosas juntas: borrar user_bankroll_settings (banco inicial +
+// riesgo elegidos — sin fila, el cliente vuelve a los valores por
+// defecto, $2.000.000/equilibrado) Y borrar followed_picks (si no,
+// aunque el banco vuelva a $2.000.000, la simulación seguiría
+// recalculando ganancias/pérdidas de todo lo que esa cuenta venía
+// siguiendo, no arrancaría realmente en cero).
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -42,5 +45,11 @@ export default async function handler(req, res) {
   const { error: delErr } = await supabase.from('user_bankroll_settings').delete().eq('user_id', profile.id);
   if (delErr) return res.status(500).json({ error: delErr.message });
 
-  return res.status(200).json({ email: profile.email });
+  const { error: followsErr, count: followsRemoved } = await supabase
+    .from('followed_picks')
+    .delete({ count: 'exact' })
+    .eq('user_id', profile.id);
+  if (followsErr) return res.status(500).json({ error: followsErr.message });
+
+  return res.status(200).json({ email: profile.email, followsRemoved: followsRemoved || 0 });
 }
