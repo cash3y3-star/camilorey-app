@@ -1,0 +1,22 @@
+name: Create matches indexes (one-off)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-indexes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create indexes
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/create-indexes.js
