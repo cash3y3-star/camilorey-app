@@ -669,9 +669,25 @@ async function run() {
     pendingTournamentIds = [...new Set((pendingMatchRows || []).map((m) => m.tournament_id).filter(Boolean))];
   }
 
-  const tournamentIds = [...new Set([...upcomingTournamentIds, ...pendingTournamentIds])];
+  // Un torneo puede quedarse SIN ningún pick pendiente (todos los
+  // demás partidos ya se resolvieron) mientras TODAVÍA le falta un
+  // partido real por jugarse — típico de fases eliminatorias (final,
+  // 3er puesto), que arrancan recién cuando termina el resto del
+  // grupo. Sin esto, ese torneo dejaba de estar en tournamentIds del
+  // todo (ni en la ventana de "próximos" si ya lleva más de
+  // TRAILING_MS corriendo, ni en "con picks pendientes" si ya no le
+  // queda ninguno) — así que sync.js dejaba de revisarlo por completo,
+  // y esos partidos se quedaban sin pick para siempre, en silencio
+  // (bug real reportado: finales/3er puesto sin pick, sin ningún
+  // error en el log). Se agregan acá los torneos con AL MENOS un
+  // partido que la base todavía no marca como terminado.
+  const { data: unfinishedMatchRows, error: ufErr } = await supabase.from('matches').select('tournament_id').neq('status', 'finished');
+  if (ufErr) throw new Error(`select matches (sin terminar): ${ufErr.message}`);
+  const unfinishedTournamentIds = [...new Set((unfinishedMatchRows || []).map((m) => m.tournament_id).filter(Boolean))];
+
+  const tournamentIds = [...new Set([...upcomingTournamentIds, ...pendingTournamentIds, ...unfinishedTournamentIds])];
   console.log(
-    `Torneos a revisar: ${tournamentIds.length} (${upcomingTournamentIds.length} en ventana ±horas, ${pendingTournamentIds.length} con picks pendientes)`
+    `Torneos a revisar: ${tournamentIds.length} (${upcomingTournamentIds.length} en ventana ±horas, ${pendingTournamentIds.length} con picks pendientes, ${unfinishedTournamentIds.length} con partidos sin terminar)`
   );
 
   // Cuotas reales de Rushbet — una sola llamada por corrida. Si el
