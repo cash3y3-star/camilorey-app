@@ -221,33 +221,26 @@ export default async function handler(req, res) {
     const allIds = [...new Set(pairs.flatMap((p) => [p.favoredId, p.opponentId]).filter(Boolean))];
     if (allIds.length === 0) return result;
 
-    // Antes era UNA consulta POR JUGADOR en paralelo — con semanas de
-    // picks acumulados eso ya son decenas/cientos de conexiones
-    // simultáneas a Supabase (causa real de un 504 en producción, ver
-    // refresh-data.js/pages/index.js). Ahora en lotes de hasta 20
-    // jugadores por consulta, agrupado/recortado a 20 por jugador acá
-    // (dedupeado por id — un mismo partido puede volver en más de un
-    // lote si sus dos jugadores cayeron en lotes distintos).
+    // Antes era UNA consulta POR JUGADOR en paralelo (y después, en
+    // lotes de 20 con OR, que tampoco alcanzó) — causa real de un 504
+    // en producción (ver refresh-data.js/pages/index.js). Ahora es UNA
+    // SOLA consulta con .in(), que Postgres resuelve con el índice en
+    // vez de evaluar un OR larguísimo.
     const rawHistoryByPlayer = new Map(allIds.map((id) => [id, []]));
-    const PLAYER_CHUNK = 20;
-    const playerChunks = [];
-    for (let i = 0; i < allIds.length; i += PLAYER_CHUNK) playerChunks.push(allIds.slice(i, i + PLAYER_CHUNK));
-    await Promise.all(
-      playerChunks.map(async (ids) => {
-        const orClause = ids.map((id) => `player_a_id.eq.${id},player_b_id.eq.${id}`).join(',');
-        const { data } = await supabase
-          .from('matches')
-          .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
-          .eq('status', 'finished')
-          .or(orClause)
-          .order('scheduled_at', { ascending: false })
-          .limit(1000);
-        for (const m of data || []) {
-          if (rawHistoryByPlayer.has(m.player_a_id)) rawHistoryByPlayer.get(m.player_a_id).push(m);
-          if (rawHistoryByPlayer.has(m.player_b_id)) rawHistoryByPlayer.get(m.player_b_id).push(m);
-        }
-      })
-    );
+    if (allIds.length) {
+      const idList = allIds.join(',');
+      const { data } = await supabase
+        .from('matches')
+        .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
+        .eq('status', 'finished')
+        .or(`player_a_id.in.(${idList}),player_b_id.in.(${idList})`)
+        .order('scheduled_at', { ascending: false })
+        .limit(5000);
+      for (const m of data || []) {
+        if (rawHistoryByPlayer.has(m.player_a_id)) rawHistoryByPlayer.get(m.player_a_id).push(m);
+        if (rawHistoryByPlayer.has(m.player_b_id)) rawHistoryByPlayer.get(m.player_b_id).push(m);
+      }
+    }
     for (const [id, rows] of rawHistoryByPlayer) {
       const deduped = [...new Map(rows.map((m) => [m.id, m])).values()];
       deduped.sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));

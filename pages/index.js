@@ -1687,32 +1687,27 @@ export async function getServerSideProps({ query }) {
     // que puede pedir premium con L20). Con semanas de picks
     // acumulados eso ya son decenas/cientos de conexiones simultáneas
     // a Supabase en una sola carga de página — la causa real de un
-    // 504 en producción (la función tardaba más de 60s). Ahora se
-    // trae en LOTES (mismo patrón que ya usaba el H2H de abajo): un OR
-    // de hasta 20 jugadores por consulta, límite generoso por lote, y
-    // se agrupa/recorta a 20 por jugador acá. Un mismo partido puede
-    // volver en más de un lote (si sus dos jugadores cayeron en lotes
-    // distintos) — se dedupea por id de partido antes de recortar.
+    // 504 en producción (la función tardaba más de 60s). El primer
+    // arreglo (lotes de 20 con un OR de eq.eq.eq...) seguía siendo
+    // demasiadas conexiones simultáneas cuando allIds es grande (el
+    // 504 volvió incluso con lotes). Ahora es UNA SOLA consulta con
+    // .in(), que Postgres resuelve con el índice en vez de evaluar un
+    // OR larguísimo — sin necesidad de partir en lotes para nada.
     const rawHistoryByPlayer = new Map(allIds.map((id) => [id, []]));
-    const PLAYER_CHUNK = 20;
-    const playerChunks = [];
-    for (let i = 0; i < allIds.length; i += PLAYER_CHUNK) playerChunks.push(allIds.slice(i, i + PLAYER_CHUNK));
-    await Promise.all(
-      playerChunks.map(async (ids) => {
-        const orClause = ids.map((id) => `player_a_id.eq.${id},player_b_id.eq.${id}`).join(',');
-        const { data } = await supabase
-          .from('matches')
-          .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
-          .eq('status', 'finished')
-          .or(orClause)
-          .order('scheduled_at', { ascending: false })
-          .limit(1000);
-        for (const m of data || []) {
-          if (rawHistoryByPlayer.has(m.player_a_id)) rawHistoryByPlayer.get(m.player_a_id).push(m);
-          if (rawHistoryByPlayer.has(m.player_b_id)) rawHistoryByPlayer.get(m.player_b_id).push(m);
-        }
-      })
-    );
+    if (allIds.length) {
+      const idList = allIds.join(',');
+      const { data } = await supabase
+        .from('matches')
+        .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
+        .eq('status', 'finished')
+        .or(`player_a_id.in.(${idList}),player_b_id.in.(${idList})`)
+        .order('scheduled_at', { ascending: false })
+        .limit(5000);
+      for (const m of data || []) {
+        if (rawHistoryByPlayer.has(m.player_a_id)) rawHistoryByPlayer.get(m.player_a_id).push(m);
+        if (rawHistoryByPlayer.has(m.player_b_id)) rawHistoryByPlayer.get(m.player_b_id).push(m);
+      }
+    }
     for (const [id, rows] of rawHistoryByPlayer) {
       const deduped = [...new Map(rows.map((m) => [m.id, m])).values()];
       deduped.sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
