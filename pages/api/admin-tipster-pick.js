@@ -87,7 +87,7 @@ export default async function handler(req, res) {
   try {
     if (pick.result === 'pending') {
       const { data: favoredPlayer } = pick.predicted_winner_id
-        ? await supabase.from('players').select('name, avatar_url').eq('id', pick.predicted_winner_id).maybeSingle()
+        ? await supabase.from('players').select('name, avatar_url, avatar_cutout_url').eq('id', pick.predicted_winner_id).maybeSingle()
         : { data: null };
 
       // Para armar la tarjeta hace falta también el rival — pick no lo
@@ -102,16 +102,16 @@ export default async function handler(req, res) {
           : matchRow.player_a_id
         : null;
       const { data: rivalPlayer } = rivalId
-        ? await supabase.from('players').select('name, avatar_url').eq('id', rivalId).maybeSingle()
+        ? await supabase.from('players').select('name, avatar_url, avatar_cutout_url').eq('id', rivalId).maybeSingle()
         : { data: null };
 
       // Telegram va aparte del push — no depende de VAPID ni de que
       // haya suscriptores, es "mejor esfuerzo" propio.
       const cardUrl = buildPickCardUrl({
         favName: favoredPlayer?.name,
-        favAvatar: favoredPlayer?.avatar_url,
+        favAvatar: favoredPlayer?.avatar_cutout_url || favoredPlayer?.avatar_url,
         rivalName: rivalPlayer?.name,
-        rivalAvatar: rivalPlayer?.avatar_url,
+        rivalAvatar: rivalPlayer?.avatar_cutout_url || rivalPlayer?.avatar_url,
         market: pick.market,
         confidence: pick.confidence,
         odds: pick.odds

@@ -236,6 +236,31 @@ async function trainExclusiveModel() {
   return { weights, trainingCount: rows.length, threshold };
 }
 
+// La tarjeta de Telegram (pages/api/telegram-card.js) queda mejor con
+// el recorte de fondo (avatar_cutout_url, generado por
+// lib/avatarCutout.js) que con la foto cruda de MEDIA_BASE — mismo
+// criterio que usa el resto del sitio (avatar_cutout_url || avatar_url).
+// El cutout puede no existir todavía (se genera una sola vez, la
+// primera vez que se ve a ese jugador) — en ese caso cae a la cruda.
+async function buildPublishedPickPayload(pickId, favored, rival, confidence, odds, tournamentName, isExclusive) {
+  const { data: cutoutRows } = await supabase.from('players').select('id, avatar_cutout_url').in('id', [favored.id, rival.id]);
+  const cutoutById = new Map((cutoutRows || []).map((p) => [p.id, p.avatar_cutout_url]));
+  const favoredRaw = favored.avatar ? `${MEDIA_BASE}${favored.avatar}` : null;
+  const rivalRaw = rival.avatar ? `${MEDIA_BASE}${rival.avatar}` : null;
+  return {
+    id: pickId,
+    player: playerName(favored),
+    opponent: playerName(rival),
+    market: `${playerName(favored)} gana`,
+    confidence,
+    odds,
+    tournament: tournamentName || null,
+    isExclusive,
+    avatarUrl: cutoutById.get(favored.id) || favoredRaw,
+    opponentAvatarUrl: cutoutById.get(rival.id) || rivalRaw
+  };
+}
+
 async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tournamentName) {
   const [streakA, streakB, h2h] = await Promise.all([
     getRecentStreak(sideA.player.id),
@@ -372,20 +397,7 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
     // Exclusivo/Premium), esto es CUALQUIER pick publicado — pedido
     // 2026-07-19: mandar todos los picks al chat de Telegram del
     // admin, no solo los Exclusivos.
-    publishedPick: published
-      ? {
-          id: insertedPick.id,
-          player: playerName(favored),
-          opponent: playerName(rival),
-          market: `${playerName(favored)} gana`,
-          confidence: pickConfidence,
-          odds: favoredOdds,
-          tournament: tournamentName || null,
-          isExclusive: isExclusiveCandidate,
-          avatarUrl: favored.avatar ? `${MEDIA_BASE}${favored.avatar}` : null,
-          opponentAvatarUrl: rival.avatar ? `${MEDIA_BASE}${rival.avatar}` : null
-        }
-      : null
+    publishedPick: published ? await buildPublishedPickPayload(insertedPick.id, favored, rival, pickConfidence, favoredOdds, tournamentName, isExclusiveCandidate) : null
   };
 }
 
