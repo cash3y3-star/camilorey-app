@@ -1,9 +1,11 @@
 // ============================================================
 // CAMILOREY — el admin marca a mano "el pick de CAMILOREY" (el
-// tipster del sitio) sobre un partido puntual. Solo puede haber uno
-// activo a la vez (pendiente) — marcar uno nuevo reemplaza al
-// anterior, salvo que ya se haya resuelto (ese conserva la marca como
-// historial). Al marcar uno nuevo, dispara push a Exclusivo/Premium —
+// tipster del sitio) sobre un partido puntual. Pueden estar destacados
+// varios picks pendientes a la vez (pedido 2026-07-19: "marque dos
+// pendientes" — antes marcar uno nuevo le quitaba la marca al
+// pendiente anterior, y eso se sentía como un bug, no como el límite
+// que era) — cada uno se marca y se resuelve por separado, sin pisarse
+// entre sí. Al marcar uno nuevo, dispara push a Exclusivo/Premium —
 // mismo criterio de audiencia que /api/notify/new-picks.js
 // (premium_until vigente + notification_prefs.push_enabled) — y queda
 // visible en Inicio, salvo que el pick sea is_exclusive=true, en cuyo
@@ -68,12 +70,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ tipsterPick: true });
   }
 
-  // Solo se limpia el pick PENDIENTE que estuviera activo antes — uno
-  // que ya se resolvió conserva el tipster_pick que tenía (mismo
-  // criterio que picks.featured en sync.js), así queda como historial
-  // real de qué se destacó para Exclusivos y cómo salió, en vez de
-  // perderse cada vez que se marca uno nuevo.
-  await supabase.from('picks').update({ tipster_pick: false, tipster_pick_at: null }).eq('tipster_pick', true).eq('result', 'pending');
   const nowIso = new Date().toISOString();
   const { error: setErr } = await supabase.from('picks').update({ tipster_pick: true, tipster_pick_at: nowIso }).eq('id', pickId);
   if (setErr) return res.status(500).json({ error: setErr.message });
