@@ -24,7 +24,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
-import { sendTelegramPhoto } from '../../lib/telegram';
+import { sendTelegramPhoto, buildPickCardUrl } from '../../lib/telegram';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
   const { data: pick, error: pickErr } = await supabase
     .from('picks')
-    .select('id, market, odds, predicted_winner_id, tipster_pick, result')
+    .select('id, match_id, market, odds, confidence, predicted_winner_id, tipster_pick, result')
     .eq('id', pickId)
     .maybeSingle();
   if (pickErr) return res.status(500).json({ error: pickErr.message });
@@ -90,13 +90,33 @@ export default async function handler(req, res) {
         ? await supabase.from('players').select('name, avatar_url').eq('id', pick.predicted_winner_id).maybeSingle()
         : { data: null };
 
+      // Para armar la tarjeta hace falta también el rival — pick no lo
+      // guarda directo, se saca del match (player_a/player_b, el que
+      // no sea el predicted_winner_id).
+      const { data: matchRow } = pick.match_id
+        ? await supabase.from('matches').select('player_a_id, player_b_id').eq('id', pick.match_id).maybeSingle()
+        : { data: null };
+      const rivalId = matchRow
+        ? matchRow.player_a_id === pick.predicted_winner_id
+          ? matchRow.player_b_id
+          : matchRow.player_a_id
+        : null;
+      const { data: rivalPlayer } = rivalId
+        ? await supabase.from('players').select('name, avatar_url').eq('id', rivalId).maybeSingle()
+        : { data: null };
+
       // Telegram va aparte del push — no depende de VAPID ni de que
       // haya suscriptores, es "mejor esfuerzo" propio.
-      const oddsTxtTelegram = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
-      await sendTelegramPhoto(
-        favoredPlayer?.avatar_url || null,
-        `🎯 CAMILOREY destacó un pick\n<b>${favoredPlayer?.name ? favoredPlayer.name + ' — ' : ''}${pick.market}</b>${oddsTxtTelegram}`
-      );
+      const cardUrl = buildPickCardUrl({
+        favName: favoredPlayer?.name,
+        favAvatar: favoredPlayer?.avatar_url,
+        rivalName: rivalPlayer?.name,
+        rivalAvatar: rivalPlayer?.avatar_url,
+        market: pick.market,
+        confidence: pick.confidence,
+        odds: pick.odds
+      });
+      await sendTelegramPhoto(cardUrl, '🎯 CAMILOREY destacó un pick');
 
       if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
         const [{ data: premiumProfiles }, { data: subs }, { data: prefs }, { data: adminUser }] = await Promise.all([
