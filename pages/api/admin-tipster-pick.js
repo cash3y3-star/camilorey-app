@@ -24,6 +24,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
+import { sendTelegramMessage } from '../../lib/telegram';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -84,49 +85,58 @@ export default async function handler(req, res) {
   // resueltos, y perdió la marca), no tiene sentido avisar "pick
   // nuevo" de un partido que ya terminó hace rato.
   try {
-    if (pick.result === 'pending' && process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    if (pick.result === 'pending') {
       const { data: favoredPlayer } = pick.predicted_winner_id
         ? await supabase.from('players').select('name').eq('id', pick.predicted_winner_id).maybeSingle()
         : { data: null };
 
-      const [{ data: premiumProfiles }, { data: subs }, { data: prefs }, { data: adminUser }] = await Promise.all([
-        supabase.from('profiles').select('id').gt('premium_until', nowIso),
-        supabase.from('push_subscriptions').select('*'),
-        supabase.from('notification_prefs').select('user_id, push_enabled'),
-        process.env.NEXT_PUBLIC_ADMIN_EMAIL
-          ? supabase.from('profiles').select('id').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
-          : Promise.resolve({ data: null })
-      ]);
+      // Telegram va aparte del push — no depende de VAPID ni de que
+      // haya suscriptores, es "mejor esfuerzo" propio.
+      const oddsTxtTelegram = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
+      sendTelegramMessage(
+        `🎯 CAMILOREY destacó un pick\n<b>${favoredPlayer?.name ? favoredPlayer.name + ' — ' : ''}${pick.market}</b>${oddsTxtTelegram}`
+      );
 
-      if (subs && subs.length) {
-        // Mismo criterio que /api/notify/new-picks.js: el admin también
-        // entra en la audiencia (aunque su perfil no tenga premium_until)
-        // para poder ver el aviso real al probarlo, sin tener que
-        // activarse premium a sí mismo.
-        const premiumUserIds = new Set((premiumProfiles || []).map((p) => p.id));
-        if (adminUser?.id) premiumUserIds.add(adminUser.id);
-        const prefsByUser = new Map((prefs || []).map((p) => [p.user_id, p]));
-        const pushAllowed = (userId) => {
-          const row = prefsByUser.get(userId);
-          return row ? row.push_enabled !== false : true;
-        };
-        const eligibleSubs = subs.filter((sub) => premiumUserIds.has(sub.user_id) && pushAllowed(sub.user_id));
+      if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+        const [{ data: premiumProfiles }, { data: subs }, { data: prefs }, { data: adminUser }] = await Promise.all([
+          supabase.from('profiles').select('id').gt('premium_until', nowIso),
+          supabase.from('push_subscriptions').select('*'),
+          supabase.from('notification_prefs').select('user_id, push_enabled'),
+          process.env.NEXT_PUBLIC_ADMIN_EMAIL
+            ? supabase.from('profiles').select('id').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
+            : Promise.resolve({ data: null })
+        ]);
 
-        if (eligibleSubs.length) {
-          webpush.setVapidDetails('mailto:lospeepff@gmail.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
-          const oddsTxt = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
-          const payload = JSON.stringify({
-            title: '🎯 CAMILOREY marcó un pick',
-            body: `${favoredPlayer?.name ? favoredPlayer.name + ' — ' : ''}${pick.market}${oddsTxt}`,
-            tag: 'tipster-pick',
-            renotify: true,
-            url: `/#pick-${pickId}`
-          });
-          await Promise.all(
-            eligibleSubs.map((sub) =>
-              webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload).catch(() => {})
-            )
-          );
+        if (subs && subs.length) {
+          // Mismo criterio que /api/notify/new-picks.js: el admin también
+          // entra en la audiencia (aunque su perfil no tenga premium_until)
+          // para poder ver el aviso real al probarlo, sin tener que
+          // activarse premium a sí mismo.
+          const premiumUserIds = new Set((premiumProfiles || []).map((p) => p.id));
+          if (adminUser?.id) premiumUserIds.add(adminUser.id);
+          const prefsByUser = new Map((prefs || []).map((p) => [p.user_id, p]));
+          const pushAllowed = (userId) => {
+            const row = prefsByUser.get(userId);
+            return row ? row.push_enabled !== false : true;
+          };
+          const eligibleSubs = subs.filter((sub) => premiumUserIds.has(sub.user_id) && pushAllowed(sub.user_id));
+
+          if (eligibleSubs.length) {
+            webpush.setVapidDetails('mailto:lospeepff@gmail.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+            const oddsTxt = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
+            const payload = JSON.stringify({
+              title: '🎯 CAMILOREY marcó un pick',
+              body: `${favoredPlayer?.name ? favoredPlayer.name + ' — ' : ''}${pick.market}${oddsTxt}`,
+              tag: 'tipster-pick',
+              renotify: true,
+              url: `/#pick-${pickId}`
+            });
+            await Promise.all(
+              eligibleSubs.map((sub) =>
+                webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload).catch(() => {})
+              )
+            );
+          }
         }
       }
     }

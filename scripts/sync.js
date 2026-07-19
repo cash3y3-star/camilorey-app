@@ -23,6 +23,7 @@ const { fetchLigaProChecaOdds, findOdds } = require('../lib/rushbet');
 const { ensureAvatarCutout } = require('../lib/avatarCutout');
 const { fetchNuxtData } = require('../lib/tt');
 const { logError } = require('../lib/logError');
+const { sendTelegramMessage } = require('../lib/telegram');
 const {
   trainLogisticRegression,
   predictProbability,
@@ -366,7 +367,23 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
             odds: favoredOdds,
             tournament: tournamentName || null
           }
-        : null
+        : null,
+    // A diferencia de exclusivePick (solo VIP, para el push de
+    // Exclusivo/Premium), esto es CUALQUIER pick publicado — pedido
+    // 2026-07-19: mandar todos los picks al chat de Telegram del
+    // admin, no solo los Exclusivos.
+    publishedPick: published
+      ? {
+          id: insertedPick.id,
+          player: playerName(favored),
+          opponent: playerName(rival),
+          market: `${playerName(favored)} gana`,
+          confidence: pickConfidence,
+          odds: favoredOdds,
+          tournament: tournamentName || null,
+          isExclusive: isExclusiveCandidate
+        }
+      : null
   };
 }
 
@@ -501,6 +518,7 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
   let picksResolved = 0;
   let highConfidenceGenerated = 0;
   const newExclusivePicks = [];
+  const newPublishedPicks = [];
 
   for (const match of widgets.matches || []) {
     // Las fases eliminatorias (3er puesto, final) existen como filas
@@ -575,6 +593,7 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
         picksGenerated++;
         if (created.highConfidence) highConfidenceGenerated++;
         if (created.exclusivePick) newExclusivePicks.push(created.exclusivePick);
+        if (created.publishedPick) newPublishedPicks.push(created.publishedPick);
       }
     } catch (e) {
       const label = `partido ${match.id} (${playerName(sideA.player)} vs ${playerName(sideB.player)}, torneo ${t.id})`;
@@ -593,7 +612,7 @@ async function syncTournamentMatches(t, widgets, rushbetEvents, mlModel) {
     }
   }
 
-  return { matchesProcessed, picksGenerated, picksResolved, highConfidenceGenerated, newExclusivePicks };
+  return { matchesProcessed, picksGenerated, picksResolved, highConfidenceGenerated, newExclusivePicks, newPublishedPicks };
 }
 
 // La portada (main-page-tournaments) solo muestra lo "reciente" — no
@@ -694,7 +713,8 @@ async function run() {
     picksResolved: 0,
     tournamentsUpdated: 0,
     highConfidenceGenerated: 0,
-    newExclusivePicks: []
+    newExclusivePicks: [],
+    newPublishedPicks: []
   };
 
   for (const id of tournamentIds) {
@@ -737,6 +757,7 @@ async function run() {
       totals.picksResolved += result.picksResolved;
       totals.highConfidenceGenerated += result.highConfidenceGenerated;
       totals.newExclusivePicks.push(...result.newExclusivePicks);
+      totals.newPublishedPicks.push(...result.newPublishedPicks);
     } catch (e) {
       console.error(`Error procesando torneo ${id}: ${e.message}`);
     }
@@ -772,6 +793,18 @@ async function run() {
     } catch (e) {
       console.error(`Aviso de picks nuevos falló: ${e.message}`);
     }
+  }
+
+  // Manda CUALQUIER pick publicado (no solo Exclusivos) al chat de
+  // Telegram del admin — pedido 2026-07-19. Un mensaje por pick, uno
+  // detrás de otro (no hace falta agruparlos, son pocos por corrida).
+  for (const pick of totals.newPublishedPicks) {
+    const oddsTxt = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
+    const tourTxt = pick.tournament ? `\n${pick.tournament}` : '';
+    const label = pick.isExclusive ? '🔒 Pick Exclusivo' : '🏓 Pick nuevo';
+    await sendTelegramMessage(
+      `${label}\n<b>${pick.market}</b>\n${pick.confidence}% Índice IA${oddsTxt}${tourTxt}`
+    );
   }
 
   // Revisa los partidos que alguien esté siguiendo (arrancó / set
