@@ -161,11 +161,12 @@ export default async function handler(req, res) {
         ratingScore: (r.factors.ratingScore ?? 0) * sign,
         streakScore: (r.factors.streakScore ?? 0) * sign,
         h2hScore: (r.factors.h2hScore ?? 0) * sign,
-        altScore: (r.factors.altScore ?? 0) * sign
+        altScore: (r.factors.altScore ?? 0) * sign,
+        oddsScore: (r.factors.oddsScore ?? 0) * sign
       };
     });
   const factorAvg = {};
-  for (const key of ['ratingScore', 'streakScore', 'h2hScore', 'altScore']) {
+  for (const key of ['ratingScore', 'streakScore', 'h2hScore', 'altScore', 'oddsScore']) {
     const withHit = factorRows.filter((r) => r.hit).map((r) => r[key]);
     const withMiss = factorRows.filter((r) => !r.hit).map((r) => r[key]);
     const avg = (arr) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);

@@ -226,7 +226,8 @@ async function trainExclusiveModel() {
         ratingScore: (p.factors.ratingScore ?? 0) * sign,
         streakScore: (p.factors.streakScore ?? 0) * sign,
         h2hScore: (p.factors.h2hScore ?? 0) * sign,
-        altScore: (p.factors.altScore ?? 0) * sign
+        altScore: (p.factors.altScore ?? 0) * sign,
+        oddsScore: (p.factors.oddsScore ?? 0) * sign
       };
     })
     .filter(Boolean);
@@ -271,6 +272,19 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
   const h2hCurrentStreakIsA =
     h2h.currentStreakPlayerId === sideA.player.id ? true : h2h.currentStreakPlayerId === sideB.player.id ? false : null;
 
+  // Cuota real de Rushbet si logramos cruzar el partido por nombre+hora
+  // en su feed de "Liga Pro checa" — queda null si no hay match (no
+  // bloquea la generación del pick). Se pide ACÁ (antes de
+  // computeConfidence, no después como antes) porque ahora también
+  // entra como señal de predicción, no solo como filtro de Exclusivo
+  // más abajo.
+  const odds = findOdds(rushbetEvents, playerName(sideA.player), playerName(sideB.player), matchRow.scheduled_at);
+  // Devig de un mercado a 2 vías: 1/cuota da la probabilidad "cruda" de
+  // cada lado, que suma más de 100% por el margen de la casa —
+  // normalizamos para que sume exactamente 100% y quede comparable a
+  // los demás scores (-1 a 1 más abajo, dentro de computeConfidence).
+  const oddsImpliedProbA = odds ? 1 / odds.oddsA / (1 / odds.oddsA + 1 / odds.oddsB) : null;
+
   const { confidence: rawConfidence, factors } = computeConfidence({
     ratingDiff: (sideA.rating_before_tournament || 0) - (sideB.rating_before_tournament || 0),
     streakA,
@@ -280,7 +294,8 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
     h2hCurrentStreakIsA,
     h2hCurrentStreakLength: h2h.currentStreakLength,
     h2hTypicalRunLength: h2h.typicalRunLength,
-    h2hIsPerfectAlternation: h2h.isPerfectAlternation
+    h2hIsPerfectAlternation: h2h.isPerfectAlternation,
+    oddsImpliedProbA
   });
 
   // computeConfidence devuelve qué tan favorecido está A (70 = parejo,
@@ -304,10 +319,6 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
   const MIN_CONFIDENCE_TO_PUBLISH = 60;
   let published = pickConfidence >= MIN_CONFIDENCE_TO_PUBLISH;
 
-  // Cuota real de Rushbet si logramos cruzar el partido por nombre+hora
-  // en su feed de "Liga Pro checa" — queda null si no hay match (no
-  // bloquea la generación del pick).
-  const odds = findOdds(rushbetEvents, playerName(sideA.player), playerName(sideB.player), matchRow.scheduled_at);
   const favoredOdds = odds ? (favored.id === sideA.player.id ? odds.oddsA : odds.oddsB) : null;
 
   // Tope de picks VIP por día — pedido 2026-07-14: máximo 6 picks
@@ -322,7 +333,7 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
   // Qué entra a Exclusivo ya NO lo decide directamente la confianza de
   // arriba — lo decide el modelo de ML (lib/ml-exclusive.js),
   // reentrenado desde cero en esta misma corrida con los picks ya
-  // resueltos, usando las mismas 4 señales (rating/racha/H2H/alternancia)
+  // resueltos, usando las mismas 5 señales (rating/racha/H2H/alternancia/cuota)
   // pero con pesos aprendidos en vez de fijados a mano. Mientras la
   // muestra de resueltos sea chica (< MIN_TRAINING_SAMPLES) no hay
   // confianza suficiente en esos pesos, así que se cae al criterio
@@ -332,7 +343,8 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
     ratingScore: factors.ratingScore * sign,
     streakScore: factors.streakScore * sign,
     h2hScore: factors.h2hScore * sign,
-    altScore: factors.altScore * sign
+    altScore: factors.altScore * sign,
+    oddsScore: factors.oddsScore * sign
   };
   const hasTrainedModel = mlModel?.weights && mlModel.trainingCount >= MIN_TRAINING_SAMPLES;
   const mlProbability = mlModel?.weights ? predictProbability(mlModel.weights, mlFeatures) : null;

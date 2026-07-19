@@ -2467,6 +2467,7 @@ function buildAnalysis(factors) {
   if (factors.streakScore) bits.push(`racha reciente (${pct(factors.streakScore)}%)`);
   if (factors.h2hScore) bits.push(`cruce directo (${pct(factors.h2hScore)}%)`);
   if (factors.altScore) bits.push(`alternancia en el H2H (${pct(factors.altScore)}%)`);
+  if (factors.oddsScore) bits.push(`cuota de mercado (${pct(factors.oddsScore)}%)`);
   if (bits.length === 0) return 'Pick generado sin suficiente historial todavía.';
   return `Favorito según ${bits.join(', ')}.`;
 }
@@ -3928,7 +3929,13 @@ function PickDetailModal({
 // muestra tt.league-pro.com dentro de cada torneo: una fila por
 // jugador, una columna por cada rival con el marcador de sets de ese
 // cruce, y el total de sets + puesto a la derecha.
-const MODEL_FACTOR_LABEL = { ratingScore: 'Rating', streakScore: 'Racha', h2hScore: 'H2H', altScore: 'Alternancia H2H' };
+const MODEL_FACTOR_LABEL = {
+  ratingScore: 'Rating',
+  streakScore: 'Racha',
+  h2hScore: 'H2H',
+  altScore: 'Alternancia H2H',
+  oddsScore: 'Cuota de mercado'
+};
 
 // Si el intervalo de confianza 95% (Wilson) NO cruza el 50%, el
 // resultado ya es estadísticamente distinguible de una moneda al aire
@@ -5140,8 +5147,6 @@ function PicksVipView({
   // se muestran acá (pedido explícito), esta ventana es para lo que
   // está por venir, no un historial.
   const vipPicks = exclusivePicks.slice(0, 15);
-  const vipOdds = vipPicks.map((p) => p.odds).filter(Boolean);
-  const minOdds = vipOdds.length ? Math.min(...vipOdds) : null;
 
   return (
     <section className={`view ${view === 'picksvip' ? 'active' : ''}`}>
@@ -5217,35 +5222,6 @@ function PicksVipView({
                 />
               </>
             ) : null}
-
-            <div className="section-head">
-              <h2>{t('balanceExclusivoTitle')}</h2>
-            </div>
-            <p className="page-sub">{t('balanceExclusivoSub')}</p>
-            {exclusiveBalanceError ? (
-              <p className="page-sub">Error: {exclusiveBalanceError}</p>
-            ) : !exclusiveBalance ? (
-              <p className="page-sub">{t('cargando')}</p>
-            ) : exclusiveBalance.n === 0 ? null : (
-              <div className="stat-strip stat-strip-3">
-                <div className="stat-card">
-                  <div className="label">{t('statEfectividad')}</div>
-                  <div className="value hit num">{Math.round(exclusiveBalance.hitRate * 100)}%</div>
-                </div>
-                <div className="stat-card">
-                  <div className="label">{t('statRachaActual')}</div>
-                  <div className="value num">
-                    {exclusiveBalance.racha === 0
-                      ? '—'
-                      : `${Math.abs(exclusiveBalance.racha)}${exclusiveBalance.racha > 0 ? 'W' : 'L'}`}
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <div className="label">{t('statCuotaMinima')}</div>
-                  <div className="value num">{minOdds ? minOdds.toFixed(2) : '—'}</div>
-                </div>
-              </div>
-            )}
 
             <div className="section-head">
               <h2>{t('tabExclusivos')}</h2>
