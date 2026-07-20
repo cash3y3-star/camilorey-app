@@ -150,8 +150,7 @@ const TRANSLATIONS = {
       'Cómo te habría ido apostando con Kelly solo en los picks que sigues — no es dinero real, es para que practiques el tamaño de apuesta antes de arriesgar el tuyo.',
     iniciaSesionBankroll: 'Inicia sesión con Google (arriba a la derecha) para armar tu bankroll.',
     funcionPremium: 'Función premium',
-    funcionPremiumDesc:
-      'Mi Bankroll va a estar disponible próximamente para cuentas premium — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.',
+    funcionPremiumDesc: 'Mi Bankroll es una función premium — mejora tu plan para desbloquearla.',
     miBankrollVacioTitle: 'Sin historial todavía',
     miBankrollVacioDesc:
       'Todavía no tienes picks seguidos que ya se hayan jugado — sigue algunos desde Picks o Calendario y vuelve cuando terminen.',
@@ -473,8 +472,7 @@ const TRANSLATIONS = {
       "How you'd have done betting Kelly stakes only on the picks you follow — not real money, just practice sizing your bets before risking your own.",
     iniciaSesionBankroll: 'Sign in with Google (top right) to set up your bankroll.',
     funcionPremium: 'Premium feature',
-    funcionPremiumDesc:
-      "My Bankroll will be available soon for premium accounts — there's nothing to pay yet, we're just giving you a heads up before it opens.",
+    funcionPremiumDesc: 'My Bankroll is a premium feature — upgrade your plan to unlock it.',
     miBankrollVacioTitle: 'No history yet',
     miBankrollVacioDesc:
       "You don't have any followed picks that have already been played yet — follow some from Picks or Schedule and come back once they finish.",
@@ -795,8 +793,7 @@ const TRANSLATIONS = {
       'Como teria sido apostando com Kelly só nos picks que você segue — não é dinheiro real, é para praticar o tamanho das apostas antes de arriscar o seu.',
     iniciaSesionBankroll: 'Entre com o Google (canto superior direito) para montar sua banca.',
     funcionPremium: 'Função premium',
-    funcionPremiumDesc:
-      'Minha Banca estará disponível em breve para contas premium — ainda não há nada para pagar, só estamos avisando antes de abrir.',
+    funcionPremiumDesc: 'Minha Banca é uma função premium — melhore seu plano para desbloqueá-la.',
     miBankrollVacioTitle: 'Ainda sem histórico',
     miBankrollVacioDesc:
       'Você ainda não tem picks seguidos que já tenham sido jogados — siga alguns em Picks ou Calendário e volte quando terminarem.',
@@ -5767,7 +5764,10 @@ function ProfileModal({
   }
 
   if (plansScreenOpen) {
-    const paymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK;
+    // Link real de pago (tipsterpage), pedido 2026-07-19 — se deja
+    // NEXT_PUBLIC_PAYMENT_LINK como override por si el link cambia más
+    // adelante (promo, otra pasarela, etc.) sin tener que tocar código.
+    const paymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK || 'https://camilobets.tipsterpage.com/Kc9v8l6Y';
     const PLAN_FEATURES = [
       'plansFeatRacha',
       'plansFeatPrecision',
