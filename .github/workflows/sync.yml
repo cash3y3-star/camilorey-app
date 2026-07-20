@@ -23,6 +23,22 @@ jobs:
         with:
           node-version: '22'
 
+      # No hay package-lock.json (nunca se generó uno, este repo no
+      # corre npm localmente), así que el cache de actions/setup-node
+      # (que necesita un lockfile para la key) no sirve acá — se cachea
+      # node_modules a mano por hash de package.json. Sin esto, "npm
+      # install" (con @imgly/background-removal-node, que trae modelos
+      # ONNX pesados) tardaba lo bastante como para que, con el
+      # cronjob externo disparando cada ~60s, una corrida de cada tres
+      # llegara a cancelarse en la cola antes de arrancar (ver
+      # concurrency arriba) — no perdía datos (cancel-in-progress:false
+      # protege a la que ya está corriendo), pero desperdiciaba minutos
+      # de Actions en vano.
+      - uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('package.json') }}
+
       - name: Install dependencies
         run: npm install
 
