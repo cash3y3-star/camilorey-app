@@ -691,31 +691,6 @@ export default async function handler(req, res) {
     ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
     : null;
 
-  // Mismo criterio que getServerSideProps, solo picks Exclusivos —
-  // alimenta la tarjeta de "Estadísticas Premium" en Inicio.
-  const { data: exclusiveRows } = await supabase
-    .from('bankroll_log')
-    .select('units, picks!inner(published, is_exclusive, odds)')
-    .eq('picks.published', true)
-    .eq('picks.is_exclusive', true)
-    .order('created_at', { ascending: false })
-    .limit(30);
-  const exHits = (exclusiveRows || []).filter((r) => Number(r.units) > 0).length;
-  const exMisses = (exclusiveRows || []).filter((r) => Number(r.units) < 0).length;
-  const exclusiveEfectividad = exHits + exMisses > 0 ? Math.round((exHits / (exHits + exMisses)) * 100) : 0;
-  let exclusiveRacha = 0;
-  for (const r of exclusiveRows || []) {
-    const won = Number(r.units) > 0;
-    if (exclusiveRacha === 0) exclusiveRacha = won ? 1 : -1;
-    else if (exclusiveRacha > 0 === won) exclusiveRacha += won ? 1 : -1;
-    else break;
-  }
-  const exOddsList = (exclusiveRows || []).map((r) => Number(r.picks?.odds)).filter((o) => o && o > 1);
-  const exclusiveCuotaProm = exOddsList.length
-    ? Math.round((exOddsList.reduce((s, o) => s + o, 0) / exOddsList.length) * 100) / 100
-    : null;
-  const exclusiveStats = { efectividad: exclusiveEfectividad, racha: exclusiveRacha, n: exHits + exMisses, cuotaProm: exclusiveCuotaProm };
-
   // El log detallado (bankrollLog/bankrollSeries, apuesta por apuesta)
   // ya NO se manda desde este endpoint público — antes cualquiera
   // podía pedirlo sin login y ver el bankroll completo del admin. Ese
@@ -723,9 +698,17 @@ export default async function handler(req, res) {
   // verificado de verdad en el servidor (igual que /api/error-log y
   // /api/model-stats). Las estadísticas agregadas de abajo sí siguen
   // siendo públicas a propósito.
+  //
+  // El balance de picks Exclusivos (antes "Estadísticas Premium" acá
+  // en Inicio) se sacó de este endpoint público — pedido 2026-07-19:
+  // convivía con "CONTROL PREMIUM" en Picks VIP mostrando números
+  // DISTINTOS para lo que parecía la misma estadística (ventanas de
+  // cálculo distintas: acá últimos 30 sin filtro de fecha, allá todo
+  // desde el reset del 2026-07-15), y confundía más de lo que ayudaba.
+  // Ahora existe un solo lugar con esa cifra: /api/exclusive-balance,
+  // consumido por Picks VIP.
   return res.status(200).json({
     stats: { efectividad, racha, cuotaProm, roi, unidades },
-    exclusiveStats,
     picks: publicPicks,
     resolvedPicks: publicResolvedPicks,
     tournamentGroups,

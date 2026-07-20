@@ -92,7 +92,6 @@ const TRANSLATIONS = {
     inicioSub: 'Análisis propio sobre partidos de la Liga Pro Checa, contrastado con nuestro propio historial.',
     holaSaludo: 'Hola',
     statsSistemaTitle: 'Estadísticas del Sistema',
-    statsPremiumTitle: 'Estadísticas Premium',
     statEfectividad: 'Efectividad (últ. 30)',
     statRachaActual: 'Racha actual',
     statROI: 'ROI',
@@ -417,7 +416,6 @@ const TRANSLATIONS = {
     inicioSub: 'Our own analysis of Czech Liga Pro matches, checked against our own track record.',
     holaSaludo: 'Hi',
     statsSistemaTitle: 'System Stats',
-    statsPremiumTitle: 'Premium Stats',
     statEfectividad: 'Accuracy (last 30)',
     statRachaActual: 'Current streak',
     statROI: 'ROI',
@@ -740,7 +738,6 @@ const TRANSLATIONS = {
     inicioSub: 'Nossa própria análise dos jogos da Liga Pro Checa, comparada com nosso histórico real.',
     holaSaludo: 'Olá',
     statsSistemaTitle: 'Estatísticas do Sistema',
-    statsPremiumTitle: 'Estatísticas Premium',
     statEfectividad: 'Efetividade (últ. 30)',
     statRachaActual: 'Sequência atual',
     statROI: 'ROI',
@@ -1405,35 +1402,6 @@ export async function getServerSideProps({ query }) {
       ? await supabase.from('picks').select('id, market, odds').in('id', bkPickIds)
       : { data: [] };
     return { bankrollRows, bkPicks };
-  })();
-
-  // Mismo criterio que arriba pero SOLO picks Exclusivos — esto es lo
-  // que se muestra en Inicio como "Estadísticas Premium" (pedido
-  // 2026-07-17: la efectividad general deja de ser pública, se
-  // reemplaza por esto). No hace falta reconstruir el stake/ROI acá,
-  // solo efectividad y racha — coincide con lo simple que ya se ve en
-  // Inicio.
-  const exclusiveStatsPromise = (async () => {
-    const { data: rows } = await supabase
-      .from('bankroll_log')
-      .select('units, picks!inner(published, is_exclusive, odds)')
-      .eq('picks.published', true)
-      .eq('picks.is_exclusive', true)
-      .order('created_at', { ascending: false })
-      .limit(30);
-    const hits = (rows || []).filter((r) => Number(r.units) > 0).length;
-    const misses = (rows || []).filter((r) => Number(r.units) < 0).length;
-    const efectividad = hits + misses > 0 ? Math.round((hits / (hits + misses)) * 100) : 0;
-    let racha = 0;
-    for (const r of rows || []) {
-      const won = Number(r.units) > 0;
-      if (racha === 0) racha = won ? 1 : -1;
-      else if (racha > 0 === won) racha += won ? 1 : -1;
-      else break;
-    }
-    const oddsList = (rows || []).map((r) => Number(r.picks?.odds)).filter((o) => o && o > 1);
-    const cuotaProm = oddsList.length ? Math.round((oddsList.reduce((s, o) => s + o, 0) / oddsList.length) * 100) / 100 : null;
-    return { efectividad, racha, n: hits + misses, cuotaProm };
   })();
 
   const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
@@ -2283,7 +2251,6 @@ export async function getServerSideProps({ query }) {
     : null;
 
   const { count: userCount } = await userCountPromise;
-  const exclusiveStats = await exclusiveStatsPromise;
   const { data: tipsterProfileRow } = await tipsterProfilePromise;
   const { count: tipsterLikesCount } = await tipsterLikesCountPromise;
   const tipsterProfile = {
@@ -2295,7 +2262,6 @@ export async function getServerSideProps({ query }) {
   return {
     props: {
       stats: { efectividad, racha, cuotaProm, roi, unidades },
-      exclusiveStats,
       picks: publicPicks,
       resolvedPicks: publicResolvedPicks,
       tournamentGroups,
@@ -2327,7 +2293,6 @@ export async function getServerSideProps({ query }) {
     return {
       props: {
         stats: { efectividad: 0, racha: 0, cuotaProm: null, roi: 0, unidades: 0 },
-        exclusiveStats: { efectividad: 0, racha: 0, n: 0 },
         picks: [],
         resolvedPicks: [],
         tournamentGroups: [],
@@ -6635,7 +6600,6 @@ const SITE_IS_PUBLIC = true;
 
 export default function Home({
   stats: initialStats,
-  exclusiveStats: initialExclusiveStats,
   picks: initialPicks,
   resolvedPicks: initialResolvedPicks,
   tournamentGroups: initialTournamentGroups,
@@ -6649,7 +6613,6 @@ export default function Home({
 }) {
   const [view, setView] = useState('inicio');
   const [stats, setStats] = useState(initialStats);
-  const [exclusiveStats, setExclusiveStats] = useState(initialExclusiveStats || { efectividad: 0, racha: 0, n: 0 });
   const [picks, setPicks] = useState(initialPicks);
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
   const [tipsterPick, setTipsterPick] = useState(initialTipsterPick);
@@ -6940,7 +6903,6 @@ export default function Home({
         const data = await r.json();
         if (cancelled) return;
         if (data.stats) setStats(data.stats);
-        if (data.exclusiveStats) setExclusiveStats(data.exclusiveStats);
         if (data.picks) setPicks(data.picks);
         if (data.resolvedPicks) setResolvedPicks(data.resolvedPicks);
         if (data.tournamentGroups) setTournamentGroups(data.tournamentGroups);
@@ -8246,26 +8208,6 @@ export default function Home({
               <span className="tipster-pick-notice-cta">{t('verPick')} →</span>
             </button>
           ) : null}
-
-          <div className="section-head">
-            <h2>{t('statsPremiumTitle')}</h2>
-          </div>
-          <div className="stat-strip stat-strip-3">
-            <div className="stat-card">
-              <div className="label">{t('statEfectividad')}</div>
-              <div className="value hit num">{exclusiveStats.efectividad}%</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">{t('statRachaActual')}</div>
-              <div className="value num">
-                {exclusiveStats.racha === 0 ? '—' : `${Math.abs(exclusiveStats.racha)}${exclusiveStats.racha > 0 ? 'W' : 'L'}`}
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="label">{t('statCuotaProm')}</div>
-              <div className="value num">{exclusiveStats.cuotaProm || '—'}</div>
-            </div>
-          </div>
 
           {featured ? (
             <>
