@@ -19,6 +19,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # PRUEBA TEMPORAL 2026-07-20 — solo para confirmar si AiScore
+      # bloquea las IPs de GitHub Actions (como ya nos pasó con
+      # Sofascore) antes de invertir en construir un scraper. Se saca
+      # apenas se tenga la respuesta, sea cual sea. continue-on-error
+      # para que esto NUNCA le pegue al sync real si algo sale mal acá.
+      - name: Prueba temporal — alcance de AiScore desde Actions
+        continue-on-error: true
+        run: |
+          curl -s -o /dev/null -w "AISCORE_HTTP_STATUS=%{http_code}\n" \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+            -H "Accept-Language: en-US,en;q=0.9" \
+            "https://m.aiscore.com/fr/table-tennis/match-milan-travnik-karel-pesek/vmqyosvl9l0ugk9/h2h"
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
