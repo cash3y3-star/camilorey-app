@@ -45,16 +45,35 @@ export default async function handler(req, res) {
     });
   }
 
+  // Antes solo traía winner_id y devolvía el conteo agregado — sin
+  // scheduled_at/sets no había forma de armar la lista partido a
+  // partido con fecha real que sí tiene el H2H de la tarjeta de picks
+  // (H2HMatchList). Pedido 2026-07-19: "arregla el H2H de todos con
+  // fecha real" — este modal (Calendario → detalle de partido) era el
+  // único lugar que se había quedado con el H2H "mudo", solo el
+  // marcador agregado.
   async function h2hRecord(idA, idB) {
     const { data } = await supabase
       .from('matches')
-      .select('winner_id')
+      .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
       .eq('status', 'finished')
       .or(`and(player_a_id.eq.${idA},player_b_id.eq.${idB}),and(player_a_id.eq.${idB},player_b_id.eq.${idA})`)
+      .order('scheduled_at', { ascending: false })
       .limit(20);
+    const rows = data || [];
     return {
-      winsA: (data || []).filter((m) => m.winner_id === idA).length,
-      winsB: (data || []).filter((m) => m.winner_id === idB).length
+      winsA: rows.filter((m) => m.winner_id === idA).length,
+      winsB: rows.filter((m) => m.winner_id === idB).length,
+      matches: rows.map((m) => {
+        const isA = m.player_a_id === idA;
+        return {
+          date: m.scheduled_at,
+          setsFor: isA ? m.sets_a : m.sets_b,
+          setsAgainst: isA ? m.sets_b : m.sets_a,
+          win: m.winner_id === idA,
+          favoredWasHome: isA
+        };
+      })
     };
   }
 
@@ -68,6 +87,7 @@ export default async function handler(req, res) {
     historyA,
     historyB,
     h2h: `${h2h.winsA}-${h2h.winsB}`,
-    h2hTotal: h2h.winsA + h2h.winsB
+    h2hTotal: h2h.winsA + h2h.winsB,
+    h2hMatches: h2h.matches
   });
 }

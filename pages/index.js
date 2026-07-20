@@ -186,7 +186,6 @@ const TRANSLATIONS = {
     plansCta: 'Suscribirme',
     plansCtaNote:
       'El pago se hace fuera del sitio, en un link seguro. Cuando termines, escríbenos al correo o por Telegram con el correo de tu cuenta CAMILOREY y activamos tu acceso premium en minutos.',
-    plansSoon: 'Muy pronto vas a poder mejorar tu plan — todavía no hay nada que pagar, solo estamos avisando antes de abrirlo.',
     plansToggleMensual: 'Mensual',
     plansToggleAnual: 'Anual (-50%)',
     plansPeriodMensual: 'mes',
@@ -508,7 +507,6 @@ const TRANSLATIONS = {
     plansCta: 'Subscribe',
     plansCtaNote:
       "Payment happens off-site, through a secure link. Once you're done, write to us by email or Telegram with your CAMILOREY account email and we'll activate your premium access within minutes.",
-    plansSoon: "You'll be able to upgrade your plan very soon — there's nothing to pay yet, we're just giving you a heads up before it opens.",
     plansToggleMensual: 'Monthly',
     plansToggleAnual: 'Yearly (-50%)',
     plansPeriodMensual: 'mo',
@@ -829,7 +827,6 @@ const TRANSLATIONS = {
     plansCta: 'Assinar',
     plansCtaNote:
       'O pagamento é feito fora do site, em um link seguro. Quando terminar, escreva para nós por e-mail ou Telegram com o e-mail da sua conta CAMILOREY e ativamos seu acesso premium em minutos.',
-    plansSoon: 'Muito em breve você vai poder melhorar seu plano — ainda não há nada para pagar, só estamos avisando antes de abrir.',
     plansToggleMensual: 'Mensal',
     plansToggleAnual: 'Anual (-50%)',
     plansPeriodMensual: 'mês',
@@ -3279,6 +3276,7 @@ function MatchDetailModal({ m, onClose, user, profile, lang }) {
                     style={{ width: `${(Number(form.h2h.split('-')[0]) / form.h2hTotal) * 100}%` }}
                   ></div>
                 </div>
+                <H2HMatchList matches={form.h2hMatches} favoredName={m.playerA} opponentName={m.playerB} />
               </>
             ) : null}
           </>
@@ -5869,13 +5867,7 @@ function ProfileModal({
           <button
             type="button"
             className="btn btn-ball plans-cta-btn"
-            onClick={() => {
-              if (paymentUrl) {
-                window.open(paymentUrl, '_blank', 'noopener,noreferrer');
-              } else {
-                alert(t('plansSoon'));
-              }
-            }}
+            onClick={() => window.open(paymentUrl, '_blank', 'noopener,noreferrer')}
           >
             {t('plansCta')}
           </button>
