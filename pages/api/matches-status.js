@@ -90,6 +90,7 @@ export default async function handler(req, res) {
     return {
       matchId: m.id,
       pickId: pendingPickIdByMatchId.get(m.id) || null,
+      scheduledAt: m.scheduled_at ? new Date(m.scheduled_at).getTime() : null,
       time: timeLabel(m.scheduled_at),
       tournament: t?.name || 'Torneo',
       players: `${a?.name || '?'} vs ${b?.name || '?'}`,
