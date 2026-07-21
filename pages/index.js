@@ -5012,6 +5012,28 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
           </button>
         </div>
 
+        <div className="section-head">
+          <h2>{t('misPicksSeguidosStats')}</h2>
+        </div>
+        {!hasStats ? (
+          <p className="page-sub">{t('sigueAlgoParaVerStats')}</p>
+        ) : (
+          <div className="stat-strip stat-strip-3">
+            <div className="stat-card">
+              <div className="label">{t('statEfectividad')}</div>
+              <div className="value hit num">{hitRate != null ? `${hitRate}%` : '—'}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statRachaActual')}</div>
+              <div className="value num">{racha === 0 ? '—' : `${Math.abs(racha)}${racha > 0 ? 'W' : 'L'}`}</div>
+            </div>
+            <div className="stat-card">
+              <div className="label">{t('statPendientes')}</div>
+              <div className="value num">{pending}</div>
+            </div>
+          </div>
+        )}
+
         {sortedPicks.length > 0 ? (
           <>
             <div className="section-head">
@@ -5053,28 +5075,6 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
             </div>
           </>
         ) : null}
-
-        <div className="section-head">
-          <h2>{t('misPicksSeguidosStats')}</h2>
-        </div>
-        {!hasStats ? (
-          <p className="page-sub">{t('sigueAlgoParaVerStats')}</p>
-        ) : (
-          <div className="stat-strip stat-strip-3">
-            <div className="stat-card">
-              <div className="label">{t('statEfectividad')}</div>
-              <div className="value hit num">{hitRate != null ? `${hitRate}%` : '—'}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">{t('statRachaActual')}</div>
-              <div className="value num">{racha === 0 ? '—' : `${Math.abs(racha)}${racha > 0 ? 'W' : 'L'}`}</div>
-            </div>
-            <div className="stat-card">
-              <div className="label">{t('statPendientes')}</div>
-              <div className="value num">{pending}</div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
