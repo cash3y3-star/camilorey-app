@@ -9017,6 +9017,17 @@ export default function Home({
                     </span>
                   </div>
                   <div className="error-row-message">{u.email || '—'}</div>
+                  {u.premiumUntil ? (
+                    <div className="error-row-context">
+                      {u.isPremium ? 'Premium hasta ' : 'Premium venció el '}
+                      {new Intl.DateTimeFormat('es-CO', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        timeZone: 'America/Bogota'
+                      }).format(new Date(u.premiumUntil))}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

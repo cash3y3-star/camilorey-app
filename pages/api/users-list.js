@@ -35,7 +35,8 @@ export default async function handler(req, res) {
     email: p.email,
     name: p.display_name || p.full_name || null,
     createdAt: p.created_at,
-    isPremium: Boolean(p.premium_until && p.premium_until > nowIso)
+    isPremium: Boolean(p.premium_until && p.premium_until > nowIso),
+    premiumUntil: p.premium_until || null
   }));
 
   return res.status(200).json({ users });

@@ -236,6 +236,84 @@ async function checkStreaks(supabase) {
   return { usersChecked: byUser.size, notified };
 }
 
+// Pedido 2026-07-21: avisar al usuario 1 día antes de que le venza el
+// Premium, para que renueve a tiempo. Corre en cada llamada de este
+// cron (cada 30-60s) — profiles.premium_expiry_notified_for guarda
+// PARA QUÉ premium_until ya se mandó el aviso, así una cuenta dentro
+// de la ventana de 1 día no recibe el mismo push en cada corrida; si
+// renueva, premium_until cambia y el aviso se habilita solo de nuevo.
+async function checkPremiumExpiring(supabase) {
+  const nowIso = new Date().toISOString();
+  const in1DayIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: expiring } = await supabase
+    .from('profiles')
+    .select('id, premium_until, premium_expiry_notified_for')
+    .not('premium_until', 'is', null)
+    .gt('premium_until', nowIso)
+    .lte('premium_until', in1DayIso);
+  if (!expiring || expiring.length === 0) return { checked: 0, notified: 0 };
+
+  const pending = expiring.filter((p) => p.premium_expiry_notified_for !== p.premium_until);
+  if (pending.length === 0) return { checked: expiring.length, notified: 0 };
+
+  const userIds = pending.map((p) => p.id);
+  const [{ data: subs }, { data: prefs }] = await Promise.all([
+    supabase.from('push_subscriptions').select('*').in('user_id', userIds),
+    supabase.from('notification_prefs').select('user_id, push_enabled, promotions').in('user_id', userIds)
+  ]);
+  const subsByUser = new Map();
+  for (const sub of subs || []) {
+    if (!subsByUser.has(sub.user_id)) subsByUser.set(sub.user_id, []);
+    subsByUser.get(sub.user_id).push(sub);
+  }
+  const prefsByUser = new Map((prefs || []).map((p) => [p.user_id, p]));
+
+  let notified = 0;
+  for (const profile of pending) {
+    // Se marca como "ya avisado" pase lo que pase con este vencimiento
+    // puntual (sin push activo, sin suscripción, o mandado) — si no,
+    // un usuario sin push seguiría evaluándose en cada corrida hasta
+    // que le venza, sin necesidad.
+    const markDone = () => supabase.from('profiles').update({ premium_expiry_notified_for: profile.premium_until }).eq('id', profile.id);
+
+    if (!prefAllows(prefsByUser, profile.id, 'push_enabled') || !prefAllows(prefsByUser, profile.id, 'promotions')) {
+      await markDone();
+      continue;
+    }
+    const userSubs = subsByUser.get(profile.id) || [];
+    if (userSubs.length === 0) {
+      await markDone();
+      continue;
+    }
+
+    const payload = JSON.stringify({
+      title: '⏰ Tu Premium vence mañana',
+      body: 'Renová para no perderte los picks Exclusivos y el resto de las ventajas Premium.',
+      tag: 'premium-expiring',
+      renotify: true,
+      url: '/#picksvip'
+    });
+
+    let sentAny = false;
+    for (const sub of userSubs) {
+      try {
+        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+        sentAny = true;
+      } catch (e) {
+        const isVapidMismatch = e.statusCode === 403 && /vapid credentials/i.test(e.body || '');
+        if (e.statusCode === 404 || e.statusCode === 410 || isVapidMismatch) {
+          await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        }
+      }
+    }
+    await markDone();
+    if (sentAny) notified++;
+  }
+
+  return { checked: expiring.length, notified };
+}
+
 export default async function handler(req, res) {
   const token = req.query.token || (req.headers.authorization || '').replace('Bearer ', '');
   if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
@@ -280,9 +358,16 @@ export default async function handler(req, res) {
     console.error('Error revisando resultados pendientes de avisar:', e.message);
   }
 
+  let premiumExpiring = null;
+  try {
+    premiumExpiring = await checkPremiumExpiring(supabase);
+  } catch (e) {
+    console.error('Error revisando premium por vencer:', e.message);
+  }
+
   const { data: follows } = await supabase.from('followed_picks').select('match_id');
   const matchIds = [...new Set((follows || []).map((f) => f.match_id))];
-  if (matchIds.length === 0) return res.status(200).json({ checked: 0, streaks, pendingResults });
+  if (matchIds.length === 0) return res.status(200).json({ checked: 0, streaks, pendingResults, premiumExpiring });
 
   const { data: matches } = await supabase
     .from('matches')
@@ -290,7 +375,7 @@ export default async function handler(req, res) {
     .in('id', matchIds)
     .eq('notified_finished', false);
 
-  if (!matches || matches.length === 0) return res.status(200).json({ checked: 0, streaks, pendingResults });
+  if (!matches || matches.length === 0) return res.status(200).json({ checked: 0, streaks, pendingResults, premiumExpiring });
 
   const playerIds = [...new Set(matches.flatMap((m) => [m.player_a_id, m.player_b_id]).filter(Boolean))];
   const { data: players } = await supabase.from('players').select('id, name').in('id', playerIds);
@@ -412,5 +497,5 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(200).json({ checked, debug, streaks, pendingResults });
+  return res.status(200).json({ checked, debug, streaks, pendingResults, premiumExpiring });
 }
