@@ -673,7 +673,29 @@ async function fetchUpcomingTournamentIds() {
   return ids;
 }
 
+// PRUEBA TEMPORAL 2026-07-20 — solo para confirmar si AiScore bloquea
+// las IPs de GitHub Actions (como pasó con Sofascore) antes de
+// invertir en un scraper de H2H. No se puede leer el log del job sin
+// permisos de admin del repo, así que el resultado se guarda en
+// error_log (mismo mecanismo que ya usa este script) y se lee después
+// con /api/debug-aiscore-test — ambos se sacan apenas se tenga la
+// respuesta. Nunca debe romper el sync real (try/catch propio).
+async function probeAiScore() {
+  try {
+    const r = await fetch('https://m.aiscore.com/fr/table-tennis/match-milan-travnik-karel-pesek/vmqyosvl9l0ugk9/h2h', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    });
+    await logError(supabase, { source: 'aiscore-test', message: `HTTP ${r.status}` });
+  } catch (e) {
+    await logError(supabase, { source: 'aiscore-test', message: `fetch error: ${e.message}` });
+  }
+}
+
 async function run() {
+  await probeAiScore();
   console.log('Leyendo tt.league-pro.com...');
   const upcomingTournamentIds = await fetchUpcomingTournamentIds();
 

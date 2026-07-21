@@ -19,38 +19,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # PRUEBA TEMPORAL 2026-07-20 — solo para confirmar si AiScore
-      # bloquea las IPs de GitHub Actions (como ya nos pasó con
-      # Sofascore) antes de invertir en construir un scraper. Se saca
-      # apenas se tenga la respuesta, sea cual sea. continue-on-error
-      # para que esto NUNCA le pegue al sync real si algo sale mal acá.
-      # No se puede leer el log de este step sin permisos de admin del
-      # repo (API de GitHub), así que el resultado se escribe a un
-      # archivo y se pushea al repo — así se lee después con un simple
-      # git pull / raw.githubusercontent.com, sin necesitar token.
-      - name: Prueba temporal — alcance de AiScore desde Actions
-        continue-on-error: true
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-            -H "Accept-Language: en-US,en;q=0.9" \
-            "https://m.aiscore.com/fr/table-tennis/match-milan-travnik-karel-pesek/vmqyosvl9l0ugk9/h2h")
-          echo "AISCORE_HTTP_STATUS=$STATUS" > aiscore-test-result.txt
-          cat aiscore-test-result.txt
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git add aiscore-test-result.txt
-          # Sin timestamp adentro del archivo a propósito: mismo
-          # resultado corrida tras corrida = sin diff = sin commit. Si
-          # no, con este workflow disparándose cada ~60s se llenaría el
-          # repo de un commit por minuto. --cached porque recién se
-          # hizo git add (un archivo nuevo sin trackear no aparece en
-          # "git diff" a secas).
-          if ! git diff --cached --quiet; then
-            git commit -m "Resultado prueba AiScore (temporal): $STATUS"
-            git push || echo "no se pudo pushear (permisos del token) — revisar a mano"
-          fi
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
