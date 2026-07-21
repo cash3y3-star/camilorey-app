@@ -27,7 +27,8 @@ const VIEWS = [
   'destacados',
   'historialvip',
   'picksvip',
-  'admin'
+  'admin',
+  'usuarios'
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
 // bajo un solo botón "Admin" (ver la sección admin más abajo).

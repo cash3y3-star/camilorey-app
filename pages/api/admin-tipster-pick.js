@@ -26,6 +26,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
+import { waitUntil } from '@vercel/functions';
 import { sendTelegramPhoto, buildPickCardUrl, buildPickCaption } from '../../lib/telegram';
 
 export default async function handler(req, res) {
@@ -74,12 +75,25 @@ export default async function handler(req, res) {
   const { error: setErr } = await supabase.from('picks').update({ tipster_pick: true, tipster_pick_at: nowIso }).eq('id', pickId);
   if (setErr) return res.status(500).json({ error: setErr.message });
 
-  // El aviso push es "mejor esfuerzo" — si falla, el pick ya quedó
-  // marcado igual, no se revierte por esto. Si el pick YA estaba
-  // resuelto (marcado a mano después, para recuperar historial —
-  // ej. uno que se destacó antes del arreglo que preserva destacados
-  // resueltos, y perdió la marca), no tiene sentido avisar "pick
-  // nuevo" de un partido que ya terminó hace rato.
+  // El pick ya quedó marcado (lo único que el admin necesita ver
+  // reflejado ya) — Telegram y push son "mejor esfuerzo" y pueden
+  // tardar varios segundos (Telegram tiene que bajar la tarjeta con
+  // next/og, y hay que mandarla a los 3 destinos + a cada suscriptor
+  // push). Antes el admin se quedaba esperando todo eso para que el
+  // botón dejara de girar; ahora respondemos ya y seguimos en segundo
+  // plano con waitUntil, que en Vercel mantiene viva la función más
+  // allá de la respuesta hasta que esta promesa termine.
+  res.status(200).json({ tipsterPick: true });
+  waitUntil(notifyTipsterPick(supabase, pick, nowIso));
+}
+
+async function notifyTipsterPick(supabase, pick, nowIso) {
+  const pickId = pick.id;
+  // Si el pick YA estaba resuelto (marcado a mano después, para
+  // recuperar historial — ej. uno que se destacó antes del arreglo que
+  // preserva destacados resueltos, y perdió la marca), no tiene
+  // sentido avisar "pick nuevo" de un partido que ya terminó hace
+  // rato.
   try {
     if (pick.result === 'pending') {
       const { data: favoredPlayer } = pick.predicted_winner_id
@@ -166,6 +180,4 @@ export default async function handler(req, res) {
   } catch (e) {
     console.error('No se pudo avisar el pick del tipster:', e.message);
   }
-
-  return res.status(200).json({ tipsterPick: true });
 }

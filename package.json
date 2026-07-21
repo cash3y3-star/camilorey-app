@@ -10,6 +10,7 @@
   "dependencies": {
     "@imgly/background-removal-node": "^1.4.5",
     "@supabase/supabase-js": "^2.45.0",
+    "@vercel/functions": "^3.7.5",
     "next": "^14.2.0",
     "pg": "^8.13.0",
     "react": "^18.3.0",
