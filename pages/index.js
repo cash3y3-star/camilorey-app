@@ -31,7 +31,7 @@ const VIEWS = [
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
 // bajo un solo botón "Admin" (ver la sección admin más abajo).
-const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados', 'historialvip'];
+const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados', 'historialvip', 'usuarios'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 const LANG_KEY = 'camilorey_lang';
@@ -7521,6 +7521,31 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
+  // Registro de usuarios (correo, nombre, desde cuándo) — mismo
+  // patrón que Errores: solo se consulta al entrar a esa pestaña.
+  const [usersList, setUsersList] = useState(null);
+  const [usersListError, setUsersListError] = useState(null);
+  useEffect(() => {
+    if (view !== 'usuarios' || !isAdmin || !supabaseClient) return undefined;
+    let cancelled = false;
+    (async () => {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      try {
+        const r = await fetch('/api/users-list', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const data = await r.json();
+        if (cancelled) return;
+        if (!r.ok) setUsersListError(data.error || 'Error cargando el registro de usuarios.');
+        else setUsersList(data.users);
+      } catch (e) {
+        if (!cancelled) setUsersListError(e.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isAdmin]);
+
   // Analítica propia (qué vistas y acciones se usan de verdad) —
   // mismo patrón que Modelo/Errores: solo se consulta al entrar a esa
   // pestaña.
@@ -8456,6 +8481,16 @@ export default function Home({
             </div>
             <ProfileIcon name="chevron-right" size={16} />
           </a>
+          <a className="profile-row" href="#usuarios">
+            <span className="profile-row-icon">
+              <ProfileIcon name="user" />
+            </span>
+            <div className="profile-row-body">
+              <strong>Usuarios</strong>
+              <p>Registro de correo, nombre y desde cuándo está cada usuario</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
 
           <div className="profile-section-label" style={{ marginTop: '22px' }}>
             PREMIUM MANUAL
@@ -8938,6 +8973,49 @@ export default function Home({
                   </div>
                   <div className="error-row-message">{e.message}</div>
                   {e.context ? <div className="error-row-context">{JSON.stringify(e.context)}</div> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+        )}
+
+        {isAdmin && (
+        <section className={`view ${view === 'usuarios' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
+          <span className="eyebrow">Solo tú ves esto</span>
+          <h1 className="page-title">Usuarios</h1>
+          <p className="page-sub">
+            {usersList ? `${usersList.length} registrados` : 'Correo, nombre y desde cuándo está cada usuario.'}
+          </p>
+          {usersListError ? (
+            <p className="page-sub">Error: {usersListError}</p>
+          ) : !usersList ? (
+            <p className="page-sub">Cargando…</p>
+          ) : usersList.length === 0 ? (
+            <p className="page-sub">Todavía no hay nadie registrado.</p>
+          ) : (
+            <div className="stat-rows" style={{ gap: 0 }}>
+              {usersList.map((u) => (
+                <div className="error-row" key={u.id}>
+                  <div className="error-row-top">
+                    <span className="error-row-source">
+                      {u.name || '(sin nombre)'} {u.isPremium ? <ProfileIcon name="crown" size={11} /> : null}
+                    </span>
+                    <span className="error-row-date">
+                      {u.createdAt
+                        ? new Intl.DateTimeFormat('es-CO', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            timeZone: 'America/Bogota'
+                          }).format(new Date(u.createdAt))
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="error-row-message">{u.email || '—'}</div>
                 </div>
               ))}
             </div>
