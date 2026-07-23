@@ -3,10 +3,19 @@
 // Se usa en la pestaña Seguidos, que NO debe ocultar un pick solo
 // porque el partido ya arrancó o está por arrancar (esa regla es
 // para "Picks", no para lo que alguien está siguiendo a propósito
-// para recibir notificación). Los ids vienen de una consulta ya
-// protegida por RLS en el cliente (followed_picks), así que esto solo
-// resuelve el detalle público de esos ids — no hace falta autenticar
-// esta llamada.
+// para recibir notificación).
+//
+// Arreglo 2026-07-23 (auditoría de seguridad): esto NO puede ser un
+// "resuelve lo que te pida por id" sin filtro — ids es un query param
+// que cualquiera controla, y antes esta ruta devolvía picks.* de
+// CUALQUIER id, sin mirar is_exclusive ni published. Con
+// /api/matches-status.js (público) regalando pickId de cada partido,
+// eso dejaba leer market/confidence/odds/analysis de picks Exclusivos
+// (de pago) sin login — el mismo hueco que /api/vip-picks.js existe
+// justamente para tapar. El token es OPCIONAL (para que una cuenta
+// gratis siga viendo lo que sigue de los picks públicos), pero
+// is_exclusive solo sale si ese token es de verdad admin o premium
+// activo — mismo chequeo que vip-picks.js/exclusive-balance.js.
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -72,7 +81,23 @@ export default async function handler(req, res) {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: picks } = await supabase.from('picks').select('*').in('id', ids);
+  let canSeeExclusive = false;
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (token) {
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (user) {
+      if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+        canSeeExclusive = true;
+      } else {
+        const { data: profile } = await supabase.from('profiles').select('premium_until').eq('id', user.id).maybeSingle();
+        canSeeExclusive = Boolean(profile?.premium_until && new Date(profile.premium_until) > new Date());
+      }
+    }
+  }
+
+  let picksQuery = supabase.from('picks').select('*').eq('published', true).in('id', ids);
+  if (!canSeeExclusive) picksQuery = picksQuery.eq('is_exclusive', false);
+  const { data: picks } = await picksQuery;
   if (!picks || picks.length === 0) return res.status(200).json({ picks: [] });
 
   const matchIds = [...new Set(picks.map((p) => p.match_id))];

@@ -27,6 +27,28 @@ function initials(name) {
   return (name || '?').trim().charAt(0).toUpperCase() || '?';
 }
 
+// Arreglo 2026-07-23 (auditoría de seguridad): fa/ra son query params
+// que cualquiera controla, y esta ruta es pública por necesidad
+// (Telegram la baja él mismo, sin auth). Antes se pasaban derecho a
+// <img src>, y next/og los baja server-side para armar el PNG — eso
+// es SSRF (el atacante elige host y protocolo del fetch que hace
+// Vercel). Los avatares reales solo salen de dos hosts (ver
+// scripts/sync.js y lib/avatarCutout.js), así que cualquier otra URL
+// se descarta y cae al placeholder con iniciales.
+function isAllowedAvatarUrl(raw) {
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:') return false;
+    if (u.hostname === 'api.league-pro.com') return true;
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (supabaseUrl && u.hostname === new URL(supabaseUrl).hostname) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function Avatar({ src, name }) {
   if (src) {
     return (
@@ -63,9 +85,11 @@ function Avatar({ src, name }) {
 export default async function handler(req) {
   const { searchParams } = new URL(req.url);
   const favName = searchParams.get('fn') || 'Favorito';
-  const favAvatar = searchParams.get('fa') || '';
+  const favAvatarRaw = searchParams.get('fa') || '';
+  const favAvatar = isAllowedAvatarUrl(favAvatarRaw) ? favAvatarRaw : '';
   const rivalName = searchParams.get('rn') || 'Rival';
-  const rivalAvatar = searchParams.get('ra') || '';
+  const rivalAvatarRaw = searchParams.get('ra') || '';
+  const rivalAvatar = isAllowedAvatarUrl(rivalAvatarRaw) ? rivalAvatarRaw : '';
   const market = searchParams.get('m') || `${favName} gana`;
   const confidence = searchParams.get('c') || '';
   const odds = searchParams.get('o') || '';

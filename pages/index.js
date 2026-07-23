@@ -7077,7 +7077,18 @@ export default function Home({
     async function load() {
       if (document.visibilityState === 'hidden') return;
       try {
-        const r = await fetch(`/api/followed-detail?ids=${[...followedPickIds].join(',')}`);
+        // Manda el token si hay sesión — así el servidor puede
+        // devolver el detalle completo de un pick Exclusivo que esta
+        // cuenta sigue (solo si de verdad tiene Premium activo, lo
+        // vuelve a chequear él mismo); sin token, el servidor filtra
+        // los Exclusivos por las dudas.
+        const headers = {};
+        if (supabaseClient) {
+          const { data: sessionData } = await supabaseClient.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+        }
+        const r = await fetch(`/api/followed-detail?ids=${[...followedPickIds].join(',')}`, { headers });
         const data = await r.json();
         if (!cancelled) setFollowedDetail(data.picks || []);
       } catch (e) {
@@ -7091,7 +7102,7 @@ export default function Home({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [followedPickIds]);
+  }, [followedPickIds, supabaseClient]);
 
   const toggleFollow = async (pick) => {
     if (!supabaseClient) return;
