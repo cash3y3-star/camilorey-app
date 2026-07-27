@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — resumen de analítica propia (solo admin)
+// CZECH IA AGENTS — resumen de analítica propia (solo admin)
 // Mismo patrón de auth que /api/error-log y /api/model-stats: se
 // verifica el JWT de quien pide esto en el servidor, no un token de
 // query. Agrega analytics_events de los últimos 7 días por

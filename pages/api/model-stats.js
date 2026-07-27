@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — estadísticas del modelo de confianza (solo admin)
+// CZECH IA AGENTS — estadísticas del modelo de confianza (solo admin)
 // Mismo análisis que scripts/analyze-confidence.js / el debug
 // confidence-stats.js, pero servido detrás de la pestaña "Modelo"
 // del sitio (verificando el JWT del admin) en vez de un token de

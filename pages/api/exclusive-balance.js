@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — balance de los picks EXCLUSIVOS (solo premium/admin)
+// CZECH IA AGENTS — balance de los picks EXCLUSIVOS (solo premium/admin)
 // Un pick es "exclusivo" si picks.is_exclusive es true — decidido una
 // sola vez al generarse por el modelo de ML (ver lib/ml-exclusive.js
 // y sync.js), no recalculado acá. bankroll_log.balance es el

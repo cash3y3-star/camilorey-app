@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — log detallado del bankroll (solo admin)
+// CZECH IA AGENTS — log detallado del bankroll (solo admin)
 // bankrollLog/bankrollSeries (apuesta por apuesta, con montos reales)
 // vivían antes en getServerSideProps y en /api/refresh-data, así que
 // CUALQUIER visitante los recibía sin login — la pestaña "Bankroll"

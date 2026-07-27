@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — refresco de Inicio y Picks sin recargar la página
+// CZECH IA AGENTS — refresco de Inicio y Picks sin recargar la página
 // Mismo cálculo de picks/resolvedPicks/tournamentGroups/stats que
 // getServerSideProps, como endpoint aparte para poder consultarlo
 // cada tantos segundos desde el cliente (Sofascore-style) mientras
@@ -174,7 +174,7 @@ export default async function handler(req, res) {
   // límite de "últimos 60 resueltos" de abajo — mismo motivo que
   // getServerSideProps: con muchos partidos resolviéndose de golpe,
   // uno viejo quedaba empujado fuera de la ventana y desaparecía de
-  // "Picks recientes de CAMILOREY" aunque siguiera marcado de verdad.
+  // "Picks recientes de CZECH IA AGENTS" aunque siguiera marcado de verdad.
   const [{ data: resolvedPicksRecent }, { data: tipsterDestacadosResolved }] = await Promise.all([
     supabase.from('picks').select('*').neq('result', 'pending').eq('published', true).order('created_at', { ascending: false }).limit(60),
     supabase.from('picks').select('*').eq('tipster_pick', true).neq('result', 'pending')
@@ -213,7 +213,7 @@ export default async function handler(req, res) {
     .map((pick) => {
       const match = matchesById.get(pick.match_id);
       if (!match) return null;
-      // "El pick de CAMILOREY" (pick.tipster_pick) nunca se oculta por
+      // "El pick de CZECH IA AGENTS" (pick.tipster_pick) nunca se oculta por
       // estas dos reglas — si no, en cuanto el partido arrancara (o
       // estuviera por arrancar) el aviso/destacado desaparecía de
       // Inicio hasta que el próximo sync lo resolviera del todo, a
@@ -548,7 +548,7 @@ export default async function handler(req, res) {
   // Mismo motivo que publicPicks arriba: este endpoint es público y sin
   // login — un pick exclusivo nunca puede viajar acá, ni resuelto.
   const publicResolvedPicks = resolvedPicks.filter((p) => !p.exclusive);
-  // "El pick de CAMILOREY" — mismo criterio que getServerSideProps.
+  // "El pick de CZECH IA AGENTS" — mismo criterio que getServerSideProps.
   const tipsterPick = [...publicPicks, ...publicResolvedPicks].find((p) => p.tipsterPick) || null;
 
   // Antes era UNA consulta POR TORNEO (con picks pendientes en 20-40

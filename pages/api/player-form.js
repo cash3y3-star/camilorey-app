@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — forma reciente + H2H de los dos jugadores de un partido
+// CZECH IA AGENTS — forma reciente + H2H de los dos jugadores de un partido
 // Se consulta bajo demanda cuando alguien abre el modal de un partido
 // desde Calendario (o cualquier otro lado que use MatchDetailModal),
 // para no calcularlo de más en cada fila de la lista.

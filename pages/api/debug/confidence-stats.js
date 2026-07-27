@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — mismo análisis que scripts/analyze-confidence.js, pero
+// CZECH IA AGENTS — mismo análisis que scripts/analyze-confidence.js, pero
 // como endpoint de solo lectura para poder revisarlo sin disparar un
 // workflow de GitHub Actions cada vez. Protegido con el mismo
 // CRON_SECRET que ya existe para el vigilante de notificaciones.

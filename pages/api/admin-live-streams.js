@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — administra las transmisiones de YouTube por torneo
+// CZECH IA AGENTS — administra las transmisiones de YouTube por torneo
 // Los streams cambian de video CADA DÍA (no son canales fijos), así
 // que esto es lo que el admin usa desde el panel para actualizar el
 // código -> id de video sin tener que tocar código. Mismo patrón de

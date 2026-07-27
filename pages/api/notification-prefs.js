@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — preferencias de notificaciones del usuario
+// CZECH IA AGENTS — preferencias de notificaciones del usuario
 // GET  → trae la fila de notification_prefs (o los defaults si el
 //        usuario todavía no tiene una, sin crearla hasta que guarde algo).
 // POST → upsert de los campos que mande el cliente.

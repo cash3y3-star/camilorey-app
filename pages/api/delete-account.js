@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — el usuario elimina su propia cuenta (zona de peligro
+// CZECH IA AGENTS — el usuario elimina su propia cuenta (zona de peligro
 // en Perfil → Cuenta → Eliminar Cuenta). Borra sus datos ligados en
 // la base y luego la cuenta de auth con la service role key. Mismo
 // patrón de auth real que /api/admin-activate-premium, pero acá

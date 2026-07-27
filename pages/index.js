@@ -85,7 +85,7 @@ const TRANSLATIONS = {
     notifPromosDesc: 'Actualizaciones del producto, tips y ofertas especiales',
     notifSeccionPrivacy: 'PRIVACIDAD',
     notifAnaliticas: 'Datos de Analíticas',
-    notifAnaliticasDesc: 'Compartir analítica de uso para mejorar CAMILOREY',
+    notifAnaliticasDesc: 'Compartir analítica de uso para mejorar CZECH IA AGENTS',
     guardar: 'Guardar',
 
     inicioEyebrow: 'Liga Pro Checa · Tenis de mesa',
@@ -171,7 +171,7 @@ const TRANSLATIONS = {
     plansBullet2: 'Mi Bankroll, H2H completo y análisis con IA sin límites',
     plansBullet3: 'Cancela cuando quieras, sin letra chica',
     plansCardBadge: 'ACCESO COMPLETO',
-    plansCardName: 'CAMILOREY Premium',
+    plansCardName: 'CZECH IA AGENTS Premium',
     plansCardDesc: 'Para quien sigue los picks en serio',
     plansFeatRacha: 'Racha reciente',
     plansFeatPrecision: 'Precisión de acierto',
@@ -185,7 +185,7 @@ const TRANSLATIONS = {
     plansFeatAlertas: 'Alertas de picks en tiempo real',
     plansCta: 'Suscribirme',
     plansCtaNote:
-      'El pago se hace fuera del sitio, en un link seguro. Cuando termines, escríbenos al correo o por Telegram con el correo de tu cuenta CAMILOREY y activamos tu acceso premium en minutos.',
+      'El pago se hace fuera del sitio, en un link seguro. Cuando termines, escríbenos al correo o por Telegram con el correo de tu cuenta CZECH IA AGENTS y activamos tu acceso premium en minutos.',
     plansToggleMensual: 'Mensual',
     plansToggleAnual: 'Anual (-50%)',
     plansPeriodMensual: 'mes',
@@ -193,9 +193,9 @@ const TRANSLATIONS = {
     plansSavingsAnual: ' — Ahorras US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancela cuando quieras',
     premiumWelcomeEyebrow: 'Suscripción activa',
-    premiumWelcomeTitle: 'Bienvenido a CAMILOREY Premium',
+    premiumWelcomeTitle: 'Bienvenido a CZECH IA AGENTS Premium',
     premiumWelcomeSub: 'Tu suscripción está activa hasta {date}.',
-    premiumWelcomeCardName: 'CAMILOREY Premium',
+    premiumWelcomeCardName: 'CZECH IA AGENTS Premium',
     premiumWelcomeCta: 'Comenzar a Explorar',
     cuentaTitle: 'Cuenta',
     cuentaCambiarFoto: 'Cambiar Foto',
@@ -210,7 +210,7 @@ const TRANSLATIONS = {
     editar: 'Editar',
     cuentaEliminarBtn: 'Eliminar Cuenta',
     cuentaEmailEditNota: 'Te vamos a mandar un correo de confirmación a la dirección nueva antes de hacer el cambio.',
-    delEyebrow: 'CAMILOREY · ZONA DE PELIGRO',
+    delEyebrow: 'CZECH IA AGENTS · ZONA DE PELIGRO',
     delTitle: 'Esto no se puede deshacer',
     delDesc: 'Una vez que elimines tu cuenta, todos tus datos se eliminan permanentemente y no se pueden recuperar.',
     delQueSeElimina: 'QUÉ SE ELIMINARÁ',
@@ -236,11 +236,11 @@ const TRANSLATIONS = {
     filaSuscripcionDesc: 'Administra tu plan',
     filaCuotas: 'Formato de Cuotas',
     filaTema: 'Tema',
-    filaTemaDesc: 'Elige cómo se ve CAMILOREY en este dispositivo.',
+    filaTemaDesc: 'Elige cómo se ve CZECH IA AGENTS en este dispositivo.',
     filaIdioma: 'Idioma',
     filaPrivacidad: 'Privacidad',
     filaPrivacidadDesc: 'Qué datos guardamos y cómo los usamos',
-    filaTerminosDesc: 'Qué es CAMILOREY y qué no es',
+    filaTerminosDesc: 'Qué es CZECH IA AGENTS y qué no es',
     filaAyuda: 'Ayuda y Soporte',
     filaAyudaDesc: 'Escríbenos si algo no funciona o tienes una duda',
     ayudaFaqTitle: 'Ayuda y FAQ',
@@ -270,7 +270,7 @@ const TRANSLATIONS = {
     politicaPrivacidad: 'Política de Privacidad',
     terminosCondiciones: 'Términos y Condiciones',
 
-    privacyEyebrow: 'CAMILOREY · PRIVACIDAD',
+    privacyEyebrow: 'CZECH IA AGENTS · PRIVACIDAD',
     privacyTitle: 'Tus datos, tu decisión',
     privacyIntro:
       'Guardamos lo mínimo para que el sitio funcione. Nada de esto se vende ni se comparte con nadie fuera de Google, Supabase y Vercel (quienes hacen funcionar el sitio).',
@@ -323,7 +323,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Seguidores',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Me gusta',
-    picksRecientesTipster: 'Picks recientes de CAMILOREY',
+    picksRecientesTipster: 'Picks recientes de CZECH IA AGENTS',
     misPicksSeguidosStats: 'Estadísticas de los destacados',
     sigueAlgoParaVerStats: 'Todavía no hay picks destacados para Exclusivos.',
     statPendientes: 'Pendientes',
@@ -406,7 +406,7 @@ const TRANSLATIONS = {
     notifPromosDesc: 'Product updates, tips and special offers',
     notifSeccionPrivacy: 'PRIVACY',
     notifAnaliticas: 'Analytics Data',
-    notifAnaliticasDesc: 'Share usage analytics to help improve CAMILOREY',
+    notifAnaliticasDesc: 'Share usage analytics to help improve CZECH IA AGENTS',
     guardar: 'Save',
 
     inicioEyebrow: 'Czech Liga Pro · Table tennis',
@@ -491,7 +491,7 @@ const TRANSLATIONS = {
     plansBullet2: 'My Bankroll, full H2H, and unlimited AI analysis',
     plansBullet3: 'Cancel anytime, no fine print',
     plansCardBadge: 'FULL ACCESS',
-    plansCardName: 'CAMILOREY Premium',
+    plansCardName: 'CZECH IA AGENTS Premium',
     plansCardDesc: 'For people who follow picks seriously',
     plansFeatRacha: 'Recent streak',
     plansFeatPrecision: 'Hit accuracy',
@@ -505,7 +505,7 @@ const TRANSLATIONS = {
     plansFeatAlertas: 'Real-time pick alerts',
     plansCta: 'Subscribe',
     plansCtaNote:
-      "Payment happens off-site, through a secure link. Once you're done, write to us by email or Telegram with your CAMILOREY account email and we'll activate your premium access within minutes.",
+      "Payment happens off-site, through a secure link. Once you're done, write to us by email or Telegram with your CZECH IA AGENTS account email and we'll activate your premium access within minutes.",
     plansToggleMensual: 'Monthly',
     plansToggleAnual: 'Yearly (-50%)',
     plansPeriodMensual: 'mo',
@@ -513,9 +513,9 @@ const TRANSLATIONS = {
     plansSavingsAnual: ' — Save US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancel anytime',
     premiumWelcomeEyebrow: 'Subscription active',
-    premiumWelcomeTitle: 'Welcome to CAMILOREY Premium',
+    premiumWelcomeTitle: 'Welcome to CZECH IA AGENTS Premium',
     premiumWelcomeSub: 'Your subscription is active until {date}.',
-    premiumWelcomeCardName: 'CAMILOREY Premium',
+    premiumWelcomeCardName: 'CZECH IA AGENTS Premium',
     premiumWelcomeCta: 'Start Exploring',
     cuentaTitle: 'Account',
     cuentaCambiarFoto: 'Change Photo',
@@ -530,7 +530,7 @@ const TRANSLATIONS = {
     editar: 'Edit',
     cuentaEliminarBtn: 'Delete Account',
     cuentaEmailEditNota: "We'll send a confirmation email to your new address before making the change.",
-    delEyebrow: 'CAMILOREY · DANGER ZONE',
+    delEyebrow: 'CZECH IA AGENTS · DANGER ZONE',
     delTitle: "This can't be undone",
     delDesc: 'Once you delete your account, all your data is permanently erased and cannot be recovered.',
     delQueSeElimina: "WHAT WILL BE DELETED",
@@ -556,11 +556,11 @@ const TRANSLATIONS = {
     filaSuscripcionDesc: 'Manage your plan',
     filaCuotas: 'Odds Format',
     filaTema: 'Theme',
-    filaTemaDesc: 'Choose how CAMILOREY looks on this device.',
+    filaTemaDesc: 'Choose how CZECH IA AGENTS looks on this device.',
     filaIdioma: 'Language',
     filaPrivacidad: 'Privacy',
     filaPrivacidadDesc: 'What data we store and how we use it',
-    filaTerminosDesc: 'What CAMILOREY is and isn’t',
+    filaTerminosDesc: 'What CZECH IA AGENTS is and isn’t',
     filaAyuda: 'Help & Support',
     filaAyudaDesc: "Write to us if something's not working or you have a question",
     ayudaFaqTitle: 'Help & FAQ',
@@ -590,7 +590,7 @@ const TRANSLATIONS = {
     politicaPrivacidad: 'Privacy Policy',
     terminosCondiciones: 'Terms and Conditions',
 
-    privacyEyebrow: 'CAMILOREY · PRIVACY',
+    privacyEyebrow: 'CZECH IA AGENTS · PRIVACY',
     privacyTitle: 'Your data, your choice',
     privacyIntro:
       "We keep the minimum needed for the site to work. None of this is sold or shared with anyone outside Google, Supabase, and Vercel (who run the site).",
@@ -642,7 +642,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Followers',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Likes',
-    picksRecientesTipster: "CAMILOREY's recent picks",
+    picksRecientesTipster: "CZECH IA AGENTS's recent picks",
     misPicksSeguidosStats: 'Featured picks stats',
     sigueAlgoParaVerStats: 'No featured Exclusive picks yet.',
     statPendientes: 'Pending',
@@ -725,7 +725,7 @@ const TRANSLATIONS = {
     notifPromosDesc: 'Atualizações do produto, dicas e ofertas especiais',
     notifSeccionPrivacy: 'PRIVACIDADE',
     notifAnaliticas: 'Dados de Analytics',
-    notifAnaliticasDesc: 'Compartilhar analytics de uso para melhorar o CAMILOREY',
+    notifAnaliticasDesc: 'Compartilhar analytics de uso para melhorar o CZECH IA AGENTS',
     guardar: 'Salvar',
 
     inicioEyebrow: 'Liga Pro Checa · Tênis de mesa',
@@ -810,7 +810,7 @@ const TRANSLATIONS = {
     plansBullet2: 'Minha Banca, H2H completo e análise com IA sem limites',
     plansBullet3: 'Cancele quando quiser, sem letras miúdas',
     plansCardBadge: 'ACESSO COMPLETO',
-    plansCardName: 'CAMILOREY Premium',
+    plansCardName: 'CZECH IA AGENTS Premium',
     plansCardDesc: 'Para quem acompanha os picks a sério',
     plansFeatRacha: 'Sequência recente',
     plansFeatPrecision: 'Precisão de acerto',
@@ -824,7 +824,7 @@ const TRANSLATIONS = {
     plansFeatAlertas: 'Alertas de picks em tempo real',
     plansCta: 'Assinar',
     plansCtaNote:
-      'O pagamento é feito fora do site, em um link seguro. Quando terminar, escreva para nós por e-mail ou Telegram com o e-mail da sua conta CAMILOREY e ativamos seu acesso premium em minutos.',
+      'O pagamento é feito fora do site, em um link seguro. Quando terminar, escreva para nós por e-mail ou Telegram com o e-mail da sua conta CZECH IA AGENTS e ativamos seu acesso premium em minutos.',
     plansToggleMensual: 'Mensal',
     plansToggleAnual: 'Anual (-50%)',
     plansPeriodMensual: 'mês',
@@ -832,9 +832,9 @@ const TRANSLATIONS = {
     plansSavingsAnual: ' — Economize US$100.00 (50%)',
     plansCancelaCuandoQuieras: 'Cancele quando quiser',
     premiumWelcomeEyebrow: 'Assinatura ativa',
-    premiumWelcomeTitle: 'Bem-vindo ao CAMILOREY Premium',
+    premiumWelcomeTitle: 'Bem-vindo ao CZECH IA AGENTS Premium',
     premiumWelcomeSub: 'Sua assinatura está ativa até {date}.',
-    premiumWelcomeCardName: 'CAMILOREY Premium',
+    premiumWelcomeCardName: 'CZECH IA AGENTS Premium',
     premiumWelcomeCta: 'Começar a Explorar',
     cuentaTitle: 'Conta',
     cuentaCambiarFoto: 'Trocar Foto',
@@ -849,7 +849,7 @@ const TRANSLATIONS = {
     editar: 'Editar',
     cuentaEliminarBtn: 'Excluir Conta',
     cuentaEmailEditNota: 'Vamos enviar um e-mail de confirmação para o novo endereço antes de fazer a mudança.',
-    delEyebrow: 'CAMILOREY · ZONA DE PERIGO',
+    delEyebrow: 'CZECH IA AGENTS · ZONA DE PERIGO',
     delTitle: 'Isso não pode ser desfeito',
     delDesc: 'Depois que você excluir sua conta, todos os seus dados são apagados permanentemente e não podem ser recuperados.',
     delQueSeElimina: 'O QUE SERÁ EXCLUÍDO',
@@ -875,11 +875,11 @@ const TRANSLATIONS = {
     filaSuscripcionDesc: 'Gerencie seu plano',
     filaCuotas: 'Formato de Odds',
     filaTema: 'Tema',
-    filaTemaDesc: 'Escolha a aparência do CAMILOREY neste dispositivo.',
+    filaTemaDesc: 'Escolha a aparência do CZECH IA AGENTS neste dispositivo.',
     filaIdioma: 'Idioma',
     filaPrivacidad: 'Privacidade',
     filaPrivacidadDesc: 'Quais dados guardamos e como os usamos',
-    filaTerminosDesc: 'O que o CAMILOREY é e o que não é',
+    filaTerminosDesc: 'O que o CZECH IA AGENTS é e o que não é',
     filaAyuda: 'Ajuda e Suporte',
     filaAyudaDesc: 'Escreva para nós se algo não funcionar ou tiver dúvidas',
     ayudaFaqTitle: 'Ajuda e FAQ',
@@ -909,7 +909,7 @@ const TRANSLATIONS = {
     politicaPrivacidad: 'Política de Privacidade',
     terminosCondiciones: 'Termos e Condições',
 
-    privacyEyebrow: 'CAMILOREY · PRIVACIDADE',
+    privacyEyebrow: 'CZECH IA AGENTS · PRIVACIDADE',
     privacyTitle: 'Seus dados, sua decisão',
     privacyIntro:
       'Guardamos o mínimo necessário para o site funcionar. Nada disso é vendido nem compartilhado com ninguém fora do Google, Supabase e Vercel (que fazem o site funcionar).',
@@ -962,7 +962,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Seguidores',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Curtidas',
-    picksRecientesTipster: 'Picks recentes da CAMILOREY',
+    picksRecientesTipster: 'Picks recentes da CZECH IA AGENTS',
     misPicksSeguidosStats: 'Estatísticas dos destacados',
     sigueAlgoParaVerStats: 'Ainda não há picks destacados para Exclusivos.',
     statPendientes: 'Pendentes',
@@ -1009,7 +1009,7 @@ const TRANSLATIONS = {
 };
 
 // Contenido real de la sub-pantalla "Ayuda y FAQ" del Perfil — cada
-// respuesta describe cómo funciona CAMILOREY de verdad (mismos
+// respuesta describe cómo funciona CZECH IA AGENTS de verdad (mismos
 // factores de lib/confidence.js, mismo origen de cuotas de
 // lib/rushbet.js), nada de texto genérico de relleno.
 const HELP_FAQ = {
@@ -1032,7 +1032,7 @@ const HELP_FAQ = {
         },
         {
           q: '¿Vendrán más deportes además de tenis de mesa?',
-          a: 'Todavía no — por ahora CAMILOREY cubre solo la Liga Pro Checa de tenis de mesa. Si eso cambia, lo vas a ver anunciado aquí primero.'
+          a: 'Todavía no — por ahora CZECH IA AGENTS cubre solo la Liga Pro Checa de tenis de mesa. Si eso cambia, lo vas a ver anunciado aquí primero.'
         }
       ]
     },
@@ -1094,7 +1094,7 @@ const HELP_FAQ = {
         },
         {
           q: 'Will more sports be added besides table tennis?',
-          a: "Not yet — for now CAMILOREY only covers Czech Liga Pro table tennis. If that changes, you'll see it announced here first."
+          a: "Not yet — for now CZECH IA AGENTS only covers Czech Liga Pro table tennis. If that changes, you'll see it announced here first."
         }
       ]
     },
@@ -1156,7 +1156,7 @@ const HELP_FAQ = {
         },
         {
           q: 'Vão adicionar mais esportes além do tênis de mesa?',
-          a: 'Ainda não — por enquanto o CAMILOREY cobre só a Liga Pro Checa de tênis de mesa. Se isso mudar, você vai ver anunciado aqui primeiro.'
+          a: 'Ainda não — por enquanto o CZECH IA AGENTS cobre só a Liga Pro Checa de tênis de mesa. Se isso mudar, você vai ver anunciado aqui primeiro.'
         }
       ]
     },
@@ -1399,7 +1399,7 @@ export async function getServerSideProps({ query }) {
   const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
 
   // Foto/nombre del admin para la tarjeta "Tipster que sigues" de
-  // Inicio — CAMILOREY es un solo tipster (el sitio mismo), no una
+  // Inicio — CZECH IA AGENTS es un solo tipster (el sitio mismo), no una
   // lista de varios, así que solo hace falta este único perfil.
   const tipsterProfilePromise = process.env.NEXT_PUBLIC_ADMIN_EMAIL
     ? supabase.from('profiles').select('custom_avatar_url, avatar_emoji').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
@@ -1431,7 +1431,7 @@ export async function getServerSideProps({ query }) {
   // del límite de arriba (últimos 60 resueltos en general) — con
   // muchos partidos resolviéndose de golpe (ej. al ponerse al día
   // después de una caída), un destacado viejo quedaba empujado fuera
-  // de esa ventana y desaparecía de "Picks recientes de CAMILOREY"
+  // de esa ventana y desaparecía de "Picks recientes de CZECH IA AGENTS"
   // aunque siguiera marcado de verdad en la base (bug real reportado:
   // "se activa pero no aparece", incluso para el admin). Se trae
   // aparte, sin límite de recencia, y se mezcla con resolvedPicksRaw
@@ -1570,7 +1570,7 @@ export async function getServerSideProps({ query }) {
     .map((pick) => {
       const match = matchesById.get(pick.match_id);
       if (!match) return null;
-      // "El pick de CAMILOREY" (pick.tipster_pick) nunca se oculta por
+      // "El pick de CZECH IA AGENTS" (pick.tipster_pick) nunca se oculta por
       // estas dos reglas — si no, en cuanto el partido arrancara (o
       // estuviera por arrancar) el aviso/destacado desaparecía de
       // Inicio hasta que el próximo sync lo resolviera del todo, a
@@ -1925,7 +1925,7 @@ export async function getServerSideProps({ query }) {
   // resuelto. Solo sale por /api/vip-picks, con el JWT verificado.
   const publicResolvedPicks = resolvedPicks.filter((p) => !p.exclusive);
 
-  // "El pick de CAMILOREY" — marcado a mano por el admin (ver
+  // "El pick de CZECH IA AGENTS" — marcado a mano por el admin (ver
   // pages/api/admin-tipster-pick.js), no calculado acá. Si el pick
   // marcado es Exclusivo, queda afuera de esta versión pública a
   // propósito (mismo candado que arriba) — solo lo ven quien tenga
@@ -2676,10 +2676,10 @@ function FollowedPickCard({ pick, onClick, followed, onToggleFollow }) {
             fondo, y la foto del jugador encima de todo — con recorte
             (fondo transparente) la figura tapa la marca donde se
             superpone, pero se ve alrededor. */}
-        <span className="followed-watermark followed-watermark-1">CAMILOREY</span>
-        <span className="followed-watermark followed-watermark-2">CAMILOREY</span>
-        <span className="followed-watermark followed-watermark-3">CAMILOREY</span>
-        <span className="followed-watermark followed-watermark-4">CAMILOREY</span>
+        <span className="followed-watermark followed-watermark-1">CZECH IA AGENTS</span>
+        <span className="followed-watermark followed-watermark-2">CZECH IA AGENTS</span>
+        <span className="followed-watermark followed-watermark-3">CZECH IA AGENTS</span>
+        <span className="followed-watermark followed-watermark-4">CZECH IA AGENTS</span>
         {pick.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -3108,10 +3108,10 @@ function StreamPlayer({ videoIds, minimized, onClose, onToggleMinimize }) {
                   movimiento — pointer-events:none para no bloquear
                   play/pausa ni el botón de cerrar, solo se ve encima. */}
               <div className="stream-player-banner stream-player-banner-top">
-                <span>CAMILOREY · CAMILOREY · CAMILOREY · CAMILOREY ·</span>
+                <span>CZECH IA AGENTS · CZECH IA AGENTS · CZECH IA AGENTS · CZECH IA AGENTS ·</span>
               </div>
               <div className="stream-player-banner stream-player-banner-bottom">
-                <span>CAMILOREY · CAMILOREY · CAMILOREY · CAMILOREY ·</span>
+                <span>CZECH IA AGENTS · CZECH IA AGENTS · CZECH IA AGENTS · CZECH IA AGENTS ·</span>
               </div>
             </div>
           ))}
@@ -4643,7 +4643,7 @@ function GoogleGIcon({ size = 20 }) {
 
 // Mini-onboarding de 3 pantallas — se muestra UNA vez por navegador
 // en la primera visita (con o sin sesión, a diferencia del aviso de
-// privacidad de abajo), explicando qué es CAMILOREY, qué es el
+// privacidad de abajo), explicando qué es CZECH IA AGENTS, qué es el
 // Índice IA y qué es Mi Bankroll, para que alguien nuevo no llegue
 // perdido a esos conceptos.
 const ONBOARDING_SLIDES = [
@@ -4943,7 +4943,7 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
   );
 }
 
-// Perfil del tipster (CAMILOREY) — se abre al tocar su foto en la
+// Perfil del tipster (CZECH IA AGENTS) — se abre al tocar su foto en la
 // tarjeta "Tipster que sigues" de Inicio. El follower count es fijo
 // (100K, pedido explícito, no es un conteo real de una tabla) — todo
 // lo demás (Picks/estadísticas/la lista) sale de recentPicks, que son
@@ -4980,13 +4980,13 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
         <div className="tipster-profile-hero">
           <div className="tipster-profile-avatar-lg">
             {tipsterProfile.avatarUrl ? (
-              <img src={tipsterProfile.avatarUrl} alt="CAMILOREY" />
+              <img src={tipsterProfile.avatarUrl} alt="CZECH IA AGENTS" />
             ) : (
               <span>{tipsterProfile.avatarEmoji || 'CR'}</span>
             )}
           </div>
           <div className="tipster-profile-name">
-            CAMILOREY <ProfileIcon name="verified" size={16} />
+            CZECH IA AGENTS <ProfileIcon name="verified" size={16} />
           </div>
 
           <div className="tipster-profile-stats-row">
@@ -5438,7 +5438,7 @@ function ProfileModal({
       alert('Tienes las notificaciones bloqueadas para este sitio. Actívalas desde la configuración del navegador.');
     } else if (result === 'ios-needs-install') {
       alert(
-        'En iPhone/iPad, las notificaciones solo funcionan si agregas CAMILOREY a tu pantalla de inicio primero: toca Compartir (el cuadrito con la flecha) → "Agregar a pantalla de inicio", y abre la app desde ese ícono en vez de Safari.'
+        'En iPhone/iPad, las notificaciones solo funcionan si agregas CZECH IA AGENTS a tu pantalla de inicio primero: toca Compartir (el cuadrito con la flecha) → "Agregar a pantalla de inicio", y abre la app desde ese ícono en vez de Safari.'
       );
     } else if (result === 'unsupported') {
       alert('Tu navegador no soporta notificaciones push.');
@@ -5947,7 +5947,7 @@ function ProfileModal({
             </span>
             <div className="profile-row-body">
               <strong>{t('filaIdioma')}</strong>
-              <p>{lang === 'en' ? 'Choose the language for CAMILOREY.' : 'Elige el idioma de CAMILOREY.'}</p>
+              <p>{lang === 'en' ? 'Choose the language for CZECH IA AGENTS.' : 'Elige el idioma de CZECH IA AGENTS.'}</p>
             </div>
           </div>
 
@@ -7177,7 +7177,7 @@ export default function Home({
   // algo visible a cualquiera.
   const canSeeExclusive = isAdmin || isPremium;
 
-  // Seguir/dejar de seguir al tipster (CAMILOREY) desde su tarjeta de
+  // Seguir/dejar de seguir al tipster (CZECH IA AGENTS) desde su tarjeta de
   // perfil. profiles.follows_tipster es NULL hasta que alguien lo toca
   // a mano — pedido explícito: "los usuarios automáticamente que el
   // sistema me siga solo los del exclusivo", así que mientras nadie lo
@@ -7203,7 +7203,7 @@ export default function Home({
     setTipsterFollowBusy(false);
   };
 
-  // Marca/desmarca "el pick de CAMILOREY" (ver pages/api/admin-tipster-pick.js)
+  // Marca/desmarca "el pick de CZECH IA AGENTS" (ver pages/api/admin-tipster-pick.js)
   // — solo admin. Manda el ESTADO DESTINO explícito (nextValue), no un
   // toggle que el servidor decida solo — así una petición duplicada
   // (doble toque, reintento de red porque esta función tarda unos
@@ -7236,7 +7236,7 @@ export default function Home({
       }
       // Actualiza TODOS los arrays de donde puede venir el pick (no
       // solo modalPick/exclusivePicks) — si no, "Picks recientes de
-      // CAMILOREY" en el perfil del tipster (que arma su lista a
+      // CZECH IA AGENTS" en el perfil del tipster (que arma su lista a
       // partir de picks/resolvedPicks/exclusivePicks) se quedaba
       // mostrando la versión vieja hasta el próximo poll de 20s, aunque
       // el botón ya se viera marcado. Bug real reportado: "se activan
@@ -7447,7 +7447,7 @@ export default function Home({
   const [exclusivePicks, setExclusivePicks] = useState([]);
   const [exclusivePicksError, setExclusivePicksError] = useState(null);
   useEffect(() => {
-    // También en Inicio (no solo Picks VIP): "el pick de CAMILOREY" que
+    // También en Inicio (no solo Picks VIP): "el pick de CZECH IA AGENTS" que
     // se muestra ahí puede ser un pick Exclusivo, y esos nunca viajan
     // por los props/poll públicos — hace falta esta fuente autenticada
     // para que quien tiene Exclusivo lo vea en Inicio.
@@ -7480,14 +7480,14 @@ export default function Home({
     };
   }, [view, canSeeExclusive]);
 
-  // "El pick de CAMILOREY" a mostrar en Inicio: si es un pick público
+  // "El pick de CZECH IA AGENTS" a mostrar en Inicio: si es un pick público
   // ya viene por tipsterPick (props/poll). Si es Exclusivo, ese campo
   // público queda en null a propósito (ver getServerSideProps) — para
   // quien SÍ tiene Exclusivo, se busca la misma marca dentro de
   // exclusivePicks (autenticado, ver arriba).
   const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
 
-  // "Picks recientes de CAMILOREY" del perfil del tipster — pedido
+  // "Picks recientes de CZECH IA AGENTS" del perfil del tipster — pedido
   // explícito: SOLO los que el admin destacó a mano (picks.tipster_pick,
   // ver pages/api/admin-tipster-pick.js), pendientes o resueltos, nunca
   // "lo que la cuenta sigue". picks/resolvedPicks (público) y
@@ -7941,7 +7941,7 @@ export default function Home({
     return (
       <>
         <Head>
-          <title>CAMILOREY</title>
+          <title>CZECH IA AGENTS</title>
         </Head>
         <div style={{ minHeight: '100vh', background: '#0E0D0C' }}></div>
       </>
@@ -7951,7 +7951,7 @@ export default function Home({
     return (
       <>
         <Head>
-          <title>CAMILOREY</title>
+          <title>CZECH IA AGENTS</title>
           <meta name="robots" content="noindex" />
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link
@@ -7997,7 +7997,7 @@ export default function Home({
                 margin: '0 0 12px'
               }}
             >
-              CAMILOREY
+              CZECH IA AGENTS
             </h1>
             <p style={{ color: '#F5F1EC', opacity: 0.75, fontSize: '14.5px', lineHeight: 1.5, margin: '0 0 22px', maxWidth: '340px' }}>
               {!user
@@ -8052,17 +8052,17 @@ export default function Home({
   return (
     <>
       <Head>
-        <title>CAMILOREY · Picks Liga Pro Checa de tenis de mesa</title>
+        <title>CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa</title>
         <meta name="description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
         <link rel="canonical" href="https://camilorey-app.vercel.app/" />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="CAMILOREY" />
-        <meta property="og:title" content="CAMILOREY · Picks Liga Pro Checa de tenis de mesa" />
+        <meta property="og:site_name" content="CZECH IA AGENTS" />
+        <meta property="og:title" content="CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa" />
         <meta property="og:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
         <meta property="og:url" content="https://camilorey-app.vercel.app/" />
         <meta property="og:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content="CAMILOREY · Picks Liga Pro Checa de tenis de mesa" />
+        <meta name="twitter:title" content="CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa" />
         <meta name="twitter:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
         <meta name="twitter:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -8098,7 +8098,7 @@ export default function Home({
 
       <header className="site">
         <a href="#inicio" className="logo">
-          CAMILOREY
+          CZECH IA AGENTS
           <span className="dot"></span>
         </a>
         <nav className="top-nav">
@@ -8128,7 +8128,7 @@ export default function Home({
                   );
                 else if (result === 'ios-needs-install')
                   alert(
-                    'En iPhone/iPad, las notificaciones solo funcionan si agregas CAMILOREY a tu pantalla de inicio primero: toca Compartir (el cuadrito con la flecha) → "Agregar a pantalla de inicio", y abre la app desde ese ícono en vez de Safari.'
+                    'En iPhone/iPad, las notificaciones solo funcionan si agregas CZECH IA AGENTS a tu pantalla de inicio primero: toca Compartir (el cuadrito con la flecha) → "Agregar a pantalla de inicio", y abre la app desde ese ícono en vez de Safari.'
                   );
                 else if (result === 'unsupported') alert('Tu navegador no soporta notificaciones push.');
                 else alert('No se pudo activar las notificaciones, intenta de nuevo.');
@@ -8210,14 +8210,14 @@ export default function Home({
           <div className="tipster-follow-card">
             <button type="button" className="tipster-follow-avatar" onClick={() => setShowTipsterProfile(true)}>
               {tipsterProfile.avatarUrl ? (
-                <img src={tipsterProfile.avatarUrl} alt="CAMILOREY" />
+                <img src={tipsterProfile.avatarUrl} alt="CZECH IA AGENTS" />
               ) : (
                 <span className="tipster-follow-initials">{tipsterProfile.avatarEmoji || 'CR'}</span>
               )}
             </button>
             <div className="tipster-follow-info">
               <div className="tipster-follow-name">
-                CAMILOREY <ProfileIcon name="verified" size={13} />
+                CZECH IA AGENTS <ProfileIcon name="verified" size={13} />
               </div>
               {isFollowingTipster ? (
                 <span className="tipster-follow-pill">
@@ -8235,7 +8235,7 @@ export default function Home({
                 <ProfileIcon name="bell" size={16} />
               </span>
               <span className="tipster-pick-notice-text">
-                <strong>CAMILOREY</strong> {t('tipsterAcabaDePublicar')}
+                <strong>CZECH IA AGENTS</strong> {t('tipsterAcabaDePublicar')}
               </span>
               <span className="tipster-pick-notice-cta">{t('verPick')} →</span>
             </button>
@@ -9432,7 +9432,7 @@ export default function Home({
       </main>
 
       <footer className="site">
-        <strong>CAMILOREY</strong> {t('footerDisclaimer')}
+        <strong>CZECH IA AGENTS</strong> {t('footerDisclaimer')}
         <div style={{ marginTop: '10px', display: 'flex', gap: '14px' }}>
           <a href="/privacidad">{t('politicaPrivacidad')}</a>
           <a href="/terminos">{t('terminosCondiciones')}</a>

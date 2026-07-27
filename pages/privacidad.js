@@ -1,7 +1,7 @@
 import Head from 'next/head';
 
 // ============================================================
-// CAMILOREY — Política de Privacidad
+// CZECH IA AGENTS — Política de Privacidad
 // Página estática aparte del SPA principal (no pasa por
 // getServerSideProps ni por el estado de la app) — describe en
 // español, y con exactitud a lo que el código realmente hace, qué
@@ -15,8 +15,8 @@ export default function Privacidad() {
   return (
     <>
       <Head>
-        <title>Política de Privacidad · CAMILOREY</title>
-        <meta name="description" content="Qué datos recopila CAMILOREY y cómo los usa." />
+        <title>Política de Privacidad · CZECH IA AGENTS</title>
+        <meta name="description" content="Qué datos recopila CZECH IA AGENTS y cómo los usa." />
         <meta name="robots" content="index,follow" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -45,13 +45,13 @@ export default function Privacidad() {
       </Head>
       <div className="wrap">
         <a className="back" href="/">
-          ← Volver a CAMILOREY
+          ← Volver a CZECH IA AGENTS
         </a>
         <h1>Política de Privacidad</h1>
         <p className="updated">Última actualización: julio de 2026</p>
 
         <p>
-          CAMILOREY es un sitio informativo y de entretenimiento sobre picks y análisis de la Liga Pro Checa de tenis
+          CZECH IA AGENTS es un sitio informativo y de entretenimiento sobre picks y análisis de la Liga Pro Checa de tenis
           de mesa. No gestionamos apuestas ni fondos de terceros — no procesamos pagos ni movemos dinero real. Esta
           página explica qué datos personales recopilamos cuando usas el sitio, para qué los usamos, y cómo puedes
           controlarlos.
@@ -91,7 +91,7 @@ export default function Privacidad() {
         <p>
           Usamos el almacenamiento local de tu navegador (localStorage) para recordar tu preferencia de tema
           (oscuro/claro/sistema) y tu sesión de Google (a través de Supabase Auth), no para rastrearte en otros
-          sitios ni para publicidad — CAMILOREY no muestra anuncios de terceros.
+          sitios ni para publicidad — CZECH IA AGENTS no muestra anuncios de terceros.
         </p>
 
         <h2>Tus derechos</h2>
@@ -102,7 +102,7 @@ export default function Privacidad() {
         </p>
 
         <h2>Edad mínima</h2>
-        <p>CAMILOREY está dirigido exclusivamente a mayores de 18 años, en línea con el contenido relacionado a apuestas deportivas que analizamos.</p>
+        <p>CZECH IA AGENTS está dirigido exclusivamente a mayores de 18 años, en línea con el contenido relacionado a apuestas deportivas que analizamos.</p>
 
         <h2>Cambios a esta política</h2>
         <p>Si cambiamos qué datos recopilamos o para qué los usamos, actualizamos esta página con la nueva fecha arriba.</p>
@@ -113,7 +113,7 @@ export default function Privacidad() {
         </p>
 
         <footer>
-          <strong>CAMILOREY</strong> ofrece análisis y opiniones propias con fines informativos y de entretenimiento
+          <strong>CZECH IA AGENTS</strong> ofrece análisis y opiniones propias con fines informativos y de entretenimiento
           sobre la Liga Pro Checa de tenis de mesa. No garantizamos resultados y no gestionamos apuestas ni fondos de
           terceros. Servicio dirigido exclusivamente a mayores de 18 años. Si sientes que el juego deja de ser un
           entretenimiento, busca ayuda profesional. Juega siempre con responsabilidad.

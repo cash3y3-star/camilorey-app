@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — marcador en vivo
+// CZECH IA AGENTS — marcador en vivo
 // El navegador llama esto cada ~8 segundos mientras hay un partido
 // en vivo en pantalla. No toca Supabase — lee directo de la fuente,
 // para no depender del ciclo de 30 min del sync (esto es lo único en

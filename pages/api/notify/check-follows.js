@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — vigilante de notificaciones push
+// CZECH IA AGENTS — vigilante de notificaciones push
 // Lo dispara un cronjob externo (cron-job.org) cada 30-60s con un
 // token secreto. Revisa SOLO los partidos que alguien esté siguiendo
 // (nunca todos), y manda una notificación push cuando:

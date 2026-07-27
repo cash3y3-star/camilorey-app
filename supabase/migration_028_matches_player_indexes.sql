@@ -1,4 +1,4 @@
--- CAMILOREY — índices en matches.player_a_id / player_b_id / tournament_id
+-- CZECH IA AGENTS — índices en matches.player_a_id / player_b_id / tournament_id
 --
 -- matches nunca tuvo índice en estas columnas (solo scheduled_at y
 -- status) — así que TODA consulta que filtra por jugador o por torneo

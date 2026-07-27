@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — detalle completo de los picks que alguien sigue
+// CZECH IA AGENTS — detalle completo de los picks que alguien sigue
 // Se usa en la pestaña Seguidos, que NO debe ocultar un pick solo
 // porque el partido ya arrancó o está por arrancar (esa regla es
 // para "Picks", no para lo que alguien está siguiendo a propósito

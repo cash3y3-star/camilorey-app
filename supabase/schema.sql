@@ -1,5 +1,5 @@
 -- ============================================================
--- CAMILOREY — esquema de base de datos (Supabase / Postgres)
+-- CZECH IA AGENTS — esquema de base de datos (Supabase / Postgres)
 -- ============================================================
 
 create table if not exists players (

@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — avisa picks EXCLUSIVOS nuevos, solo a Exclusivo/Premium
+// CZECH IA AGENTS — avisa picks EXCLUSIVOS nuevos, solo a Exclusivo/Premium
 // Lo llama scripts/sync.js al final de cada corrida (no un cron
 // aparte) con { picks: [{ player, opponent, market, confidence, odds,
 // tournament }, ...] } — solo picks que ya calificaron como

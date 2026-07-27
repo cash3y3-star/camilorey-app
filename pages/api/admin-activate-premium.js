@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — activar/quitar premium a mano (solo admin)
+// CZECH IA AGENTS — activar/quitar premium a mano (solo admin)
 // El pago pasa por fuera del sitio (link de TipsterPage) — cuando le
 // avisan al admin que alguien pagó (correo o Telegram), esto marca a
 // esa cuenta como premium por N días. Mismo patrón de auth real que

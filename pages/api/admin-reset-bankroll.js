@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — el admin reinicia a mano "Mi Bankroll" de una cuenta
+// CZECH IA AGENTS — el admin reinicia a mano "Mi Bankroll" de una cuenta
 // (solo admin), dejándola como si nunca la hubiera usado. "Mi
 // Bankroll" no guarda una bitácora propia — el balance/evolución
 // siempre se recalcula en el cliente a partir de followed_picks +

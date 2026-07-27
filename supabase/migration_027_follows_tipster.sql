@@ -1,4 +1,4 @@
--- CAMILOREY — seguir/dejar de seguir al tipster (CAMILOREY) desde su
+-- CZECH IA AGENTS — seguir/dejar de seguir al tipster (CZECH IA AGENTS) desde su
 -- tarjeta de perfil en Inicio. Sin default a propósito: NULL significa
 -- "nunca lo tocó a mano", y en ese caso el front decide solo según el
 -- plan (Exclusivo/Premium/admin arrancan siguiendo, gratis no) — ver

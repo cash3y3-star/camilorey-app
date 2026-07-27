@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — backfill de historial reciente de jugadores
+// CZECH IA AGENTS — backfill de historial reciente de jugadores
 // Corre cada 30 min (.github/workflows/backfill-history.yml), además
 // de poder dispararse a mano.
 //

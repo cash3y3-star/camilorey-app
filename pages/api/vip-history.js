@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — historial de todo lo que salió alguna vez en "Picks VIP"
+// CZECH IA AGENTS — historial de todo lo que salió alguna vez en "Picks VIP"
 // (solo admin). Un pick cuenta acá si is_exclusive=true (decidido una
 // sola vez al generarse, por el modelo de ML de lib/ml-exclusive.js —
 // o el criterio viejo confidence>=85+odds>=1.60 mientras la muestra de

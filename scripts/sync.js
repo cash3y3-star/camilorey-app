@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — sincronización real
+// CZECH IA AGENTS — sincronización real
 // Corre en GitHub Actions cada 30 min.
 //
 // tt.league-pro.com es una app Nuxt con SSR: cada página trae

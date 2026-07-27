@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — últimos errores registrados de la app (solo admin)
+// CZECH IA AGENTS — últimos errores registrados de la app (solo admin)
 // Mismo patrón de auth que model-stats.js: verifica el JWT del que
 // llama en vez de un token de query.
 // ============================================================

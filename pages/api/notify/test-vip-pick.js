@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — prueba el aviso de "Pick Exclusivo nuevo" en el propio
+// CZECH IA AGENTS — prueba el aviso de "Pick Exclusivo nuevo" en el propio
 // dispositivo del admin, con datos REALES (el Exclusivo más reciente
 // publicado), sin esperar a que sync.js genere uno nuevo. Mismo
 // patrón de auth que send-promo.js (JWT + NEXT_PUBLIC_ADMIN_EMAIL).

@@ -1,4 +1,4 @@
-// Service worker de CAMILOREY — solo existe para recibir
+// Service worker de CZECH IA AGENTS — solo existe para recibir
 // notificaciones push del navegador cuando el sitio no está abierto.
 // No cachea nada más (no es un service worker de "app offline").
 
@@ -7,10 +7,10 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data ? event.data.json() : {};
   } catch (e) {
-    payload = { title: 'CAMILOREY', body: event.data ? event.data.text() : '' };
+    payload = { title: 'CZECH IA AGENTS', body: event.data ? event.data.text() : '' };
   }
 
-  const title = payload.title || 'CAMILOREY';
+  const title = payload.title || 'CZECH IA AGENTS';
   const options = {
     body: payload.body || '',
     tag: payload.tag || undefined,

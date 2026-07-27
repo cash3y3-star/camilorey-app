@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — envía una notificación de promoción/novedad a todos los
+// CZECH IA AGENTS — envía una notificación de promoción/novedad a todos los
 // usuarios con esa categoría activada. A diferencia de check-follows.js
 // y new-picks.js (que dispara un cron o sync.js), esta la llama el
 // admin a mano cuando quiere anunciar algo — mismo patrón de auth que

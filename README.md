@@ -1,4 +1,4 @@
-# CAMILOREY — app real (Next.js + Supabase + Vercel)
+# CZECH IA AGENTS — app real (Next.js + Supabase + Vercel)
 
 ## Qué es esto
 App completa para picks de la Liga Pro Checa de tenis de mesa: base de

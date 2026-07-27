@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — registro de usuarios registrados (correo, nombre, desde
+// CZECH IA AGENTS — registro de usuarios registrados (correo, nombre, desde
 // cuándo, si tiene premium) — solo admin. Mismo patrón de auth que
 // error-log.js/model-stats.js: verifica el JWT del que llama.
 // ============================================================

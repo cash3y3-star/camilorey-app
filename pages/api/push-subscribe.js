@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — guarda la suscripción push del navegador
+// CZECH IA AGENTS — guarda la suscripción push del navegador
 // El insert/upsert directo desde el cliente (supabaseClient, con RLS)
 // falla cuando el mismo endpoint (identifica al navegador, no al
 // usuario) ya estaba guardado a nombre de otra cuenta — el UPSERT

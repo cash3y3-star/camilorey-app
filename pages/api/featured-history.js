@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — historial de picks que fueron "destacados" (solo admin)
+// CZECH IA AGENTS — historial de picks que fueron "destacados" (solo admin)
 // picks.featured se marca en scripts/sync.js con el mismo criterio
 // que el pick destacado de Inicio (cuota real >1.60 preferida, luego
 // mayor confianza) y queda fijo una vez el pick se resuelve — así

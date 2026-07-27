@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — corre los CREATE INDEX CONCURRENTLY de
+// CZECH IA AGENTS — corre los CREATE INDEX CONCURRENTLY de
 // supabase/migration_028_matches_player_indexes.sql directo contra
 // Postgres, sin pasar por el SQL Editor del panel de Supabase.
 //

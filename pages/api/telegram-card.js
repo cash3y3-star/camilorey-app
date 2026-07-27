@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — genera la imagen tipo "tarjeta de pick" (dos fotos +
+// CZECH IA AGENTS — genera la imagen tipo "tarjeta de pick" (dos fotos +
 // VS + nombres + el pick) que se manda a Telegram — pedido
 // 2026-07-19: "quiero la foto no la foto del jugador" (mostró el
 // modal de "Partido detallado" como referencia). No es una captura

@@ -1,7 +1,7 @@
 import Head from 'next/head';
 
 // ============================================================
-// CAMILOREY — Términos y Condiciones
+// CZECH IA AGENTS — Términos y Condiciones
 // Página estática aparte del SPA principal (mismo patrón que
 // pages/privacidad.js) — describe con exactitud lo que el sitio es y
 // no es: análisis propio de entretenimiento, no un operador de
@@ -14,8 +14,8 @@ export default function Terminos() {
   return (
     <>
       <Head>
-        <title>Términos y Condiciones · CAMILOREY</title>
-        <meta name="description" content="Condiciones de uso del sitio CAMILOREY." />
+        <title>Términos y Condiciones · CZECH IA AGENTS</title>
+        <meta name="description" content="Condiciones de uso del sitio CZECH IA AGENTS." />
         <meta name="robots" content="index,follow" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -44,25 +44,25 @@ export default function Terminos() {
       </Head>
       <div className="wrap">
         <a className="back" href="/">
-          ← Volver a CAMILOREY
+          ← Volver a CZECH IA AGENTS
         </a>
         <h1>Términos y Condiciones</h1>
         <p className="updated">Última actualización: julio de 2026</p>
 
         <p>
-          Al usar CAMILOREY aceptas estos términos. Léelos con calma — están escritos para que quede claro qué es
+          Al usar CZECH IA AGENTS aceptas estos términos. Léelos con calma — están escritos para que quede claro qué es
           este sitio (y qué no es) antes de que sigas ningún pick.
         </p>
 
-        <h2>Qué es CAMILOREY</h2>
+        <h2>Qué es CZECH IA AGENTS</h2>
         <p>
-          CAMILOREY es un sitio informativo y de entretenimiento que publica análisis y opiniones propias sobre
+          CZECH IA AGENTS es un sitio informativo y de entretenimiento que publica análisis y opiniones propias sobre
           partidos de la Liga Pro Checa de tenis de mesa (tt.league-pro.com), generados a partir de un modelo
           estadístico propio (rating, racha reciente y enfrentamientos directos de cada jugador).
         </p>
         <div className="card">
           <p style={{ margin: 0 }}>
-            <strong>CAMILOREY no es una casa de apuestas.</strong> No procesamos pagos, no gestionamos apuestas ni
+            <strong>CZECH IA AGENTS no es una casa de apuestas.</strong> No procesamos pagos, no gestionamos apuestas ni
             fondos de terceros, y no movemos dinero real en ningún momento. "Mi Bankroll" es un simulador con números
             que tú mismo escribes — no representa saldo, depósito ni ganancia real.
           </p>
@@ -80,14 +80,14 @@ export default function Terminos() {
         <p>
           Las cuotas que se muestran junto a cada pick provienen de Rushbet, un operador con licencia de Coljuegos
           en Colombia (concesión C1972) — las mostramos solo como referencia informativa, cruzadas automáticamente
-          por nombre de jugador y horario. CAMILOREY no opera, controla ni se responsabiliza por Rushbet ni por
+          por nombre de jugador y horario. CZECH IA AGENTS no opera, controla ni se responsabiliza por Rushbet ni por
           ninguna otra casa de apuestas; cualquier apuesta real que decidas hacer es una decisión tuya, en la
           plataforma de terceros que elijas, bajo sus propios términos.
         </p>
 
         <h2>Edad mínima y juego responsable</h2>
         <p>
-          El acceso a CAMILOREY está dirigido exclusivamente a mayores de 18 años, por el contenido relacionado a
+          El acceso a CZECH IA AGENTS está dirigido exclusivamente a mayores de 18 años, por el contenido relacionado a
           apuestas deportivas que analizamos. Si sientes que el juego deja de ser un entretenimiento, busca ayuda
           profesional — juega siempre con responsabilidad.
         </p>
@@ -108,8 +108,8 @@ export default function Terminos() {
 
         <h2>Propiedad</h2>
         <p>
-          El análisis, el modelo de confianza, el diseño y la marca "CAMILOREY" son propios de este sitio. Los
-          nombres de jugadores, torneos y datos de partidos provienen de tt.league-pro.com, un tercero — CAMILOREY
+          El análisis, el modelo de confianza, el diseño y la marca "CZECH IA AGENTS" son propios de este sitio. Los
+          nombres de jugadores, torneos y datos de partidos provienen de tt.league-pro.com, un tercero — CZECH IA AGENTS
           no reclama ser su fuente original ni tiene afiliación con ellos.
         </p>
 
@@ -124,7 +124,7 @@ export default function Terminos() {
 
         <h2>Límite de responsabilidad</h2>
         <p>
-          CAMILOREY no se hace responsable por pérdidas económicas derivadas de apuestas que hagas en base a
+          CZECH IA AGENTS no se hace responsable por pérdidas económicas derivadas de apuestas que hagas en base a
           nuestro análisis, en ninguna plataforma. El contenido es informativo y de entretenimiento — la decisión y
           el riesgo de cualquier apuesta real son enteramente tuyos.
         </p>
@@ -139,7 +139,7 @@ export default function Terminos() {
         </p>
 
         <footer>
-          <strong>CAMILOREY</strong> ofrece análisis y opiniones propias con fines informativos y de entretenimiento
+          <strong>CZECH IA AGENTS</strong> ofrece análisis y opiniones propias con fines informativos y de entretenimiento
           sobre la Liga Pro Checa de tenis de mesa. No garantizamos resultados y no gestionamos apuestas ni fondos de
           terceros. Servicio dirigido exclusivamente a mayores de 18 años. Si sientes que el juego deja de ser un
           entretenimiento, busca ayuda profesional. Juega siempre con responsabilidad.

@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — estado de partidos del día, para refrescar Calendario
+// CZECH IA AGENTS — estado de partidos del día, para refrescar Calendario
 // solo (sin recargar la página). Misma lógica de ventana/estado que
 // getServerSideProps usa para "matches", pero como endpoint aparte
 // para poder consultarlo cada tantos segundos desde el cliente.

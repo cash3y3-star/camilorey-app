@@ -1,5 +1,5 @@
 // ============================================================
-// CAMILOREY — análisis de acierto real vs lib/confidence.js
+// CZECH IA AGENTS — análisis de acierto real vs lib/confidence.js
 // Solo lee y reporta a consola, no escribe nada en la base de datos.
 // Se corre manual desde GitHub Actions cuando quieras ver qué tan
 // calibrado está el modelo con los picks que ya se resolvieron.
