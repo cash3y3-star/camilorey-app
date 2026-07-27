@@ -16,6 +16,11 @@
 // gratis siga viendo lo que sigue de los picks públicos), pero
 // is_exclusive solo sale si ese token es de verdad admin o premium
 // activo — mismo chequeo que vip-picks.js/exclusive-balance.js.
+//
+// 2026-07-26: el texto de Análisis IA también pasó a ser beneficio
+// premium (antes se veía completo con solo estar logueado) — se
+// reusa el mismo canSeeExclusive para no mandarlo si el pick no es
+// exclusivo pero el viewer tampoco es premium/admin.
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -236,7 +241,7 @@ export default async function handler(req, res) {
         confidence,
         tier: confidenceTier(confidence),
         odds: pick.odds ? Number(pick.odds) : null,
-        analysis: buildAnalysis(pick.factors),
+        analysis: canSeeExclusive ? buildAnalysis(pick.factors) : null,
         history,
         streakLabel: streakLabelFromHistory(history),
         opponentHistory,

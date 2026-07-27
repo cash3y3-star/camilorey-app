@@ -76,6 +76,24 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+  // El Análisis IA es beneficio premium (2026-07-26) — este endpoint es
+  // público y sin login, así que igual que is_exclusive, el texto del
+  // análisis solo sale si el token (opcional, mismo patrón que
+  // followed-detail.js) es de verdad admin o premium activo.
+  let canSeeAnalysis = false;
+  const authToken = (req.headers.authorization || '').replace('Bearer ', '');
+  if (authToken) {
+    const { data: { user } } = await supabase.auth.getUser(authToken);
+    if (user) {
+      if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+        canSeeAnalysis = true;
+      } else {
+        const { data: profile } = await supabase.from('profiles').select('premium_until').eq('id', user.id).maybeSingle();
+        canSeeAnalysis = Boolean(profile?.premium_until && new Date(profile.premium_until) > new Date());
+      }
+    }
+  }
+
   // Igual que getServerSideProps: sin límite traía la tabla ENTERA de
   // players en cada poll (cada 20s mientras el sitio está abierto) —
   // acotado a los más activos hace poco, con los mismos fallbacks de
@@ -452,7 +470,7 @@ export default async function handler(req, res) {
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
       exclusive: Boolean(pick.is_exclusive),
-      analysis: buildAnalysis(pick.factors),
+      analysis: canSeeAnalysis ? buildAnalysis(pick.factors) : null,
       history: form.history,
       streakLabel: form.streakLabel,
       opponentHistory: form.opponentHistory,
@@ -509,7 +527,7 @@ export default async function handler(req, res) {
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
       exclusive: Boolean(pick.is_exclusive),
-      analysis: buildAnalysis(pick.factors),
+      analysis: canSeeAnalysis ? buildAnalysis(pick.factors) : null,
       history: form.history,
       streakLabel: form.streakLabel,
       opponentHistory: form.opponentHistory,

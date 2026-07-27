@@ -155,7 +155,6 @@ const TRANSLATIONS = {
     miBankrollVacioTitle: 'Sin historial todavía',
     miBankrollVacioDesc:
       'Todavía no tienes picks seguidos que ya se hayan jugado — sigue algunos desde Picks o Calendario y vuelve cuando terminen.',
-    miBankrollTrialMsg: '🎁 Gratis por tiempo limitado — Mi Bankroll será una función premium a partir del {date}.',
 
     perfilPlanGratuito: 'Plan gratuito',
     perfilPlanPremium: 'Plan premium',
@@ -476,7 +475,6 @@ const TRANSLATIONS = {
     miBankrollVacioTitle: 'No history yet',
     miBankrollVacioDesc:
       "You don't have any followed picks that have already been played yet — follow some from Picks or Schedule and come back once they finish.",
-    miBankrollTrialMsg: '🎁 Free for a limited time — My Bankroll becomes a premium feature starting {date}.',
 
     perfilPlanGratuito: 'Free plan',
     perfilPlanPremium: 'Premium plan',
@@ -796,7 +794,6 @@ const TRANSLATIONS = {
     miBankrollVacioTitle: 'Ainda sem histórico',
     miBankrollVacioDesc:
       'Você ainda não tem picks seguidos que já tenham sido jogados — siga alguns em Picks ou Calendário e volte quando terminarem.',
-    miBankrollTrialMsg: '🎁 Grátis por tempo limitado — Minha Banca vai virar uma função premium a partir de {date}.',
 
     perfilPlanGratuito: 'Plano gratuito',
     perfilPlanPremium: 'Plano premium',
@@ -1839,7 +1836,12 @@ export async function getServerSideProps({ query }) {
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
       exclusive: Boolean(pick.is_exclusive),
-      analysis: buildAnalysis(pick.factors),
+      // Análisis IA es beneficio premium (2026-07-26) — este prop de
+      // getServerSideProps es público (visible con "ver código
+      // fuente" sin login, sin forma de saber acá quién visita), así
+      // que nunca puede viajar el texto real: sale null y lo rellena
+      // /api/refresh-data.js (que sí revisa el token) apenas monta.
+      analysis: null,
       history: form.history,
       streakLabel: form.streakLabel,
       opponentHistory: form.opponentHistory,
@@ -1894,7 +1896,12 @@ export async function getServerSideProps({ query }) {
       tier: confidenceTier(confidence),
       odds: pick.odds ? Number(pick.odds) : null,
       exclusive: Boolean(pick.is_exclusive),
-      analysis: buildAnalysis(pick.factors),
+      // Análisis IA es beneficio premium (2026-07-26) — este prop de
+      // getServerSideProps es público (visible con "ver código
+      // fuente" sin login, sin forma de saber acá quién visita), así
+      // que nunca puede viajar el texto real: sale null y lo rellena
+      // /api/refresh-data.js (que sí revisa el token) apenas monta.
+      analysis: null,
       history: form.history,
       streakLabel: form.streakLabel,
       opponentHistory: form.opponentHistory,
@@ -2415,21 +2422,6 @@ function formatOdds(decimal, format = 'decimal') {
     return v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2);
   }
   return decimal.toFixed(2);
-}
-
-// Frase corta y honesta armada a partir de los factores reales de
-// lib/confidence.js — nada inventado, solo traduce los números.
-function buildAnalysis(factors) {
-  if (!factors) return 'Pick generado sin desglose disponible.';
-  const pct = (x) => Math.round(Math.abs(x) * 100);
-  const bits = [];
-  if (factors.ratingScore) bits.push(`rating (${pct(factors.ratingScore)}%)`);
-  if (factors.streakScore) bits.push(`racha reciente (${pct(factors.streakScore)}%)`);
-  if (factors.h2hScore) bits.push(`cruce directo (${pct(factors.h2hScore)}%)`);
-  if (factors.altScore) bits.push(`alternancia en el H2H (${pct(factors.altScore)}%)`);
-  if (factors.oddsScore) bits.push(`cuota de mercado (${pct(factors.oddsScore)}%)`);
-  if (bits.length === 0) return 'Pick generado sin suficiente historial todavía.';
-  return `Favorito según ${bits.join(', ')}.`;
 }
 
 const TIER_LABEL = { alta: 'Alta confianza', media: 'Media confianza', baja: 'Confianza baja' };
@@ -3837,49 +3829,59 @@ function PickDetailModal({
             ) : null}
           </>
         ) : tab === 'analisis' ? (
-          <>
-            <div className="analysis-chips">
-              <span className="analysis-chip">
-                <ProfileIcon name="trending-up" size={12} /> {t('racha')}: {pick.streakLabel || '—'}
+          !canSeeFullHistory ? (
+            <div className="premium-feature-card">
+              <span className="premium-feature-lock">
+                <ProfileIcon name="lock" size={18} />
               </span>
-              {resumenH2HMatches.length > 0 ? (
+              <strong>{t('pickFuncionPremium')}</strong>
+              <p>{t('pickFuncionPremiumDesc')}</p>
+            </div>
+          ) : (
+            <>
+              <div className="analysis-chips">
                 <span className="analysis-chip">
-                  <ProfileIcon name="swords" size={12} /> H2H: {resumenH2HWins}-{resumenH2HMatches.length - resumenH2HWins}
+                  <ProfileIcon name="trending-up" size={12} /> {t('racha')}: {pick.streakLabel || '—'}
                 </span>
-              ) : null}
-              {edgePct != null ? (
+                {resumenH2HMatches.length > 0 ? (
+                  <span className="analysis-chip">
+                    <ProfileIcon name="swords" size={12} /> H2H: {resumenH2HWins}-{resumenH2HMatches.length - resumenH2HWins}
+                  </span>
+                ) : null}
+                {edgePct != null ? (
+                  <span className="analysis-chip">
+                    <ProfileIcon name="trending-up" size={12} /> {t('ventajaCuota')}: {edgePct >= 0 ? '+' : ''}
+                    {edgePct}%
+                  </span>
+                ) : null}
                 <span className="analysis-chip">
-                  <ProfileIcon name="trending-up" size={12} /> {t('ventajaCuota')}: {edgePct >= 0 ? '+' : ''}
-                  {edgePct}%
+                  <ProfileIcon name="chart" size={12} /> {t('indiceIA')}: {pick.confidence}%
                 </span>
-              ) : null}
-              <span className="analysis-chip">
-                <ProfileIcon name="chart" size={12} /> {t('indiceIA')}: {pick.confidence}%
-              </span>
-            </div>
+              </div>
 
-            <div className="analysis">
-              <p>{pick.analysis}</p>
-              {buildRichAnalysis(pick, t).map((line, i) => (
-                <p key={i}>{line}</p>
-              ))}
-            </div>
+              <div className="analysis">
+                <p>{pick.analysis}</p>
+                {buildRichAnalysis(pick, t).map((line, i) => (
+                  <p key={i}>{line}</p>
+                ))}
+              </div>
 
-            <div className="analysis-footer">
-              <div>
-                <span className="analysis-footer-label">{t('senal')}</span>
-                <strong>{signalLevel}</strong>
+              <div className="analysis-footer">
+                <div>
+                  <span className="analysis-footer-label">{t('senal')}</span>
+                  <strong>{signalLevel}</strong>
+                </div>
+                <div>
+                  <span className="analysis-footer-label">{t('confianza')}</span>
+                  <strong>{confLevel}</strong>
+                </div>
+                <div>
+                  <span className="analysis-footer-label">{t('muestra')}</span>
+                  <strong>{muestraLabel}</strong>
+                </div>
               </div>
-              <div>
-                <span className="analysis-footer-label">{t('confianza')}</span>
-                <strong>{confLevel}</strong>
-              </div>
-              <div>
-                <span className="analysis-footer-label">{t('muestra')}</span>
-                <strong>{muestraLabel}</strong>
-              </div>
-            </div>
-          </>
+            </>
+          )
         ) : null}
       </div>
     </div>
@@ -5387,9 +5389,11 @@ function ProfileModal({
     // — sin borrarlo acá, la foto se sube bien pero nunca se ve.
     const { error: dbError } = await supabaseClient
       .from('profiles')
-      .upsert({ id: user.id, custom_avatar_url: bustedUrl, avatar_emoji: null });
+      .update({ custom_avatar_url: bustedUrl, avatar_emoji: null })
+      .eq('id', user.id);
     setUploadingAvatar(false);
     if (dbError) {
+      console.error('Error guardando foto de perfil:', dbError);
       alert(t('cuentaFotoError', { error: dbError.message }));
       return;
     }
@@ -5447,9 +5451,10 @@ function ProfileModal({
     const trimmed = nameInput.trim().slice(0, 40);
     if (!trimmed || trimmed === displayName || !supabaseClient) return;
     setSavingName(true);
-    const { error } = await supabaseClient.from('profiles').upsert({ id: user.id, display_name: trimmed });
+    const { error } = await supabaseClient.from('profiles').update({ display_name: trimmed }).eq('id', user.id);
     setSavingName(false);
     if (error) {
+      console.error('Error guardando nombre de perfil:', error);
       alert('No se pudo guardar el nombre: ' + error.message);
       return;
     }
@@ -6572,11 +6577,6 @@ const RISK_LEVELS = {
   agresivo: { label: 'Agresivo', sub: 'Kelly completo', multiplier: 1 }
 };
 
-// Mi Bankroll fue gratis para TODOS (no solo admin) como prueba —
-// cerrada a mano el 2026-07-14: de acá en más vuelve a ser función
-// premium real para quien no sea admin/premium.
-const MIBANKROLL_TRIAL_END = new Date('2026-07-14T00:00:00-05:00').getTime();
-
 // Prueba cerrada del sitio completo: hasta esta fecha, solo entran el
 // admin y quien esté en la tabla "beta_access" (Supabase). Pasada esta
 // fecha, entra ÚNICAMENTE el admin — nadie más, ni siquiera la gente
@@ -6892,7 +6892,16 @@ export default function Home({
     async function load() {
       if (document.visibilityState === 'hidden') return;
       try {
-        const r = await fetch('/api/refresh-data');
+        // Manda el token si hay sesión — así el servidor puede incluir
+        // el texto de Análisis IA (beneficio premium) para esta cuenta
+        // si de verdad tiene Premium activo; sin token, lo manda vacío.
+        const headers = {};
+        if (supabaseClient) {
+          const { data: sessionData } = await supabaseClient.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+        }
+        const r = await fetch('/api/refresh-data', { headers });
         const data = await r.json();
         if (cancelled) return;
         if (data.stats) setStats(data.stats);
@@ -7873,12 +7882,6 @@ export default function Home({
     };
   });
 
-  const myBankrollTrialActive = Date.now() < MIBANKROLL_TRIAL_END;
-  const myBankrollTrialEndLabel = new Intl.DateTimeFormat(
-    lang === 'en' ? 'en-US' : lang === 'pt' ? 'pt-BR' : 'es-CO',
-    { day: 'numeric', month: 'long', timeZone: 'America/Bogota' }
-  ).format(new Date(MIBANKROLL_TRIAL_END));
-
   // Tira de 7 días (hoy + los próximos 6) para navegar Calendario —
   // son links reales a "/?date=YYYY-MM-DD#calendario" (no hash-routing
   // puro), así que getServerSideProps trae ese día completo al hacer
@@ -8104,7 +8107,7 @@ export default function Home({
           {navLink('picks', t('navPicks'))}
           {navLink('seguidos', t('navSeguidos'))}
           <a href="#mibankroll" data-view="mibankroll" className={view === 'mibankroll' ? 'active' : ''}>
-            {t('navMiBankroll')} {!isAdmin && !isPremium && !myBankrollTrialActive ? <ProfileIcon name="lock" size={11} /> : null}
+            {t('navMiBankroll')} {!isAdmin && !isPremium ? <ProfileIcon name="lock" size={11} /> : null}
           </a>
           {isAdmin ? (
             <a href="#admin" className={ADMIN_VIEWS.includes(view) || view === 'admin' ? 'active' : ''}>
@@ -9230,7 +9233,7 @@ export default function Home({
           <p className="page-sub">{t('miBankrollSub')}</p>
           {!user ? (
             <p className="page-sub">{t('iniciaSesionBankroll')}</p>
-          ) : !isAdmin && !isPremium && !myBankrollTrialActive ? (
+          ) : !isAdmin && !isPremium ? (
             <div className="premium-lock-card">
               <div className="premium-lock-icon">
                 <ProfileIcon name="lock" size={22} />
@@ -9242,9 +9245,6 @@ export default function Home({
             <p className="page-sub">{t('cargando')}</p>
           ) : (
             <>
-              {!isAdmin && myBankrollTrialActive ? (
-                <div className="trial-banner">{t('miBankrollTrialMsg', { date: myBankrollTrialEndLabel })}</div>
-              ) : null}
               <div className="bankroll-card">
                 <div className="slip-label">TU BANCO INICIAL</div>
                 <div className="slip-bank-row">
@@ -9474,7 +9474,7 @@ export default function Home({
               <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
               <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
             </svg>
-            {!isAdmin && !isPremium && !myBankrollTrialActive ? (
+            {!isAdmin && !isPremium ? (
               <span className="nav-lock-badge">
                 <ProfileIcon name="lock" size={9} />
               </span>
@@ -10477,10 +10477,6 @@ const CSS = `
   .profile-section-label{
     font-family:var(--font-mono); font-size:11px; font-weight:700; letter-spacing:.6px;
     text-transform:uppercase; color:var(--muted); margin:20px 0 2px;
-  }
-  .trial-banner{
-    background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.35); color:var(--ink);
-    border-radius:14px; padding:12px 16px; font-size:13px; line-height:1.5; margin:14px 0;
   }
 
   .upgrade-card{
