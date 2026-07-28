@@ -292,7 +292,7 @@ async function checkPremiumExpiring(supabase) {
       body: 'Renová para no perderte los picks Exclusivos y el resto de las ventajas Premium.',
       tag: 'premium-expiring',
       renotify: true,
-      url: '/#picksvip'
+      url: '/#picks'
     });
 
     let sentAny = false;

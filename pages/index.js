@@ -25,14 +25,12 @@ const VIEWS = [
   'mibankroll',
   'actividad',
   'destacados',
-  'historialvip',
-  'picksvip',
   'admin',
   'usuarios'
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
 // bajo un solo botón "Admin" (ver la sección admin más abajo).
-const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados', 'historialvip', 'usuarios'];
+const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados', 'usuarios'];
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 const LANG_KEY = 'camilorey_lang';
@@ -58,7 +56,6 @@ const TRANSLATIONS = {
     navModelo: 'Modelo',
     navErrores: 'Errores',
     navDestacados: 'Destacados',
-    navHistorialVip: 'Historial VIP',
     entrar: 'Entrar',
     cerrarSesion: 'Cerrar sesión',
     cargando: 'Cargando…',
@@ -103,28 +100,15 @@ const TRANSLATIONS = {
     enVivoAhora: 'En vivo ahora',
     campeonesRecientes: 'Campeones recientes',
     pickDestacado: 'Pick destacado del día',
-    picksVipBtn: 'PICKS VIP',
-    picksVipTitle: 'Picks VIP',
-    controlSerioTitle: 'CONTROL PREMIUM',
-    controlSerioVacio: 'Todavía no hay picks exclusivos resueltos para medir.',
-    picksVipSub: 'El destacado del día y los picks exclusivos (alta confianza + cuota 1.60+), en un solo lugar.',
     noHayPicksActivos: 'No hay picks activos en este momento.',
     verTodosPicks: 'Ver todos los picks →',
 
-    calientesTitle: 'Jugadores en racha',
-    calientesSub: 'Los 10 jugadores con más victorias seguidas ahora mismo — se recalcula con cada partido que termina.',
-    calientesVacio: 'Todavía no hay nadie con una racha activa de 2 o más victorias.',
     calientesAciertoLabel: 'Acierto (últ. {n})',
 
     picksEyebrow: 'Todos los picks',
     picksTitle: 'Picks',
     picksEnEstaCategoria: 'picks pendientes',
-    tabExclusivos: 'Exclusivos',
     noHayPicksCategoria: 'No hay picks pendientes todavía.',
-    exclusivosLockTitle: 'Picks Exclusivos',
-    exclusivosLockDesc:
-      'Los picks de alta confianza con cuota de valor (1.60 o más) son solo para cuentas premium. Mejora tu plan para verlos.',
-    exclusivosVacio: 'Todavía no hay picks exclusivos activos — vuelve más tarde.',
     balanceExclusivoTitle: 'Balance Exclusivo',
     balanceExclusivoSub: 'El acierto real de los picks exclusivos (alta confianza + cuota 1.60+), aparte del balance general.',
     historialCompletoLock: 'El historial de 20 partidos (L20) es beneficio premium — mejora tu plan para verlo.',
@@ -380,7 +364,6 @@ const TRANSLATIONS = {
     navModelo: 'Model',
     navErrores: 'Errors',
     navDestacados: 'Featured',
-    navHistorialVip: 'VIP History',
     entrar: 'Sign in',
     cerrarSesion: 'Sign out',
     cargando: 'Loading…',
@@ -425,27 +408,15 @@ const TRANSLATIONS = {
     enVivoAhora: 'Live now',
     campeonesRecientes: 'Recent champions',
     pickDestacado: "Today's featured pick",
-    picksVipBtn: 'VIP PICKS',
-    picksVipTitle: 'VIP Picks',
-    controlSerioTitle: 'PREMIUM CONTROL',
-    controlSerioVacio: 'No resolved exclusive picks to measure yet.',
-    picksVipSub: "Today's featured pick and the exclusive picks (high confidence + 1.60+ odds), all in one place.",
     noHayPicksActivos: 'No active picks right now.',
     verTodosPicks: 'See all picks →',
 
-    calientesTitle: 'Players on fire',
-    calientesSub: 'The 10 players with the longest current win streaks — recalculated with every finished match.',
-    calientesVacio: 'No one has an active streak of 2+ wins yet.',
     calientesAciertoLabel: 'Win rate (last {n})',
 
     picksEyebrow: 'All picks',
     picksTitle: 'Picks',
     picksEnEstaCategoria: 'pending picks',
-    tabExclusivos: 'Exclusive',
     noHayPicksCategoria: 'No pending picks yet.',
-    exclusivosLockTitle: 'Exclusive Picks',
-    exclusivosLockDesc: 'High-confidence picks with value odds (1.60+) are premium-only. Upgrade your plan to see them.',
-    exclusivosVacio: 'No active exclusive picks yet — check back later.',
     balanceExclusivoTitle: 'Exclusive Balance',
     balanceExclusivoSub: 'Real hit rate of the exclusive picks (high confidence + 1.60+ odds), tracked apart from the overall balance.',
     historialCompletoLock: 'The 20-match history (L20) is a premium perk — upgrade your plan to see it.',
@@ -700,7 +671,6 @@ const TRANSLATIONS = {
     navModelo: 'Modelo',
     navErrores: 'Erros',
     navDestacados: 'Destaques',
-    navHistorialVip: 'Histórico VIP',
     entrar: 'Entrar',
     cerrarSesion: 'Sair',
     cargando: 'Carregando…',
@@ -745,27 +715,15 @@ const TRANSLATIONS = {
     enVivoAhora: 'Ao vivo agora',
     campeonesRecientes: 'Campeões recentes',
     pickDestacado: 'Pick em destaque do dia',
-    picksVipBtn: 'PICKS VIP',
-    picksVipTitle: 'Picks VIP',
-    controlSerioTitle: 'CONTROLE PREMIUM',
-    controlSerioVacio: 'Ainda não há picks exclusivos resolvidos para medir.',
-    picksVipSub: 'O destaque do dia e os picks exclusivos (alta confiança + odds 1.60+), tudo num só lugar.',
     noHayPicksActivos: 'Não há picks ativos no momento.',
     verTodosPicks: 'Ver todos os picks →',
 
-    calientesTitle: 'Jogadores em alta',
-    calientesSub: 'Os 10 jogadores com mais vitórias seguidas agora — recalculado a cada partida finalizada.',
-    calientesVacio: 'Ainda ninguém tem uma sequência ativa de 2 ou mais vitórias.',
     calientesAciertoLabel: 'Acerto (últ. {n})',
 
     picksEyebrow: 'Todos os picks',
     picksTitle: 'Picks',
     picksEnEstaCategoria: 'picks pendentes',
-    tabExclusivos: 'Exclusivos',
     noHayPicksCategoria: 'Ainda não há picks pendentes.',
-    exclusivosLockTitle: 'Picks Exclusivos',
-    exclusivosLockDesc: 'Os picks de alta confiança com odds de valor (1.60+) são só para contas premium. Melhore seu plano para vê-los.',
-    exclusivosVacio: 'Ainda não há picks exclusivos ativos — volte mais tarde.',
     balanceExclusivoTitle: 'Banca Exclusiva',
     balanceExclusivoSub: 'O acerto real dos picks exclusivos (alta confiança + odds 1.60+), separado da banca geral.',
     historialCompletoLock: 'O histórico de 20 partidas (L20) é benefício premium — melhore seu plano para vê-lo.',
@@ -5156,164 +5114,6 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
   );
 }
 
-// "Picks VIP" — pantalla aparte (ya no una pestaña dentro de Picks,
-// ver 2026-07-14) con acceso directo desde Inicio, al lado del saludo.
-// Junta el destacado del día + los picks exclusivos + su balance
-// aparte, todo en una sola ventana para quien tiene acceso premium.
-// Vista normal (no modal flotante, ver 2026-07-15) — se navega igual
-// que Picks/Calendario/etc, con #picksvip en el hash.
-function PicksVipView({
-  view,
-  lang,
-  oddsFormat,
-  canSeeExclusive,
-  featured,
-  exclusivePicks,
-  exclusivePicksError,
-  exclusiveBalance,
-  exclusiveBalanceError,
-  hotPlayers,
-  followedPickIds,
-  toggleFollow,
-  liveScores,
-  onPickClick
-}) {
-  const t = useTranslate(lang);
-  // Solo pendientes — los resultados de picks exclusivos ya jugados no
-  // se muestran acá (pedido explícito), esta ventana es para lo que
-  // está por venir, no un historial.
-  const vipPicks = exclusivePicks.slice(0, 15);
-
-  return (
-    <section className={`view ${view === 'picksvip' ? 'active' : ''}`}>
-      <a href="#inicio" className="admin-back-link">
-        <ProfileIcon name="arrow-left" size={14} /> {t('navInicio')}
-      </a>
-      <span className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-        <ProfileIcon name="crown" size={13} /> {t('picksVipBtn')}
-      </span>
-      <h1 className="page-title">{t('picksVipTitle')}</h1>
-
-      <div className="section-head" style={{ marginTop: 0 }}>
-          <h2>{t('controlSerioTitle')}</h2>
-        </div>
-        {exclusiveBalanceError ? (
-          <p className="page-sub">Error: {exclusiveBalanceError}</p>
-        ) : !exclusiveBalance ? (
-          <p className="page-sub">{t('cargando')}</p>
-        ) : (
-          <>
-            {exclusiveBalance.n === 0 ? <p className="page-sub">{t('controlSerioVacio')}</p> : null}
-            <div className="stat-strip stat-strip-3">
-              <div className="stat-card">
-                <div className="label">{t('statEfectividad')}</div>
-                <div className="value hit num">
-                  {exclusiveBalance.n === 0 ? 100 : Math.round(exclusiveBalance.hitRate * 100)}%
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="label">{t('statRachaActual')}</div>
-                <div className="value num">
-                  {exclusiveBalance.n === 0 || exclusiveBalance.racha === 0
-                    ? '0'
-                    : `${Math.abs(exclusiveBalance.racha)}${exclusiveBalance.racha > 0 ? 'W' : 'L'}`}
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="label">{t('statROI')}</div>
-                <div className="value num hit">
-                  {exclusiveBalance.n === 0 ? '+0%' : `${exclusiveBalance.roi >= 0 ? '+' : ''}${exclusiveBalance.roi}%`}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        <p className="page-sub">{t('picksVipSub')}</p>
-
-        {!canSeeExclusive ? (
-          <div className="premium-lock-card">
-            <div className="premium-lock-icon">
-              <ProfileIcon name="lock" size={22} />
-            </div>
-            <h3>{t('exclusivosLockTitle')}</h3>
-            <p>{t('exclusivosLockDesc')}</p>
-          </div>
-        ) : (
-          <>
-            {featured ? (
-              <>
-                <div className="section-head">
-                  <h2>{t('pickDestacado')}</h2>
-                </div>
-                <PickCard
-                  pick={featured}
-                  onClick={() => onPickClick(featured)}
-                  followed={followedPickIds.has(featured.id)}
-                  onToggleFollow={featured.result === 'pending' ? toggleFollow : undefined}
-                  featured
-                  oddsFormat={oddsFormat}
-                  live={liveScores[featured.sourceId]}
-                  canSeeFullHistory
-                />
-              </>
-            ) : null}
-
-            <div className="section-head">
-              <h2>{t('tabExclusivos')}</h2>
-            </div>
-            {exclusivePicksError ? <p className="page-sub">Error: {exclusivePicksError}</p> : null}
-            <div className="pick-grid">
-              {vipPicks.length === 0 ? (
-                <p className="page-sub">{t('exclusivosVacio')}</p>
-              ) : (
-                vipPicks.map((p) => (
-                  <PickCard
-                    key={p.id}
-                    pick={p}
-                    onClick={() => onPickClick(p)}
-                    followed={followedPickIds.has(p.id)}
-                    onToggleFollow={p.result === 'pending' ? toggleFollow : undefined}
-                    oddsFormat={oddsFormat}
-                    live={liveScores[p.sourceId]}
-                    canSeeFullHistory
-                  />
-                ))
-              )}
-            </div>
-
-            <div className="section-head">
-              <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <ProfileIcon name="zap" size={15} /> {t('calientesTitle')}
-              </h2>
-            </div>
-            <p className="page-sub">{t('calientesSub')}</p>
-            {hotPlayers.length === 0 ? (
-              <p className="page-sub">{t('calientesVacio')}</p>
-            ) : (
-              <div className="hot-list">
-                {hotPlayers.map((p, i) => (
-                  <div className="hot-row" key={p.playerId}>
-                    <span className={`hot-rank ${i < 3 ? 'hot-rank-top' : ''}`}>{i + 1}</span>
-                    <PlayerAvatar name={p.name} avatarUrl={p.avatarUrl} initials={p.initials} className="hot-avatar" hasCutout={p.hasCutout} />
-                    <div className="hot-info">
-                      <strong className="hot-name">{p.name}</strong>
-                      <span className="hot-sub">{t('calientesAciertoLabel', { n: p.matchesPlayed })}: {p.winRate}%</span>
-                    </div>
-                    <span className="hot-streak">
-                      <ProfileIcon name="zap" size={12} />
-                      {p.streak}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-    </section>
-  );
-}
-
 // Switch tipo iOS reutilizable — usado en la pantalla de Notificaciones
 // para cada categoría (checkbox nativo escondido + track/thumb pintados
 // a mano, mismo truco que cualquier toggle CSS-only).
@@ -6959,7 +6759,7 @@ export default function Home({
   // refrescar. Se repite cada 20s mientras cualquiera de esas vistas
   // esté abierta.
   useEffect(() => {
-    if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll' && view !== 'picksvip') return undefined;
+    if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll') return undefined;
     let cancelled = false;
 
     async function load() {
@@ -7465,77 +7265,15 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
-  // Historial VIP — todo lo que salió alguna vez en Picks VIP (mismo
-  // criterio de exclusivo: confianza>=85 + cuota>=1.60), no solo lo
-  // que está visible ahora mismo. Mismo patrón que Destacados.
-  const [vipHistory, setVipHistory] = useState(null);
-  const [vipHistoryError, setVipHistoryError] = useState(null);
-  useEffect(() => {
-    if (view !== 'historialvip' || !isAdmin || !supabaseClient) return undefined;
-    let cancelled = false;
-    (async () => {
-      const { data: sessionData } = await supabaseClient.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      try {
-        const r = await fetch('/api/vip-history', { headers: { Authorization: `Bearer ${accessToken}` } });
-        const data = await r.json();
-        if (cancelled) return;
-        if (!r.ok) setVipHistoryError(data.error || 'Error cargando el historial VIP.');
-        else setVipHistory(data);
-      } catch (e) {
-        if (!cancelled) setVipHistoryError(e.message);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [view, isAdmin]);
-
-  // Balance/Control Premium de los picks exclusivos — se consulta al
-  // entrar a la vista "Picks VIP" y se repite cada 20s mientras siga
-  // abierta (mismo patrón que Modelo), así Efectividad/Racha/ROI se
-  // actualizan solos apenas se resuelve un partido, sin refrescar.
-  const [exclusiveBalance, setExclusiveBalance] = useState(null);
-  const [exclusiveBalanceError, setExclusiveBalanceError] = useState(null);
-  useEffect(() => {
-    if (view !== 'picksvip' || !canSeeExclusive || !supabaseClient) return undefined;
-    let cancelled = false;
-
-    async function load() {
-      if (document.visibilityState === 'hidden') return;
-      try {
-        const { data: sessionData } = await supabaseClient.auth.getSession();
-        const accessToken = sessionData?.session?.access_token;
-        const r = await fetch('/api/exclusive-balance', { headers: { Authorization: `Bearer ${accessToken}` } });
-        const data = await r.json();
-        if (cancelled) return;
-        if (!r.ok) setExclusiveBalanceError(data.error || 'Error cargando el balance exclusivo.');
-        else setExclusiveBalance(data);
-      } catch (e) {
-        if (!cancelled) setExclusiveBalanceError(e.message);
-      }
-    }
-
-    load();
-    const interval = setInterval(load, 20000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [view, canSeeExclusive]);
-
-  // Picks exclusivos completos (con nombre/avatar/historial/H2H) para
-  // la vista Picks VIP — vienen de /api/vip-picks, autenticado, NUNCA
-  // de picks/resolvedPicks públicos. Mismo patrón de consulta+poll de
-  // 20s que exclusiveBalance justo arriba.
+  // Picks exclusivos completos (con nombre/avatar/historial/H2H) —
+  // vienen de /api/vip-picks, autenticado, NUNCA de picks/resolvedPicks
+  // públicos. Alimentan "el pick de CAMILO REY" en Inicio y el perfil
+  // de cada tipster cuando ese pick es Exclusivo (esos nunca viajan por
+  // los props/poll públicos).
   const [exclusivePicks, setExclusivePicks] = useState([]);
   const [exclusivePicksError, setExclusivePicksError] = useState(null);
   useEffect(() => {
-    // También en Inicio (no solo Picks VIP): "el pick de CAMILO REY" que
-    // se muestra ahí puede ser un pick Exclusivo, y esos nunca viajan
-    // por los props/poll públicos — hace falta esta fuente autenticada
-    // para que quien tiene Exclusivo lo vea en Inicio.
-    if ((view !== 'picksvip' && view !== 'inicio') || !canSeeExclusive || !supabaseClient) return undefined;
+    if (view !== 'inicio' || !canSeeExclusive || !supabaseClient) return undefined;
     let cancelled = false;
 
     async function load() {
@@ -8452,11 +8190,6 @@ export default function Home({
                 </div>
                 <div className="greeting-date">{todayLabel}</div>
               </div>
-              <a href="#picksvip" className="vip-picks-btn">
-                <ProfileIcon name="crown" size={14} />
-                {t('picksVipBtn')}
-                {!canSeeExclusive ? <ProfileIcon name="lock" size={10} /> : null}
-              </a>
             </div>
           ) : (
             <>
@@ -8753,16 +8486,6 @@ export default function Home({
             <div className="profile-row-body">
               <strong>{t('navDestacados')}</strong>
               <p>Historial real de qué pick se destacó cada día y si acertó</p>
-            </div>
-            <ProfileIcon name="chevron-right" size={16} />
-          </a>
-          <a className="profile-row" href="#historialvip">
-            <span className="profile-row-icon">
-              <ProfileIcon name="crown" />
-            </span>
-            <div className="profile-row-body">
-              <strong>{t('navHistorialVip')}</strong>
-              <p>Historial completo de todo lo que salió alguna vez en Picks VIP</p>
             </div>
             <ProfileIcon name="chevron-right" size={16} />
           </a>
@@ -9470,46 +9193,6 @@ export default function Home({
           )}
         </section>
         )}
-
-        {isAdmin && (
-        <section className={`view ${view === 'historialvip' ? 'active' : ''}`}>
-          <a href="#admin" className="admin-back-link">
-            <ProfileIcon name="arrow-left" size={14} /> Admin
-          </a>
-          <span className="eyebrow">Solo tú ves esto</span>
-          <h1 className="page-title">{t('navHistorialVip')}</h1>
-          <p className="page-sub">
-            Todo lo que salió alguna vez en Picks VIP (elegido por el modelo de ML + cuota≥1.60, o destacado a mano para
-            Exclusivos), pendiente o resuelto.
-          </p>
-          {vipHistoryError ? (
-            <p className="page-sub">Error: {vipHistoryError}</p>
-          ) : !vipHistory ? (
-            <p className="page-sub">Cargando…</p>
-          ) : vipHistory.picks.length === 0 ? (
-            <p className="page-sub">Todavía no hay picks VIP registrados.</p>
-          ) : (
-            <FeaturedHistoryView data={vipHistory} />
-          )}
-        </section>
-        )}
-
-        <PicksVipView
-          view={view}
-          lang={lang}
-          oddsFormat={oddsFormat}
-          canSeeExclusive={canSeeExclusive}
-          featured={featured}
-          exclusivePicks={exclusivePicks}
-          exclusivePicksError={exclusivePicksError}
-          exclusiveBalance={exclusiveBalance}
-          exclusiveBalanceError={exclusiveBalanceError}
-          hotPlayers={hotPlayers}
-          followedPickIds={followedPickIds}
-          toggleFollow={toggleFollow}
-          liveScores={liveScores}
-          onPickClick={(p) => setModalPick(p)}
-        />
 
         <section className={`view ${view === 'seguidos' ? 'active' : ''}`}>
           <span className="eyebrow">{t('seguidosEyebrow')}</span>
@@ -10252,12 +9935,6 @@ const CSS = `
   .greeting{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   .greeting-hi{font-family:var(--font-display); font-weight:800; font-size:28px; line-height:1.1;}
   .greeting-date{color:var(--muted); font-size:13px; text-transform:capitalize; margin-top:2px;}
-  .vip-picks-btn{
-    flex:none; display:inline-flex; align-items:center; gap:6px; margin-top:4px;
-    font-size:12px; font-weight:800; letter-spacing:.2px; color:#3a2a00;
-    background:#FFC845; border:none; border-radius:999px; padding:8px 14px; cursor:pointer;
-  }
-  .vip-picks-btn svg{flex:none;}
   .bell-btn{
     background:var(--card); border:1px solid var(--line); border-radius:50%;
     width:32px; height:32px; cursor:pointer; font-size:14px; color:var(--ink);
@@ -10673,27 +10350,6 @@ const CSS = `
   .champion-set.won{border-color:rgba(255,193,7,.5); background:rgba(255,193,7,.1);}
   .champion-set-label{font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.3px;}
   .champion-set .num{font-size:13px; font-weight:800; color:var(--ink);}
-
-  .hot-list{display:flex; flex-direction:column; gap:8px;}
-  .hot-row{
-    display:flex; align-items:center; gap:12px;
-    padding:10px 12px; border-radius:14px; background:var(--bg-alt); border:1px solid var(--line);
-  }
-  .hot-rank{
-    width:24px; flex:none; text-align:center;
-    font-family:var(--font-display); font-size:15px; color:var(--muted);
-  }
-  .hot-rank-top{color:var(--ball);}
-  .hot-avatar{width:44px; height:44px; flex:none;}
-  .hot-info{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;}
-  .hot-name{font-size:13.5px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .hot-sub{font-size:11px; color:var(--muted);}
-  .hot-streak{
-    display:inline-flex; align-items:center; gap:3px; flex:none;
-    font-family:var(--font-mono); font-weight:800; font-size:13px; color:var(--hit);
-    background:rgba(93,202,165,.14); padding:5px 10px; border-radius:999px;
-  }
-  .hot-streak svg{flex:none;}
 
   .live-clock{
     font-family:var(--font-mono); font-size:13px; color:var(--ball); font-weight:700;

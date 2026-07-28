@@ -15,7 +15,7 @@
 // justamente para tapar. El token es OPCIONAL (para que una cuenta
 // gratis siga viendo lo que sigue de los picks públicos), pero
 // is_exclusive solo sale si ese token es de verdad admin o premium
-// activo — mismo chequeo que vip-picks.js/exclusive-balance.js.
+// activo — mismo chequeo que vip-picks.js.
 //
 // 2026-07-26: el texto de Análisis IA también pasó a ser beneficio
 // premium (antes se veía completo con solo estar logueado) — se

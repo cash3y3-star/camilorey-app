@@ -726,8 +726,6 @@ export default async function handler(req, res) {
   // DISTINTOS para lo que parecía la misma estadística (ventanas de
   // cálculo distintas: acá últimos 30 sin filtro de fecha, allá todo
   // desde el reset del 2026-07-15), y confundía más de lo que ayudaba.
-  // Ahora existe un solo lugar con esa cifra: /api/exclusive-balance,
-  // consumido por Picks VIP.
   return res.status(200).json({
     stats: { efectividad, racha, cuotaProm, roi, unidades },
     picks: publicPicks,
