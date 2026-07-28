@@ -9214,8 +9214,8 @@ export default function Home({
           <span className="eyebrow">Solo admins ven esto</span>
           <h1 className="page-title">Solicitudes de cambios</h1>
           <p className="page-sub">
-            Buzón compartido entre socios admin — dejá el pedido en texto normal y generá el prompt técnico listo
-            para pegar en Claude Code. La ejecución del cambio se sigue haciendo por terminal, como siempre.
+            Buzón compartido entre socios admin — dejá el pedido en texto normal y generá el prompt técnico con un
+            botón. La ejecución del cambio se sigue haciendo por terminal, como siempre.
           </p>
 
           <div className="bankroll-card">
