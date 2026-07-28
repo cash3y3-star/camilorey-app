@@ -39,7 +39,7 @@ export default async function handler(req, res) {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const { user, isTipster, displayName } = await checkAdmin(supabase, token);
+  const { user, isSuperAdmin, isTipster, displayName } = await checkAdmin(supabase, token);
   if (!isTipster) {
     return res.status(403).json({ error: 'solo un tipster puede hacer esto' });
   }
@@ -93,14 +93,16 @@ export default async function handler(req, res) {
   // Canal de Telegram propio de ESTE tipster (pedido 2026-07-27): si
   // tiene uno configurado (profiles.telegram_chat_id — requiere el bot
   // admin de su canal), el aviso va SOLO ahí, no a la lista global de
-  // TELEGRAM_CHAT_ID. Sin uno propio configurado (ej. CAMILO REY,
-  // que sigue usando el canal "de siempre"), cae al comportamiento de
-  // toda la vida.
+  // TELEGRAM_CHAT_ID. El canal global es SOLO de CAMILO REY (superAdmin)
+  // — pedido 2026-07-28: un tipster/admin que no sea él y no tenga
+  // canal propio configurado NO se publica en ningún lado (antes caía
+  // al canal global por error, mezclando picks de otros tipsters ahí).
   const { data: tipsterRow } = await supabase.from('profiles').select('telegram_chat_id').eq('id', user.id).maybeSingle();
   const ownTelegramIds = (tipsterRow?.telegram_chat_id || '')
     .split(',')
     .map((id) => id.trim())
     .filter(Boolean);
+  const useGlobalChannel = isSuperAdmin;
 
   // El pick ya quedó marcado (lo único que el tipster necesita ver
   // reflejado ya) — Telegram y push son "mejor esfuerzo" y pueden
@@ -111,10 +113,10 @@ export default async function handler(req, res) {
   // waitUntil, que en Vercel mantiene viva la función más allá de la
   // respuesta hasta que esta promesa termine.
   res.status(200).json({ tipsterPick: true, tipsterPickBy: user.id });
-  waitUntil(notifyTipsterPick(supabase, pick, nowIso, displayName || 'CAMILO REY', ownTelegramIds));
+  waitUntil(notifyTipsterPick(supabase, pick, nowIso, displayName || 'CAMILO REY', ownTelegramIds, useGlobalChannel));
 }
 
-async function notifyTipsterPick(supabase, pick, nowIso, tipsterName, ownTelegramIds) {
+async function notifyTipsterPick(supabase, pick, nowIso, tipsterName, ownTelegramIds, useGlobalChannel) {
   const pickId = pick.id;
   // Si el pick YA estaba resuelto (marcado a mano después, para
   // recuperar historial — ej. uno que se destacó antes del arreglo que
@@ -159,7 +161,15 @@ async function notifyTipsterPick(supabase, pick, nowIso, tipsterName, ownTelegra
         rivalName: rivalPlayer?.name,
         odds: pick.odds
       });
-      await sendTelegramPhoto(cardUrl, caption, ownTelegramIds);
+      // Solo manda si hay un destino real: el canal propio del tipster,
+      // o el global si el que destacó es CAMILO REY (superAdmin). Si
+      // ninguno aplica (otro tipster sin canal propio configurado), no
+      // se manda nada — antes caía al canal global por accidente.
+      if (ownTelegramIds.length) {
+        await sendTelegramPhoto(cardUrl, caption, ownTelegramIds);
+      } else if (useGlobalChannel) {
+        await sendTelegramPhoto(cardUrl, caption);
+      }
 
       if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
         const [{ data: premiumProfiles }, { data: subs }, { data: prefs }, { data: adminUser }] = await Promise.all([
