@@ -1,16 +1,14 @@
 import Head from 'next/head';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
-import { logError } from '../lib/logError';
 
-// getServerSideProps de esta página dispara bastantes consultas a
-// Supabase (picks/matches/torneos/forma reciente/H2H/estadísticas) —
-// el límite por defecto de Vercel para una función serverless es 10s,
-// y con todo lo que se fue sumando en esta sesión a veces se pasa de
-// eso (504 GATEWAY_TIMEOUT / FUNCTION_INVOCATION_TIMEOUT real,
-// reportado con captura). 30s da margen real sin ser excesivo — sigue
-// entrando en el límite del plan Hobby de Vercel (60s tope).
+// getServerSideProps de esta página ya no consulta Supabase (2026-07-27:
+// sitio solo-Premium, ver el comentario junto a getServerSideProps más
+// abajo) — el trabajo pesado que antes vivía acá (picks/matches/
+// torneos/forma reciente/H2H/estadísticas, causa real de 504s
+// reportados antes) ahora corre en /api/refresh-data.js, que tiene su
+// propio maxDuration. Este límite queda igual como margen, por si
+// algún día vuelve a hacer falta.
 export const config = { maxDuration: 60 };
 
 const VIEWS = [
@@ -1347,970 +1345,51 @@ function streakLabelFromHistory(history) {
   return `${count}${last ? 'W' : 'L'}`;
 }
 
+// Sitio solo-Premium (pedido 2026-07-27): "sacar del sitio a todos los
+// que no tengan premium activado". getServerSideProps no puede saber
+// quién visita (la sesión de Supabase vive en localStorage, no en una
+// cookie que el servidor pueda leer), así que la ÚNICA forma de que
+// nada de contenido real viaje público en el HTML (ni con "ver código
+// fuente") es no calcular ni mandar nunca datos reales acá — todo el
+// contenido (picks, partidos, torneos, campeones, perfil del tipster,
+// estadísticas) se carga del lado del cliente, recién después de
+// pasar el candado de login+Premium (ver hasSiteAccess en el
+// componente), pidiéndolo a /api/refresh-data y /api/matches-status —
+// esos dos SÍ verifican login+Premium de verdad en el servidor antes
+// de devolver nada. Antes de este cambio, cualquiera (sin login)
+// podía leer picks/partidos/torneos completos con una petición cruda
+// a la página — mismo tipo de hueco que ya se había cerrado antes
+// para picks Exclusivos y Análisis IA, pero acá aplicaba a todo.
+//
+// Lo único que sigue viajando acá es la fecha (currentDateStr/
+// prevDateStr/nextDateStr), que no es un dato del negocio — solo hace
+// falta para que el selector de día de Calendario funcione antes de
+// que el cliente termine de cargar.
 export async function getServerSideProps({ query }) {
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-  try {
-  // Calendario, Bankroll y el conteo de usuarios no dependen de nada
-  // de la cadena de picks/resolvedPicks/tournamentGroups de abajo —
-  // antes se pedían en secuencia DESPUÉS de toda esa cadena, sumando
-  // varios round-trips más al tiempo de carga. Se disparan ya (sin
-  // esperarlos todavía) para que corran en paralelo con todo lo demás,
-  // y se resuelven más abajo, justo donde se necesitan.
   const bogotaDateStr = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d);
   const selectedDate = typeof query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : null;
-  let windowStart, windowEnd;
-  if (selectedDate) {
-    windowStart = new Date(`${selectedDate}T00:00:00-05:00`).toISOString();
-    windowEnd = new Date(`${selectedDate}T23:59:59-05:00`).toISOString();
-  } else {
-    windowStart = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
-    windowEnd = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
-  }
   const currentDateStr = selectedDate || bogotaDateStr(new Date());
   const prevDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() - 24 * 3600 * 1000));
   const nextDateStr = bogotaDateStr(new Date(new Date(`${currentDateStr}T12:00:00-05:00`).getTime() + 24 * 3600 * 1000));
 
-  const windowMatchesPromise = supabase
-    .from('matches')
-    .select('*')
-    .gte('scheduled_at', windowStart)
-    .lte('scheduled_at', windowEnd)
-    .order('scheduled_at', { ascending: true })
-    .limit(1000);
-
-  const bankrollPromise = (async () => {
-    // !inner + eq('picks.published', true) para que el balance/racha/
-    // efectividad público (Inicio, todos lo ven) nunca cuente picks
-    // descartados por el piso de confianza — esos no fueron "nuestro
-    // pick" real, no deberían mover el track record que se muestra.
-    const { data: bankrollRows } = await supabase
-      .from('bankroll_log')
-      .select('*, picks!inner(published)')
-      .eq('picks.published', true)
-      .order('created_at', { ascending: false })
-      .limit(30);
-    const bkPickIds = [...new Set((bankrollRows || []).map((r) => r.pick_id).filter(Boolean))];
-    const { data: bkPicks } = bkPickIds.length
-      ? await supabase.from('picks').select('id, market, odds').in('id', bkPickIds)
-      : { data: [] };
-    return { bankrollRows, bkPicks };
-  })();
-
-  const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
-
-  // Foto/nombre del admin para la tarjeta "Tipster que sigues" de
-  // Inicio — CAMILO REY es un solo tipster (el admin del sitio), no una
-  // lista de varios, así que solo hace falta este único perfil.
-  const tipsterProfilePromise = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    ? supabase.from('profiles').select('custom_avatar_url, avatar_emoji').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
-    : Promise.resolve({ data: null });
-
-  // "Me gusta" de la fila de estadísticas estilo TikTok del perfil del
-  // tipster — conteo real (no inventado como el de seguidores, que es
-  // fijo a pedido): cuántas veces, en total, alguien siguió un pick
-  // (una fila de followed_picks = un "me gusta" real). "Picks" de esa
-  // misma fila NO sale de acá — pedido explícito: cuenta exactamente lo
-  // que aparece en la lista "Picks recientes" de abajo, se calcula en
-  // el propio componente a partir de recentPicks.
-  const tipsterLikesCountPromise = supabase.from('followed_picks').select('id', { count: 'exact', head: true });
-
-  // Igual que windowMatchesPromise/bankrollPromise arriba: no depende
-  // de nada de la cadena de pendingPicks/players/tournaments de abajo,
-  // así que se dispara ya (sin esperar) en vez de recién después de
-  // esa cadena — se resuelve más abajo, en el mismo lugar donde ya se
-  // usaba, solo que el round-trip corrió en paralelo con todo lo demás.
-  const resolvedPicksPromise = supabase
-    .from('picks')
-    .select('*')
-    .neq('result', 'pending')
-    .eq('published', true)
-    .order('created_at', { ascending: false })
-    .limit(60);
-
-  // Los destacados (picks.tipster_pick) resueltos NO pueden depender
-  // del límite de arriba (últimos 60 resueltos en general) — con
-  // muchos partidos resolviéndose de golpe (ej. al ponerse al día
-  // después de una caída), un destacado viejo quedaba empujado fuera
-  // de esa ventana y desaparecía de "Picks recientes de CAMILO REY"
-  // aunque siguiera marcado de verdad en la base (bug real reportado:
-  // "se activa pero no aparece", incluso para el admin). Se trae
-  // aparte, sin límite de recencia, y se mezcla con resolvedPicksRaw
-  // más abajo.
-  const tipsterDestacadosPromise = supabase.from('picks').select('*').eq('tipster_pick', true).neq('result', 'pending');
-
-  // Para el Top 10 de jugadores en racha (pestaña "Calientes") — se
-  // recalcula en cada carga de página (nada se guarda en la base),
-  // así que siempre refleja los partidos más recientes ya jugados.
-  // 400 partidos alcanza para varios días de actividad sin escanear
-  // toda la tabla.
-  const hotMatchesPromise = supabase
-    .from('matches')
-    .select('player_a_id, player_b_id, winner_id, scheduled_at')
-    .eq('status', 'finished')
-    .not('winner_id', 'is', null)
-    .order('scheduled_at', { ascending: false })
-    .limit(400);
-
-  // players sin límite (traía la tabla ENTERA en cada carga de
-  // página) era otra causa real de lentitud/504 — con semanas de
-  // historial esa tabla ya tiene cientos o miles de filas. sync.js
-  // actualiza updated_at cada vez que ve a un jugador de nuevo, así
-  // que ordenar por eso y acotar trae justo a los que estuvieron
-  // activos hace poco (los que de verdad hacen falta para picks/
-  // matches recientes) — cualquiera que falte lo completan los
-  // fallbacks de missingIds/missingOpponentIds que ya existen más
-  // abajo (tournamentGroups, buildFormAndH2H).
-  const [{ data: players }, { data: pendingPicks }] = await Promise.all([
-    supabase.from('players').select('id, name, avatar_url, avatar_cutout_url, rating').order('updated_at', { ascending: false }).limit(1500),
-    supabase.from('picks').select('*').eq('result', 'pending').eq('published', true).order('confidence', { ascending: false }).limit(300)
-  ]);
-
-  const playersById = new Map((players || []).map((p) => [p.id, p]));
-
-  // Top 10 "en racha" — racha actual (victorias seguidas contando
-  // desde el partido más reciente hacia atrás) sobre los últimos 10
-  // cruces de cada jugador; solo entran los que tengan al menos 3
-  // partidos recientes (para no rankear a alguien por 1 solo partido)
-  // y una racha activa de 2+ victorias. Empate se rompe por % de
-  // acierto en esos últimos 10, y de ahí por quién jugó más reciente.
-  const { data: hotMatches } = await hotMatchesPromise;
-  const formByPlayerId = new Map();
-  for (const m of hotMatches || []) {
-    if (!m.player_a_id || !m.player_b_id) continue;
-    if (!formByPlayerId.has(m.player_a_id)) formByPlayerId.set(m.player_a_id, []);
-    if (!formByPlayerId.has(m.player_b_id)) formByPlayerId.set(m.player_b_id, []);
-    formByPlayerId.get(m.player_a_id).push({ win: m.winner_id === m.player_a_id, date: m.scheduled_at });
-    formByPlayerId.get(m.player_b_id).push({ win: m.winner_id === m.player_b_id, date: m.scheduled_at });
-  }
-  const HOT_MIN_MATCHES = 3;
-  const HOT_MIN_STREAK = 2;
-  const hotPlayers = [...formByPlayerId.entries()]
-    .map(([pid, formDesc]) => {
-      const player = playersById.get(pid);
-      if (!player) return null;
-      const recent = formDesc.slice(0, 10);
-      if (recent.length < HOT_MIN_MATCHES) return null;
-      let streak = 0;
-      for (const m of recent) {
-        if (m.win) streak++;
-        else break;
-      }
-      if (streak < HOT_MIN_STREAK) return null;
-      const wins = recent.filter((m) => m.win).length;
-      return {
-        playerId: pid,
-        name: player.name,
-        initials: initialsOf(player.name),
-        avatarUrl: player.avatar_cutout_url || player.avatar_url || null,
-        hasCutout: Boolean(player.avatar_cutout_url),
-        streak,
-        winRate: Math.round((wins / recent.length) * 100),
-        matchesPlayed: recent.length,
-        lastPlayedAt: recent[0]?.date || null
-      };
-    })
-    .filter(Boolean)
-    .sort(
-      (a, b) =>
-        b.streak - a.streak || b.winRate - a.winRate || new Date(b.lastPlayedAt) - new Date(a.lastPlayedAt)
-    )
-    .slice(0, 10);
-
-  const pendingMatchIds = (pendingPicks || []).map((p) => p.match_id);
-  const { data: pendingMatches } = pendingMatchIds.length
-    ? await supabase.from('matches').select('*').in('id', pendingMatchIds)
-    : { data: [] };
-  const matchesById = new Map((pendingMatches || []).map((m) => [m.id, m]));
-
-  const tournamentIds = [...new Set((pendingMatches || []).map((m) => m.tournament_id).filter(Boolean))];
-  const { data: tournaments } = tournamentIds.length
-    ? await supabase.from('tournaments').select('id, name').in('id', tournamentIds)
-    : { data: [] };
-  const tournamentsById = new Map((tournaments || []).map((t) => [t.id, t]));
-
-  // Picks ya resueltos (para las pestañas Ganados/Perdidos de la
-  // sección Picks). Se trae antes de armar "picks"/"resolvedPicks"
-  // porque ambos comparten UNA sola consulta de forma/H2H más abajo.
-  const [{ data: resolvedPicksRecent }, { data: tipsterDestacadosResolved }] = await Promise.all([
-    resolvedPicksPromise,
-    tipsterDestacadosPromise
-  ]);
-  const resolvedPicksRaw = [...new Map([...(resolvedPicksRecent || []), ...(tipsterDestacadosResolved || [])].map((p) => [p.id, p])).values()];
-
-  const resolvedMatchIds = [...new Set((resolvedPicksRaw || []).map((p) => p.match_id))];
-  const { data: resolvedMatchesRaw } = resolvedMatchIds.length
-    ? await supabase.from('matches').select('*').in('id', resolvedMatchIds)
-    : { data: [] };
-  const resolvedMatchesById = new Map((resolvedMatchesRaw || []).map((m) => [m.id, m]));
-
-  const resolvedExtraPlayerIds = [
-    ...new Set((resolvedMatchesRaw || []).flatMap((m) => [m.player_a_id, m.player_b_id]))
-  ].filter((id) => id && !playersById.has(id));
-  if (resolvedExtraPlayerIds.length) {
-    const { data: extra } = await supabase
-      .from('players')
-      .select('id, name, avatar_url, avatar_cutout_url')
-      .in('id', resolvedExtraPlayerIds);
-    for (const p of extra || []) playersById.set(p.id, p);
-  }
-  const resolvedExtraTournamentIds = [...new Set((resolvedMatchesRaw || []).map((m) => m.tournament_id))].filter(
-    (id) => id && !tournamentsById.has(id)
-  );
-  if (resolvedExtraTournamentIds.length) {
-    const { data: extra } = await supabase.from('tournaments').select('id, name').in('id', resolvedExtraTournamentIds);
-    for (const t of extra || []) tournamentsById.set(t.id, t);
-  }
-
-  // Un pick deja de mostrarse como "próximo" un rato ANTES de que
-  // arranque el partido (no justo cuando ya casi empieza), y por
-  // supuesto también una vez que ya arrancó o terminó.
-  const HIDE_BEFORE_START_MS = 3 * 60 * 1000;
-
-  const pendingPrelim = (pendingPicks || [])
-    .map((pick) => {
-      const match = matchesById.get(pick.match_id);
-      if (!match) return null;
-      // "El pick de CAMILO REY" (pick.tipster_pick) nunca se oculta por
-      // estas dos reglas — si no, en cuanto el partido arrancara (o
-      // estuviera por arrancar) el aviso/destacado desaparecía de
-      // Inicio hasta que el próximo sync lo resolviera del todo, a
-      // veces varios minutos después (bug real reportado: "se marca,
-      // llega la notificación, pero al minuto se quita").
-      const isTipsterPick = Boolean(pick.tipster_pick);
-      if (!isTipsterPick && match.scheduled_at && new Date(match.scheduled_at).getTime() - Date.now() < HIDE_BEFORE_START_MS)
-        return null;
-      // El partido ya terminó pero el pick sigue "pending" — hay un
-      // hueco entre que el partido cierra y que el próximo sync corre
-      // resolvePick(). Mientras tanto no se muestra como pendiente
-      // (se vería sin marcador/resultado real, confuso) — en el
-      // próximo sync pasa solo a resueltos.
-      if (!isTipsterPick && match.status === 'finished') return null;
-      const playerA = playersById.get(match.player_a_id);
-      const playerB = playersById.get(match.player_b_id);
-      const favored = playersById.get(pick.predicted_winner_id);
-      const favoredIsA = pick.predicted_winner_id === match.player_a_id;
-      const opponent = favoredIsA ? playerB : playerA;
-      // Si falta cualquiera de los dos jugadores, es un pick con datos
-      // incompletos (probablemente de antes del cierre hit/miss) — mejor
-      // no mostrarlo que mostrar una tarjeta rota.
-      if (!favored || !opponent) return null;
-      return { pick, match, favored, opponent, favoredIsA, tournament: tournamentsById.get(match.tournament_id) };
-    })
-    .filter(Boolean);
-
-  const resolvedPrelim = (resolvedPicksRaw || [])
-    .map((pick) => {
-      const match = resolvedMatchesById.get(pick.match_id);
-      if (!match) return null;
-      const favored = playersById.get(pick.predicted_winner_id);
-      const opponent =
-        pick.predicted_winner_id === match.player_a_id
-          ? playersById.get(match.player_b_id)
-          : playersById.get(match.player_a_id);
-      if (!favored || !opponent) return null;
-
-      // El resultado final se guarda relativo a jugador A/B, no a
-      // favorito/rival — hay que reordenarlo a favor del favorito
-      // (izquierda en la tarjeta), igual que en followed-detail.js.
-      const favoredIsA = pick.predicted_winner_id === match.player_a_id;
-      const score =
-        match.sets_a != null && match.sets_b != null
-          ? favoredIsA
-            ? `${match.sets_a}-${match.sets_b}`
-            : `${match.sets_b}-${match.sets_a}`
-          : null;
-      const setScores = Array.isArray(match.set_scores)
-        ? favoredIsA
-          ? match.set_scores
-          : match.set_scores.map((s) => ({ a: s.b, b: s.a }))
-        : null;
-
-      return { pick, match, favored, opponent, favoredIsA, tournament: tournamentsById.get(match.tournament_id), score, setScores };
-    })
-    .filter(Boolean);
-
-  // Cuántas cuentas siguen cada pick — público (se muestra en
-  // cualquier tarjeta), pero followed_picks solo se puede leer con
-  // service_role (su policy de select es "auth.uid() = user_id"), así
-  // que se cuenta acá server-side y solo se manda el número, nunca
-  // quién.
-  const allPickIdsForFollowCount = [...pendingPrelim, ...resolvedPrelim].map((p) => p.pick.id);
-  const followersCountByPickId = new Map();
-  if (allPickIdsForFollowCount.length) {
-    const { data: followRows } = await supabase.from('followed_picks').select('pick_id').in('pick_id', allPickIdsForFollowCount);
-    for (const row of followRows || []) {
-      followersCountByPickId.set(row.pick_id, (followersCountByPickId.get(row.pick_id) || 0) + 1);
-    }
-  }
-
-  // Antes, cada pick disparaba 2 consultas propias a Supabase (forma
-  // reciente + H2H) — con decenas de picks pendientes y resueltos a la
-  // vez, eso eran cientos de round-trips en CADA carga de página, y
-  // era la causa real de que el sitio se sintiera cada vez más lento
-  // a medida que crecía el historial. Ahora se trae en una sola
-  // consulta TODOS los partidos terminados de TODOS los jugadores
-  // involucrados (pendientes + resueltos juntos), y la forma reciente
-  // + el cruce directo de cada pick se calculan en memoria a partir de
-  // ese único resultado.
-  async function buildFormAndH2H(pairs) {
-    const result = new Map();
-    const allIds = [...new Set(pairs.flatMap((p) => [p.favoredId, p.opponentId]).filter(Boolean))];
-    if (allIds.length === 0) return result;
-
-    // Forma reciente de cada jugador — antes era UNA consulta POR
-    // JUGADOR en paralelo (cada una acotada a 20 filas, el tope real
-    // que puede pedir premium con L20). Con semanas de picks
-    // acumulados eso ya son decenas/cientos de conexiones simultáneas
-    // a Supabase en una sola carga de página — la causa real de un
-    // 504 en producción (la función tardaba más de 60s). El primer
-    // arreglo (lotes de 20 con un OR de eq.eq.eq...) seguía siendo
-    // demasiadas conexiones simultáneas cuando allIds es grande (el
-    // 504 volvió incluso con lotes). Ahora es UNA SOLA consulta con
-    // .in(), que Postgres resuelve con el índice en vez de evaluar un
-    // OR larguísimo — sin necesidad de partir en lotes para nada.
-    const rawHistoryByPlayer = new Map(allIds.map((id) => [id, []]));
-    if (allIds.length) {
-      const idList = allIds.join(',');
-      const { data } = await supabase
-        .from('matches')
-        .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
-        .eq('status', 'finished')
-        .or(`player_a_id.in.(${idList}),player_b_id.in.(${idList})`)
-        .order('scheduled_at', { ascending: false })
-        .limit(5000);
-      for (const m of data || []) {
-        if (rawHistoryByPlayer.has(m.player_a_id)) rawHistoryByPlayer.get(m.player_a_id).push(m);
-        if (rawHistoryByPlayer.has(m.player_b_id)) rawHistoryByPlayer.get(m.player_b_id).push(m);
-      }
-    }
-    for (const [id, rows] of rawHistoryByPlayer) {
-      const deduped = [...new Map(rows.map((m) => [m.id, m])).values()];
-      deduped.sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
-      rawHistoryByPlayer.set(id, deduped.slice(0, 20));
-    }
-
-    const missingOpponentIds = [
-      ...new Set([...rawHistoryByPlayer.values()].flat().flatMap((m) => [m.player_a_id, m.player_b_id]))
-    ].filter((id) => id && !playersById.has(id));
-    if (missingOpponentIds.length) {
-      const { data: extra } = await supabase
-        .from('players')
-        .select('id, name, avatar_url, avatar_cutout_url')
-        .in('id', missingOpponentIds);
-      for (const p of extra || []) playersById.set(p.id, p);
-    }
-
-    const historyFor = (playerId) =>
-      (rawHistoryByPlayer.get(playerId) || []).map((m) => {
-        const isA = m.player_a_id === playerId;
-        const oppId = isA ? m.player_b_id : m.player_a_id;
-        return {
-          date: m.scheduled_at,
-          opponent: playersById.get(oppId)?.name || '?',
-          setsFor: isA ? m.sets_a : m.sets_b,
-          setsAgainst: isA ? m.sets_b : m.sets_a,
-          win: m.winner_id === playerId,
-          viewedWasHome: isA
-        };
-      });
-
-    // H2H: mismo problema que la forma reciente de arriba tenía antes
-    // (un lote compartido con límite fijo se quedaba corto para
-    // parejas poco activas — confirmado: un cruce con 20 partidos
-    // reales salía como "0 enfrentamientos"). Esta consulta va directo
-    // por cada pareja exacta (favorito↔rival), en lotes de 15 para no
-    // armar una sola consulta gigante.
-    const pairKey = (id1, id2) => (id1 < id2 ? `${id1}:${id2}` : `${id2}:${id1}`);
-    const uniquePairKeys = [
-      ...new Set(pairs.filter((p) => p.favoredId && p.opponentId).map((p) => pairKey(p.favoredId, p.opponentId)))
-    ];
-    const h2hRowsByPair = new Map();
-    if (uniquePairKeys.length > 0) {
-      const CHUNK = 15;
-      const chunks = [];
-      for (let i = 0; i < uniquePairKeys.length; i += CHUNK) chunks.push(uniquePairKeys.slice(i, i + CHUNK));
-      const chunkResults = await Promise.all(
-        chunks.map(async (keys) => {
-          const orClauses = keys
-            .map((k) => {
-              const [a, b] = k.split(':');
-              return `and(player_a_id.eq.${a},player_b_id.eq.${b}),and(player_a_id.eq.${b},player_b_id.eq.${a})`;
-            })
-            .join(',');
-          const { data: h2hData } = await supabase
-            .from('matches')
-            .select('scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
-            .eq('status', 'finished')
-            .or(orClauses)
-            .order('scheduled_at', { ascending: false })
-            .limit(5000);
-          return h2hData || [];
-        })
-      );
-      for (const m of chunkResults.flat()) {
-        const key = pairKey(m.player_a_id, m.player_b_id);
-        if (!h2hRowsByPair.has(key)) h2hRowsByPair.set(key, []);
-        h2hRowsByPair.get(key).push(m);
-      }
-    }
-
-    for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
-      const history = historyFor(favoredId);
-      const opponentHistory = historyFor(opponentId);
-      const h2hMatches = (h2hRowsByPair.get(pairKey(favoredId, opponentId)) || [])
-        .slice(0, 20)
-        .map((m) => {
-          const isA = m.player_a_id === favoredId;
-          return {
-            date: m.scheduled_at,
-            opponent: opponentName,
-            setsFor: isA ? m.sets_a : m.sets_b,
-            setsAgainst: isA ? m.sets_b : m.sets_a,
-            win: m.winner_id === favoredId,
-            // player_a_id = local (mismo criterio que "camiseta roja
-            // siempre a la izquierda" en el resto del sitio) — se
-            // guarda para poder ordenar el H2H local-primero, como
-            // Sofascore, en vez de "favorito siempre primero".
-            favoredWasHome: isA
-          };
-        });
-      const winsFavored = h2hMatches.filter((m) => m.win).length;
-      result.set(pickId, {
-        history,
-        streakLabel: streakLabelFromHistory(history),
-        opponentHistory,
-        opponentStreakLabel: streakLabelFromHistory(opponentHistory),
-        h2h: `${winsFavored}-${h2hMatches.length - winsFavored}`,
-        h2hTotal: h2hMatches.length,
-        h2hMatches
-      });
-    }
-    return result;
-  }
-
-  const formByPickId = await buildFormAndH2H([
-    ...pendingPrelim.map(({ pick, favored, opponent }) => ({
-      pickId: pick.id,
-      favoredId: favored.id,
-      opponentId: opponent.id,
-      opponentName: opponent.name
-    })),
-    ...resolvedPrelim.map(({ pick, favored, opponent }) => ({
-      pickId: pick.id,
-      favoredId: favored.id,
-      opponentId: opponent.id,
-      opponentName: opponent.name
-    }))
-  ]);
-  const EMPTY_FORM = {
-    history: [],
-    streakLabel: null,
-    opponentHistory: [],
-    opponentStreakLabel: null,
-    h2h: '0-0',
-    h2hTotal: 0,
-    h2hMatches: []
-  };
-
-  const picks = pendingPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament }) => {
-    const form = formByPickId.get(pick.id) || EMPTY_FORM;
-    const confidence = Math.round(pick.confidence);
-    return {
-      id: pick.id,
-      matchId: match.id,
-      day: dayLabel(match.scheduled_at),
-      scheduledAt: new Date(match.scheduled_at).getTime(),
-      player: favored?.name || '—',
-      initials: initialsOf(favored?.name),
-      avatarUrl: favored?.avatar_cutout_url || favored?.avatar_url || null,
-      hasCutout: Boolean(favored?.avatar_cutout_url),
-      opponent: opponent?.name || '—',
-      opponentInitials: initialsOf(opponent?.name),
-      opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
-      opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
-      favoredIsA,
-      time: timeLabel(match.scheduled_at),
-      tournament: tournament?.name || 'Torneo',
-      market: pick.market,
-      confidence,
-      tier: confidenceTier(confidence),
-      odds: pick.odds ? Number(pick.odds) : null,
-      exclusive: Boolean(pick.is_exclusive),
-      // Análisis IA es beneficio premium (2026-07-26) — este prop de
-      // getServerSideProps es público (visible con "ver código
-      // fuente" sin login, sin forma de saber acá quién visita), así
-      // que nunca puede viajar el texto real: sale null y lo rellena
-      // /api/refresh-data.js (que sí revisa el token) apenas monta.
-      analysis: null,
-      history: form.history,
-      streakLabel: form.streakLabel,
-      opponentHistory: form.opponentHistory,
-      opponentStreakLabel: form.opponentStreakLabel,
-      h2h: form.h2h,
-      h2hTotal: form.h2hTotal,
-      h2hMatches: form.h2hMatches,
-      score: null,
-      setScores: null,
-      result: 'pending',
-      followersCount: followersCountByPickId.get(pick.id) || 0,
-      tipsterPick: Boolean(pick.tipster_pick),
-      tipsterPickAt: pick.tipster_pick_at || null
-    };
-  });
-  picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
-  // El pick destacado prioriza cuota real arriba de 1.60 — entre esos,
-  // el de mayor confianza. Si ninguno tiene cuota >1.60 (o cuota del
-  // todo), cae al de mayor confianza general para no dejar Inicio sin
-  // destacado solo porque el cruce con Rushbet no encontró esa cuota.
-  // Los picks exclusivos quedan afuera de este cálculo a propósito:
-  // el destacado se ve en Inicio SIN estar logueado como premium, así
-  // que nunca puede ser uno de los picks que se supone son solo para
-  // quien paga.
-  const publicPicks = picks.filter((p) => !p.exclusive);
-  const picksWithGoodOdds = publicPicks.filter((p) => p.odds && p.odds > 1.6);
-  const topConfidence =
-    (picksWithGoodOdds.length ? picksWithGoodOdds : publicPicks).slice().sort((a, b) => b.confidence - a.confidence)[0];
-  if (topConfidence) topConfidence.featured = true;
-
-  const resolvedPicks = resolvedPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament, score, setScores }) => {
-    const form = formByPickId.get(pick.id) || EMPTY_FORM;
-    const confidence = Math.round(pick.confidence);
-    return {
-      id: pick.id,
-      matchId: match.id,
-      day: dayLabel(match.scheduled_at),
-      scheduledAt: new Date(match.scheduled_at).getTime(),
-      player: favored.name,
-      initials: initialsOf(favored.name),
-      avatarUrl: favored.avatar_cutout_url || favored.avatar_url || null,
-      hasCutout: Boolean(favored.avatar_cutout_url),
-      opponent: opponent.name,
-      opponentInitials: initialsOf(opponent.name),
-      opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
-      opponentHasCutout: Boolean(opponent.avatar_cutout_url),
-      favoredIsA,
-      time: timeLabel(match.scheduled_at),
-      tournament: tournament?.name || 'Torneo',
-      market: pick.market,
-      confidence,
-      tier: confidenceTier(confidence),
-      odds: pick.odds ? Number(pick.odds) : null,
-      exclusive: Boolean(pick.is_exclusive),
-      // Análisis IA es beneficio premium (2026-07-26) — este prop de
-      // getServerSideProps es público (visible con "ver código
-      // fuente" sin login, sin forma de saber acá quién visita), así
-      // que nunca puede viajar el texto real: sale null y lo rellena
-      // /api/refresh-data.js (que sí revisa el token) apenas monta.
-      analysis: null,
-      history: form.history,
-      streakLabel: form.streakLabel,
-      opponentHistory: form.opponentHistory,
-      opponentStreakLabel: form.opponentStreakLabel,
-      h2h: form.h2h,
-      h2hTotal: form.h2hTotal,
-      h2hMatches: form.h2hMatches,
-      score,
-      setScores,
-      result: pick.result,
-      matchStatus: 'done',
-      followersCount: followersCountByPickId.get(pick.id) || 0,
-      tipsterPick: Boolean(pick.tipster_pick),
-      tipsterPickAt: pick.tipster_pick_at || null
-    };
-  });
-  resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
-  // Mismo motivo que publicPicks arriba: getServerSideProps manda TODO
-  // esto como props públicos, visibles sin login (hasta con "ver
-  // código fuente") — un pick exclusivo NUNCA puede viajar acá, ni
-  // resuelto. Solo sale por /api/vip-picks, con el JWT verificado.
-  const publicResolvedPicks = resolvedPicks.filter((p) => !p.exclusive);
-
-  // "El pick de CAMILO REY" — marcado a mano por el admin (ver
-  // pages/api/admin-tipster-pick.js), no calculado acá. Si el pick
-  // marcado es Exclusivo, queda afuera de esta versión pública a
-  // propósito (mismo candado que arriba) — solo lo ven quien tenga
-  // Exclusivo, vía /api/vip-picks en el cliente.
-  const tipsterPick = [...publicPicks, ...publicResolvedPicks].find((p) => p.tipsterPick) || null;
-
-  // Tabla de grupo por torneo — igual a como tt.league-pro.com la
-  // muestra dentro de cada torneo: los jugadores de ESE grupo se
-  // enfrentan todos contra todos, y la tabla es el cruce de
-  // resultados (sets a favor/en contra por rival) + total de sets +
-  // puesto. Se reconstruye 100% desde nuestros propios "matches" del
-  // torneo (no hace falta un campo nuevo de scraping) — solo se arma
-  // para los torneos que tienen AL MENOS un partido en vivo ahora
-  // mismo, no todos los que tengan un pick pendiente (eso incluía
-  // torneos que ni siquiera habían arrancado, saturando Inicio).
-  // Antes era UNA consulta POR TORNEO (con picks pendientes en 20-40
-  // torneos a la vez, eso son 20-40 conexiones simultáneas SOLO para
-  // chequear cuáles están en vivo) — mismo problema que ya se arregló
-  // en buildFormAndH2H/players, causa real de que el 504 siguiera
-  // volviendo. Ahora se trae TODO en una sola consulta y se agrupa acá.
-  const tournamentMatchesById = new Map(tournamentIds.map((id) => [id, []]));
-  if (tournamentIds.length) {
-    const { data: allGroupMatches } = await supabase
-      .from('matches')
-      .select('tournament_id, player_a_id, player_b_id, sets_a, sets_b, set_scores, status, scheduled_at')
-      .in('tournament_id', tournamentIds);
-    for (const m of allGroupMatches || []) {
-      if (tournamentMatchesById.has(m.tournament_id)) tournamentMatchesById.get(m.tournament_id).push(m);
-    }
-  }
-
-  // Jugadores que hagan falta para las tablas de grupo EN VIVO — en un
-  // solo lote (antes era una consulta por torneo en vivo).
-  const now0 = Date.now();
-  const liveTournamentIds = tournamentIds.filter((tId) => {
-    const ms = tournamentMatchesById.get(tId) || [];
-    return ms.some((m) => m.status === 'live' || (m.status !== 'finished' && m.scheduled_at && new Date(m.scheduled_at).getTime() <= now0));
-  });
-  const groupMissingIds = [
-    ...new Set(
-      liveTournamentIds.flatMap((tId) => (tournamentMatchesById.get(tId) || []).flatMap((m) => [m.player_a_id, m.player_b_id]))
-    )
-  ].filter((id) => id && !playersById.has(id));
-  if (groupMissingIds.length) {
-    const { data: extra } = await supabase
-      .from('players')
-      .select('id, name, avatar_url, avatar_cutout_url, rating')
-      .in('id', groupMissingIds);
-    for (const p of extra || []) playersById.set(p.id, p);
-  }
-
-  const tournamentGroups = liveTournamentIds
-    .map((tId) => {
-      const groupMatches = tournamentMatchesById.get(tId) || [];
-      if (groupMatches.length === 0) return null;
-
-      const groupPlayerIds = [...new Set(groupMatches.flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(Boolean);
-      if (groupPlayerIds.length < 3) return null;
-
-      // matchupByPlayer.get(idA).get(idB) = sets de A contra B, visto desde A.
-        // ballsByPlayer = puntos (bolas) ganados/perdidos, solo sumando los
-        // partidos donde SÍ tenemos el detalle punto a punto (set_scores) —
-        // no todos los partidos lo tienen, solo los que alguien vio en vivo
-        // mientras se jugaban, así que puede quedar incompleto.
-        const matchupByPlayer = new Map(groupPlayerIds.map((id) => [id, new Map()]));
-        const ballsByPlayer = new Map(groupPlayerIds.map((id) => [id, { for: 0, against: 0, hasData: false }]));
-        for (const m of groupMatches) {
-          if (m.sets_a == null || m.sets_b == null) continue;
-          matchupByPlayer.get(m.player_a_id)?.set(m.player_b_id, { for: m.sets_a, against: m.sets_b });
-          matchupByPlayer.get(m.player_b_id)?.set(m.player_a_id, { for: m.sets_b, against: m.sets_a });
-
-          if (Array.isArray(m.set_scores) && m.set_scores.length > 0) {
-            const ballsA = m.set_scores.reduce((s, set) => s + (set.a || 0), 0);
-            const ballsB = m.set_scores.reduce((s, set) => s + (set.b || 0), 0);
-            const ba = ballsByPlayer.get(m.player_a_id);
-            const bb = ballsByPlayer.get(m.player_b_id);
-            if (ba) {
-              ba.for += ballsA;
-              ba.against += ballsB;
-              ba.hasData = true;
-            }
-            if (bb) {
-              bb.for += ballsB;
-              bb.against += ballsA;
-              bb.hasData = true;
-            }
-          }
-        }
-
-        const rows = groupPlayerIds.map((id) => {
-          const p = playersById.get(id);
-          let wins = 0;
-          let losses = 0;
-          let setsFor = 0;
-          let setsAgainst = 0;
-          for (const res of matchupByPlayer.get(id).values()) {
-            setsFor += res.for;
-            setsAgainst += res.against;
-            if (res.for > res.against) wins++;
-            else losses++;
-          }
-          const balls = ballsByPlayer.get(id);
-          return {
-            id,
-            name: p?.name || '—',
-            initials: initialsOf(p?.name),
-            avatarUrl: p?.avatar_cutout_url || p?.avatar_url || null,
-            hasCutout: Boolean(p?.avatar_cutout_url),
-            rating: p?.rating != null ? Math.round(Number(p.rating)) : null,
-            wins,
-            setsFor,
-            setsAgainst,
-            // 2 puntos por partido ganado, 1 por perdido (igual al criterio
-            // que usa tt.league-pro.com en su propia tabla de grupo).
-            points: wins * 2 + losses,
-            ballsFor: balls.hasData ? balls.for : null,
-            ballsAgainst: balls.hasData ? balls.against : null
-          };
-        });
-        rows.sort((a, b) => b.wins - a.wins || b.setsFor - b.setsAgainst - (a.setsFor - a.setsAgainst));
-        rows.forEach((r, i) => (r.place = i + 1));
-
-        const matchup = {};
-        for (const id of groupPlayerIds) {
-          matchup[id] = {};
-          for (const [oppId, res] of matchupByPlayer.get(id)) {
-            matchup[id][oppId] = `${res.for}:${res.against}`;
-          }
-        }
-
-        const tournament = tournamentsById.get(tId);
-        return { tournamentId: tId, name: tournament?.name || 'Torneo', players: rows, matchup };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-
-  // Campeones recientes — se muestran en Inicio cuando NO hay partidos
-  // en vivo (reemplaza el bloque "En vivo ahora" que queda vacío).
-  // Últimos torneos que ya cerraron con ganador definido (place=1);
-  // el "resultado final" es su cruce más reciente DENTRO de ese
-  // torneo (son grupos todos-contra-todos, no hay un partido de
-  // "final" real — se usa el último jugado como proxy del cierre).
-  const { data: recentFinishedTournaments } = await supabase
-    .from('tournaments')
-    .select('id, name, winner_id, scheduled_at')
-    .eq('status', 'finished')
-    .not('winner_id', 'is', null)
-    .order('scheduled_at', { ascending: false })
-    .limit(6);
-
-  const champTournamentIds = (recentFinishedTournaments || []).map((t) => t.id);
-  const { data: champMatches } = champTournamentIds.length
-    ? await supabase
-        .from('matches')
-        .select('tournament_id, player_a_id, player_b_id, sets_a, sets_b, set_scores, scheduled_at, winner_id')
-        .in('tournament_id', champTournamentIds)
-        .eq('status', 'finished')
-    : { data: [] };
-
-  const recentChampions = (recentFinishedTournaments || [])
-    .map((t) => {
-      const winner = playersById.get(t.winner_id);
-      if (!winner) return null;
-      const myMatches = (champMatches || [])
-        .filter((m) => m.tournament_id === t.id && (m.player_a_id === t.winner_id || m.player_b_id === t.winner_id))
-        .sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
-      if (myMatches.length === 0) return null;
-      const last = myMatches[0];
-      const winnerIsA = last.player_a_id === t.winner_id;
-      const rival = playersById.get(winnerIsA ? last.player_b_id : last.player_a_id);
-      const setsFor = winnerIsA ? last.sets_a : last.sets_b;
-      const setsAgainst = winnerIsA ? last.sets_b : last.sets_a;
-      // set_scores viene relativo a jugador_a/b — se reordena para que
-      // quede siempre "campeón-rival", igual que el resto del sitio
-      // hace con setScores en los picks.
-      const setScores = Array.isArray(last.set_scores)
-        ? winnerIsA
-          ? last.set_scores
-          : last.set_scores.map((s) => ({ a: s.b, b: s.a }))
-        : null;
-      const wins = myMatches.filter((m) => m.winner_id === t.winner_id).length;
-      const losses = myMatches.length - wins;
-      return {
-        tournamentId: t.id,
-        tournamentName: t.name || 'Torneo',
-        matchDate: last.scheduled_at,
-        winnerName: winner.name,
-        winnerInitials: initialsOf(winner.name),
-        winnerAvatarUrl: winner.avatar_cutout_url || winner.avatar_url || null,
-        winnerHasCutout: Boolean(winner.avatar_cutout_url),
-        // Con qué camiseta ganó ESE partido (local=roja, visitante=azul,
-        // mismo criterio que PickCard/PickDetailModal) — no es un color
-        // fijo del campeón, cambia según de qué lado jugó su último cruce.
-        winnerWasHome: winnerIsA,
-        rivalName: rival?.name || '—',
-        rivalInitials: initialsOf(rival?.name),
-        rivalAvatarUrl: rival?.avatar_cutout_url || rival?.avatar_url || null,
-        setScores,
-        rivalHasCutout: Boolean(rival?.avatar_cutout_url),
-        score: setsFor != null && setsAgainst != null ? `${setsFor}-${setsAgainst}` : null,
-        wins,
-        losses,
-        points: wins * 2 + losses
-      };
-    })
-    .filter(Boolean);
-
-  // Calendario: windowMatches ya se disparó al principio de la
-  // función (ver windowMatchesPromise) — aquí solo se espera.
-  const { data: windowMatches } = await windowMatchesPromise;
-
-  const missingPlayerIds = [...new Set((windowMatches || []).flatMap((m) => [m.player_a_id, m.player_b_id]))].filter(
-    (id) => id && !playersById.has(id)
-  );
-  if (missingPlayerIds.length) {
-    const { data: extra } = await supabase
-      .from('players')
-      .select('id, name, avatar_url, avatar_cutout_url')
-      .in('id', missingPlayerIds);
-    for (const p of extra || []) playersById.set(p.id, p);
-  }
-  const missingTournamentIds = [...new Set((windowMatches || []).map((m) => m.tournament_id))].filter(
-    (id) => id && !tournamentsById.has(id)
-  );
-  if (missingTournamentIds.length) {
-    const { data: extra } = await supabase.from('tournaments').select('id, name').in('id', missingTournamentIds);
-    for (const t of extra || []) tournamentsById.set(t.id, t);
-  }
-
-  // Para pintar de verde/rojo el resultado del partido según si
-  // nuestro pick acertó o falló (no según quién ganó a secas), y para
-  // poder seguir el pick directo desde la tarjeta de Calendario.
-  const windowMatchIds = (windowMatches || []).map((m) => m.id);
-  const { data: windowPicks } = windowMatchIds.length
-    ? await supabase.from('picks').select('id, match_id, result').in('match_id', windowMatchIds)
-    : { data: [] };
-  const pickResultByMatchId = new Map((windowPicks || []).map((p) => [p.match_id, p.result]));
-  const pendingPickIdByMatchId = new Map(
-    (windowPicks || []).filter((p) => p.result === 'pending').map((p) => [p.match_id, p.id])
-  );
-
-  const matches = (windowMatches || []).map((m) => {
-    const a = playersById.get(m.player_a_id);
-    const b = playersById.get(m.player_b_id);
-    const t = tournamentsById.get(m.tournament_id);
-    let status = 'soon';
-    if (m.status === 'finished') status = 'done';
-    else if (m.status === 'live') status = 'live';
-    else if (new Date(m.scheduled_at) <= new Date()) status = 'live';
-    const pickResult = pickResultByMatchId.get(m.id);
-    return {
-      matchId: m.id,
-      pickId: pendingPickIdByMatchId.get(m.id) || null,
-      scheduledAt: m.scheduled_at ? new Date(m.scheduled_at).getTime() : null,
-      time: timeLabel(m.scheduled_at),
-      tournament: t?.name || 'Torneo',
-      players: `${a?.name || '?'} vs ${b?.name || '?'}`,
-      playerA: a?.name || null,
-      playerB: b?.name || null,
-      playerAId: m.player_a_id,
-      playerBId: m.player_b_id,
-      playerAInitials: initialsOf(a?.name),
-      playerBInitials: initialsOf(b?.name),
-      playerAAvatar: a?.avatar_cutout_url || a?.avatar_url || null,
-      playerBAvatar: b?.avatar_cutout_url || b?.avatar_url || null,
-      playerAHasCutout: Boolean(a?.avatar_cutout_url),
-      playerBHasCutout: Boolean(b?.avatar_cutout_url),
-      tournamentId: m.tournament_id,
-      sourceId: m.source_id,
-      status,
-      score: status === 'done' && m.sets_a != null && m.sets_b != null ? `${m.sets_a}-${m.sets_b}` : null,
-      setScores: status === 'done' ? m.set_scores || null : null,
-      pickResult: status === 'done' && (pickResult === 'hit' || pickResult === 'miss') ? pickResult : null
-    };
-  });
-
-  // Bankroll: bankrollRows/bkPicks ya se dispararon al principio de
-  // la función (ver bankrollPromise) — aquí solo se espera.
-  //
-  // OJO: el log detallado (bankrollLog/bankrollSeries, apuesta por
-  // apuesta) YA NO se calcula ni se manda acá — antes viajaba a
-  // CUALQUIER visitante en el HTML inicial de la página, sin login,
-  // aunque la interfaz lo ocultara a quien no fuera admin (el
-  // "candado" era solo visual). Ahora ese detalle se sirve aparte en
-  // /api/bankroll-log, con el mismo login verificado de verdad en el
-  // servidor que ya usan /api/error-log y /api/model-stats. Las
-  // estadísticas AGREGADAS de abajo (efectividad/racha/ROI/balance)
-  // sí siguen siendo públicas a propósito — es la transparencia del
-  // modelo que se muestra en Inicio para todos.
-  const { bankrollRows, bkPicks } = await bankrollPromise;
-  const bkPicksById = new Map((bkPicks || []).map((p) => [p.id, p]));
-
-  const hits = (bankrollRows || []).filter((r) => Number(r.units) > 0).length;
-  const misses = (bankrollRows || []).filter((r) => Number(r.units) < 0).length;
-  const efectividad = hits + misses > 0 ? Math.round((hits / (hits + misses)) * 100) : 0;
-
-  let racha = 0;
-  for (const r of bankrollRows || []) {
-    const won = Number(r.units) > 0;
-    if (racha === 0) racha = won ? 1 : -1;
-    else if (racha > 0 === won) racha += won ? 1 : -1;
-    else break;
-  }
-
-  // ROI = ganancia neta / total apostado. bankroll_log.units ya es la
-  // ganancia/pérdida neta de cada apuesta, no el monto arriesgado, así
-  // que el monto arriesgado se reconstruye desde la cuota real cuando
-  // la tenemos (units = stake * (odds-1) en un acierto), y cae a 1:1
-  // si no hay cuota — mismo criterio que usa scripts/sync.js al pagar.
-  function stakeOf(r) {
-    const units = Number(r.units);
-    if (units < 0) return -units;
-    const pick = bkPicksById.get(r.pick_id);
-    const odds = pick?.odds ? Number(pick.odds) : null;
-    return odds && odds > 1 ? units / (odds - 1) : units;
-  }
-  const totalStake = (bankrollRows || []).reduce((sum, r) => sum + stakeOf(r), 0);
-  const totalProfit = (bankrollRows || []).reduce((sum, r) => sum + Number(r.units), 0);
-  const roi = totalStake > 0 ? Math.round((totalProfit / totalStake) * 1000) / 10 : 0;
-  const unidades = bankrollRows && bankrollRows.length ? Number(bankrollRows[0].balance) : 0;
-
-  const picksWithOdds = publicPicks.filter((p) => p.odds);
-  const cuotaProm = picksWithOdds.length
-    ? Math.round((picksWithOdds.reduce((sum, p) => sum + p.odds, 0) / picksWithOdds.length) * 100) / 100
-    : null;
-
-  const { count: userCount } = await userCountPromise;
-  const { data: tipsterProfileRow } = await tipsterProfilePromise;
-  const { count: tipsterLikesCount } = await tipsterLikesCountPromise;
-  const tipsterProfile = {
-    avatarUrl: tipsterProfileRow?.custom_avatar_url || null,
-    avatarEmoji: tipsterProfileRow?.avatar_emoji || null,
-    likesCount: tipsterLikesCount || 0
-  };
-
   return {
     props: {
-      stats: { efectividad, racha, cuotaProm, roi, unidades },
-      picks: publicPicks,
-      resolvedPicks: publicResolvedPicks,
-      tournamentGroups,
-      recentChampions,
-      hotPlayers,
-      matches,
+      stats: { efectividad: 0, racha: 0, cuotaProm: null, roi: 0, unidades: 0 },
+      picks: [],
+      resolvedPicks: [],
+      tournamentGroups: [],
+      recentChampions: [],
+      hotPlayers: [],
+      matches: [],
       currentDateStr,
       prevDateStr,
       nextDateStr,
       isToday: !selectedDate,
-      userCount: userCount || 0,
-      tipsterPick,
-      tipsterProfile
+      userCount: 0,
+      tipsterPick: null,
+      tipsterProfile: { avatarUrl: null, avatarEmoji: null, likesCount: 0 }
     }
   };
-  } catch (err) {
-    // Si CUALQUIER cosa de arriba truena, antes se caía el sitio
-    // entero (pantalla de error de Next.js) — mejor registrar el
-    // error y devolver props vacíos/seguros para que la página cargue
-    // igual (aunque sea sin datos) mientras se investiga.
-    console.error('Error en getServerSideProps:', err);
-    await logError(supabase, {
-      source: 'getServerSideProps',
-      message: err.message,
-      stack: err.stack,
-      context: { query }
-    });
-    const fallbackDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
-    return {
-      props: {
-        stats: { efectividad: 0, racha: 0, cuotaProm: null, roi: 0, unidades: 0 },
-        picks: [],
-        resolvedPicks: [],
-        tournamentGroups: [],
-        recentChampions: [],
-        hotPlayers: [],
-        matches: [],
-        currentDateStr: fallbackDate,
-        prevDateStr: fallbackDate,
-        nextDateStr: fallbackDate,
-        isToday: true,
-        userCount: 0,
-        tipsterPick: null,
-        tipsterProfile: { avatarUrl: null, avatarEmoji: null, likesCount: 0 }
-      }
-    };
-  }
 }
 
 // Nivel del chat (estilo AiScore) — solo define el color/tier visual
@@ -6596,16 +5675,19 @@ export default function Home({
   picks: initialPicks,
   resolvedPicks: initialResolvedPicks,
   tournamentGroups: initialTournamentGroups,
-  recentChampions = [],
+  recentChampions: initialRecentChampions = [],
   hotPlayers: initialHotPlayers = [],
   matches: initialMatches,
   currentDateStr,
-  userCount,
+  userCount: initialUserCount = 0,
   tipsterPick: initialTipsterPick = null,
-  tipsterProfile = { avatarUrl: null, avatarEmoji: null, likesCount: 0 }
+  tipsterProfile: initialTipsterProfile = { avatarUrl: null, avatarEmoji: null, likesCount: 0 }
 }) {
   const [view, setView] = useState('inicio');
   const [stats, setStats] = useState(initialStats);
+  const [recentChampions, setRecentChampions] = useState(initialRecentChampions);
+  const [tipsterProfile, setTipsterProfile] = useState(initialTipsterProfile);
+  const [userCount, setUserCount] = useState(initialUserCount);
   const [picks, setPicks] = useState(initialPicks);
   const [resolvedPicks, setResolvedPicks] = useState(initialResolvedPicks);
   const [tipsterPick, setTipsterPick] = useState(initialTipsterPick);
@@ -6861,10 +5943,16 @@ export default function Home({
     let cancelled = false;
 
     async function load() {
-      if (document.visibilityState === 'hidden') return;
+      if (!hasSiteAccess || document.visibilityState === 'hidden') return;
       try {
+        const headers = {};
+        if (supabaseClient) {
+          const { data: sessionData } = await supabaseClient.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+        }
         const params = currentDateStr ? `?date=${currentDateStr}` : '';
-        const r = await fetch(`/api/matches-status${params}`);
+        const r = await fetch(`/api/matches-status${params}`, { headers });
         const data = await r.json();
         if (!cancelled && data.matches) setMatches(data.matches);
       } catch (e) {
@@ -6872,6 +5960,11 @@ export default function Home({
       }
     }
 
+    // Getting-serverSideProps ya no manda "matches" reales (pedido
+    // 2026-07-27: nada de contenido público en el HTML) — sin este
+    // llamado inmediato, Calendario/Inicio se verían vacíos hasta el
+    // primer tick del poller (20s).
+    load();
     const interval = setInterval(load, 20000);
     return () => {
       cancelled = true;
@@ -6885,8 +5978,10 @@ export default function Home({
   // se resuelve, o una apuesta que se paga, se quedaba congelado hasta
   // refrescar. Se repite cada 20s mientras cualquiera de esas vistas
   // esté abierta.
+  const fullyLoadedRef = useRef(false);
   useEffect(() => {
     if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll' && view !== 'picksvip') return undefined;
+    if (!hasSiteAccess) return undefined;
     let cancelled = false;
 
     async function load() {
@@ -6901,7 +5996,11 @@ export default function Home({
           const accessToken = sessionData?.session?.access_token;
           if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
         }
-        const r = await fetch('/api/refresh-data', { headers });
+        // recentChampions/tipsterProfile/userCount no cambian cada 20s
+        // — se piden UNA sola vez (ver refresh-data.js) con ?full=1, no
+        // en cada tick del poller.
+        const wantsFull = !fullyLoadedRef.current;
+        const r = await fetch(`/api/refresh-data${wantsFull ? '?full=1' : ''}`, { headers });
         const data = await r.json();
         if (cancelled) return;
         if (data.stats) setStats(data.stats);
@@ -6909,6 +6008,12 @@ export default function Home({
         if (data.resolvedPicks) setResolvedPicks(data.resolvedPicks);
         if (data.tournamentGroups) setTournamentGroups(data.tournamentGroups);
         if (data.hotPlayers) setHotPlayers(data.hotPlayers);
+        if (data.recentChampions) {
+          setRecentChampions(data.recentChampions);
+          fullyLoadedRef.current = true;
+        }
+        if (data.tipsterProfile) setTipsterProfile(data.tipsterProfile);
+        if (typeof data.userCount === 'number') setUserCount(data.userCount);
         setTipsterPick(data.tipsterPick || null);
       } catch (e) {
         console.error('Error actualizando Inicio/Picks/Bankroll/Calientes:', e);
