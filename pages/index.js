@@ -8075,11 +8075,15 @@ export default function Home({
         <meta name="twitter:title" content="CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa" />
         <meta name="twitter:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
         <meta name="twitter:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" type="image/svg+xml" href="/icon-master.svg" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        {/* ?v=2 a propósito (2026-07-28, cambio de logo CR → bot): Chrome
+            guarda el favicon en una caché propia, separada de la caché
+            normal de recursos, que no respeta Cache-Control ni se limpia
+            con un hard refresh — solo vuelve a pedirlo si la URL cambia. */}
+        <link rel="icon" href="/favicon.ico?v=2" sizes="any" />
+        <link rel="icon" type="image/svg+xml" href="/icon-master.svg?v=2" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0E0D0C" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
