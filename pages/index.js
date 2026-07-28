@@ -8636,7 +8636,7 @@ export default function Home({
             </span>
             <div className="profile-row-body">
               <strong>Solicitudes de cambios</strong>
-              <p>Buzón de pedidos de los socios + generador de prompt para Claude Code</p>
+              <p>Buzón de pedidos de los socios + generador de prompt técnico</p>
             </div>
             <ProfileIcon name="chevron-right" size={16} />
           </a>
@@ -9309,7 +9309,7 @@ export default function Home({
                       style={{ fontSize: '12.5px', padding: '8px 12px' }}
                       onClick={() => setExpandedPromptId((prev) => (prev === req.id ? null : req.id))}
                     >
-                      {expandedPromptId === req.id ? 'Ocultar prompt' : 'Generar prompt para Claude Code'}
+                      {expandedPromptId === req.id ? 'Ocultar prompt' : 'Generar prompt técnico'}
                     </button>
                   </div>
 
