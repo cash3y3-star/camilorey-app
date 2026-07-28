@@ -8105,6 +8105,142 @@ export default function Home({
     );
   }
 
+  // Acceso al sitio (pedido 2026-07-27): "sacar del sitio a todos los
+  // que no tengan premium activado". Sin sesión no se ve NADA del
+  // contenido, solo login. Con sesión pero sin Premium ni admin, la
+  // cuenta entra pero se topa con esta pantalla en vez del sitio — el
+  // acceso lo activa un admin a mano (premium_until), mismo mecanismo
+  // que ya existe en el panel ("PREMIUM MANUAL").
+  const hasSiteAccess = isAdmin || isPremium;
+  const gatePaymentUrl = process.env.NEXT_PUBLIC_PAYMENT_LINK || 'https://camilobets.tipsterpage.com/Kc9v8l6Y';
+
+  if (!user || !hasSiteAccess) {
+    return (
+      <>
+        <Head>
+          <title>CZECH IA AGENTS</title>
+          <meta name="robots" content="noindex" />
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link
+            href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=Manrope:wght@400;600;700&display=swap"
+            rel="stylesheet"
+          />
+        </Head>
+        <div
+          style={{
+            minHeight: '100vh',
+            background:
+              'radial-gradient(120% 55% at 50% 100%, #0E0D0C 0%, transparent 62%), linear-gradient(160deg, #16A34A 0%, #0E0D0C 100%)',
+            color: '#F5F1EC',
+            fontFamily: "'Manrope', sans-serif",
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            padding: '24px'
+          }}
+        >
+          <div style={{ maxWidth: '380px', margin: '0 auto', width: '100%' }}>
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '20px',
+                background: '#1B1917',
+                color: '#16A34A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '18px'
+              }}
+            >
+              <ProfileIcon name={user ? 'crown' : 'shield'} size={30} />
+            </div>
+            <h1
+              style={{
+                fontFamily: "'Big Shoulders Display', sans-serif",
+                fontWeight: 800,
+                fontSize: '32px',
+                lineHeight: 1.08,
+                margin: '0 0 12px'
+              }}
+            >
+              CZECH IA AGENTS
+            </h1>
+            <p style={{ color: '#F5F1EC', opacity: 0.75, fontSize: '14.5px', lineHeight: 1.5, margin: '0 0 22px', maxWidth: '340px' }}>
+              {!user
+                ? 'Este sitio es solo para cuentas Premium. Iniciá sesión con Google para continuar.'
+                : 'Tu cuenta todavía no tiene Premium activo — activalo para entrar al sitio. El pago se hace fuera del sitio, en un link seguro; cuando termines, escribinos al correo con el correo de tu cuenta y activamos el acceso en minutos.'}
+            </p>
+            {!user ? (
+              <button
+                onClick={loginWithGoogle}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  background: '#F5F1EC',
+                  color: '#0E0D0C',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '16px',
+                  fontFamily: "'Manrope', sans-serif",
+                  fontWeight: 800,
+                  fontSize: '15px',
+                  cursor: 'pointer'
+                }}
+              >
+                <GoogleGIcon size={18} /> Iniciar sesión con Google
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => window.open(gatePaymentUrl, '_blank', 'noopener,noreferrer')}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    background: '#F5F1EC',
+                    color: '#0E0D0C',
+                    border: 'none',
+                    borderRadius: '999px',
+                    padding: '16px',
+                    fontFamily: "'Manrope', sans-serif",
+                    fontWeight: 800,
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    marginBottom: '10px'
+                  }}
+                >
+                  Activar Premium
+                </button>
+                <button
+                  onClick={logout}
+                  style={{
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    color: '#F5F1EC',
+                    fontFamily: "'Manrope', sans-serif",
+                    fontWeight: 700,
+                    fontSize: '13.5px',
+                    cursor: 'pointer',
+                    padding: '6px'
+                  }}
+                >
+                  Cerrar sesión
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head>
