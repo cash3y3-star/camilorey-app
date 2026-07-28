@@ -25,12 +25,43 @@ const VIEWS = [
   'mibankroll',
   'actividad',
   'destacados',
+  'solicitudes',
   'admin',
   'usuarios'
 ];
 // Las 5 vistas que antes vivían sueltas en el menú, ahora agrupadas
 // bajo un solo botón "Admin" (ver la sección admin más abajo).
-const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados', 'usuarios'];
+const ADMIN_VIEWS = ['bankroll', 'grupos', 'modelo', 'errores', 'actividad', 'destacados', 'solicitudes', 'usuarios'];
+
+// Contexto fijo del proyecto para el generador de prompts del buzón de
+// "Solicitudes de cambios" — pedido explícito 2026-07-28: que quede
+// acá como constante editable, no hardcodeado dentro de la función.
+const CHANGE_REQUEST_PROJECT_CONTEXT =
+  'Proyecto: sitio de picks de tenis de mesa Liga Pro checa. Stack: Next.js + Supabase + Vercel. Prioridad mobile-first. Los cambios van a main/producción.';
+const CHANGE_REQUEST_STANDARD_INSTRUCTIONS =
+  'Antes de programar, revisa cómo está estructurado el código actual y adapta el cambio a lo que ya existe. Si necesitas migraciones SQL, pásame el código para correrlo en Supabase. Avísame qué archivos tocaste.';
+
+// Arma el prompt técnico a partir de los campos que cargó el socio —
+// plantilla simple sin IA a propósito (pedido explícito: nada de API
+// externa/costo todavía). Si más adelante se quiere que Claude redacte
+// el prompt de forma más inteligente a partir de la descripción libre,
+// acá es donde iría esa llamada (a la API de Anthropic, con la
+// descripción como input) reemplazando este armado por texto plano —
+// NO activar sin que el admin lo pida explícitamente.
+const CHANGE_REQUEST_PRIORITY_LABEL = { baja: 'Baja', media: 'Media', alta: 'Alta' };
+function buildChangeRequestPrompt(request) {
+  return [
+    `PEDIDO: ${request.title}`,
+    '',
+    request.description,
+    '',
+    `Prioridad: ${CHANGE_REQUEST_PRIORITY_LABEL[request.priority] || 'Media'}`,
+    '',
+    CHANGE_REQUEST_PROJECT_CONTEXT,
+    '',
+    CHANGE_REQUEST_STANDARD_INSTRUCTIONS
+  ].join('\n');
+}
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const THEME_KEY = 'camilorey_theme';
 const LANG_KEY = 'camilorey_lang';
@@ -7368,6 +7399,112 @@ export default function Home({
     };
   }, [view, isAdmin]);
 
+  // Buzón de Solicitudes de cambios — mismo patrón que Errores: solo
+  // se consulta al entrar a esa pestaña, cualquier admin ve el buzón
+  // completo (compartido entre socios, no solo lo propio).
+  const [changeRequests, setChangeRequests] = useState(null);
+  const [changeRequestsError, setChangeRequestsError] = useState(null);
+  const loadChangeRequests = async () => {
+    if (!supabaseClient) return;
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    try {
+      const r = await fetch('/api/admin-change-requests', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const data = await r.json();
+      if (!r.ok) setChangeRequestsError(data.error || 'Error cargando las solicitudes.');
+      else {
+        setChangeRequests(data.requests);
+        setChangeRequestsError(null);
+      }
+    } catch (e) {
+      setChangeRequestsError(e.message);
+    }
+  };
+  useEffect(() => {
+    if (view !== 'solicitudes' || !isAdmin || !supabaseClient) return undefined;
+    let cancelled = false;
+    (async () => {
+      if (cancelled) return;
+      await loadChangeRequests();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, isAdmin]);
+
+  const [newRequestTitle, setNewRequestTitle] = useState('');
+  const [newRequestDesc, setNewRequestDesc] = useState('');
+  const [newRequestPriority, setNewRequestPriority] = useState('media');
+  const [newRequestBusy, setNewRequestBusy] = useState(false);
+  const [newRequestMsg, setNewRequestMsg] = useState('');
+  const createChangeRequest = async () => {
+    if (!newRequestTitle.trim() || !newRequestDesc.trim() || !supabaseClient) return;
+    setNewRequestBusy(true);
+    setNewRequestMsg('');
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/admin-change-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ title: newRequestTitle.trim(), description: newRequestDesc.trim(), priority: newRequestPriority })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setNewRequestMsg(data.error || 'Error creando la solicitud.');
+      } else {
+        setChangeRequests((prev) => [data.request, ...(prev || [])]);
+        setNewRequestTitle('');
+        setNewRequestDesc('');
+        setNewRequestPriority('media');
+        setNewRequestMsg('');
+      }
+    } catch (e) {
+      setNewRequestMsg(e.message);
+    }
+    setNewRequestBusy(false);
+  };
+
+  const [requestStatusBusyId, setRequestStatusBusyId] = useState(null);
+  const changeRequestStatus = async (id, status) => {
+    if (!supabaseClient) return;
+    setRequestStatusBusyId(id);
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/admin-change-requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ id, status })
+      });
+      const data = await r.json();
+      if (r.ok) {
+        setChangeRequests((prev) => (prev || []).map((req) => (req.id === id ? data.request : req)));
+      } else {
+        alert(data.error || 'Error actualizando el estado.');
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+    setRequestStatusBusyId(null);
+  };
+
+  // Qué solicitud tiene el prompt generado visible ahora mismo (una a
+  // la vez) — se arma en el momento con buildChangeRequestPrompt, no se
+  // guarda en la base (es texto derivado, no hace falta persistirlo).
+  const [expandedPromptId, setExpandedPromptId] = useState(null);
+  const [promptCopiedId, setPromptCopiedId] = useState(null);
+  const copyChangeRequestPrompt = async (request) => {
+    const text = buildChangeRequestPrompt(request);
+    try {
+      await navigator.clipboard.writeText(text);
+      setPromptCopiedId(request.id);
+      setTimeout(() => setPromptCopiedId((prev) => (prev === request.id ? null : prev)), 2000);
+    } catch (e) {
+      alert('No se pudo copiar automáticamente — seleccioná el texto a mano.');
+    }
+  };
+
   // Registro de usuarios (correo, nombre, desde cuándo) — mismo
   // patrón que Errores: solo se consulta al entrar a esa pestaña.
   const [usersList, setUsersList] = useState(null);
@@ -8493,6 +8630,16 @@ export default function Home({
             </div>
             <ProfileIcon name="chevron-right" size={16} />
           </a>
+          <a className="profile-row" href="#solicitudes">
+            <span className="profile-row-icon">
+              <ProfileIcon name="mail" />
+            </span>
+            <div className="profile-row-body">
+              <strong>Solicitudes de cambios</strong>
+              <p>Buzón de pedidos de los socios + generador de prompt para Claude Code</p>
+            </div>
+            <ProfileIcon name="chevron-right" size={16} />
+          </a>
           <a className="profile-row" href="#usuarios">
             <span className="profile-row-icon">
               <ProfileIcon name="user" />
@@ -9052,6 +9199,133 @@ export default function Home({
                   </div>
                   <div className="error-row-message">{e.message}</div>
                   {e.context ? <div className="error-row-context">{JSON.stringify(e.context)}</div> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+        )}
+
+        {isAdmin && (
+        <section className={`view ${view === 'solicitudes' ? 'active' : ''}`}>
+          <a href="#admin" className="admin-back-link">
+            <ProfileIcon name="arrow-left" size={14} /> Admin
+          </a>
+          <span className="eyebrow">Solo admins ven esto</span>
+          <h1 className="page-title">Solicitudes de cambios</h1>
+          <p className="page-sub">
+            Buzón compartido entre socios admin — dejá el pedido en texto normal y generá el prompt técnico listo
+            para pegar en Claude Code. La ejecución del cambio se sigue haciendo por terminal, como siempre.
+          </p>
+
+          <div className="bankroll-card">
+            <input
+              type="text"
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px' }}
+              placeholder="Título corto (ej: Filtro por liga en Picks)"
+              maxLength={80}
+              value={newRequestTitle}
+              onChange={(e) => setNewRequestTitle(e.target.value)}
+            />
+            <textarea
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px', minHeight: '80px', resize: 'vertical', fontFamily: 'inherit' }}
+              placeholder="Describí qué querés en texto normal — no hace falta que sea técnico"
+              maxLength={1000}
+              value={newRequestDesc}
+              onChange={(e) => setNewRequestDesc(e.target.value)}
+            />
+            <select
+              className="profile-name-input"
+              style={{ width: '100%', marginBottom: '10px' }}
+              value={newRequestPriority}
+              onChange={(e) => setNewRequestPriority(e.target.value)}
+            >
+              <option value="baja">Prioridad: Baja</option>
+              <option value="media">Prioridad: Media</option>
+              <option value="alta">Prioridad: Alta</option>
+            </select>
+            <button
+              type="button"
+              className="btn btn-ball"
+              disabled={newRequestBusy || !newRequestTitle.trim() || !newRequestDesc.trim()}
+              onClick={createChangeRequest}
+            >
+              {newRequestBusy ? 'Creando…' : 'Crear solicitud'}
+            </button>
+            {newRequestMsg ? <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{newRequestMsg}</p> : null}
+          </div>
+
+          <div className="section-head" style={{ marginTop: 22 }}>
+            <h2>Todas las solicitudes{changeRequests ? ` (${changeRequests.length})` : ''}</h2>
+          </div>
+          {changeRequestsError ? (
+            <p className="page-sub">Error: {changeRequestsError}</p>
+          ) : !changeRequests ? (
+            <p className="page-sub">Cargando…</p>
+          ) : changeRequests.length === 0 ? (
+            <p className="page-sub">Todavía no hay solicitudes.</p>
+          ) : (
+            <div className="stat-rows" style={{ gap: 0 }}>
+              {changeRequests.map((req) => (
+                <div className="change-request-row" key={req.id}>
+                  <div className="error-row-top">
+                    <span className={`request-priority-pill priority-${req.priority}`}>
+                      {CHANGE_REQUEST_PRIORITY_LABEL[req.priority] || 'Media'}
+                    </span>
+                    <span className="error-row-date">
+                      {new Intl.DateTimeFormat('es-CO', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: 'America/Bogota'
+                      }).format(new Date(req.created_at))}
+                    </span>
+                  </div>
+                  <div className="change-request-title">{req.title}</div>
+                  <div className="error-row-message">{req.description}</div>
+                  <p style={{ color: 'var(--muted)', fontSize: '11.5px', margin: '4px 0 0' }}>
+                    Pedido por {req.created_by_email}
+                  </p>
+
+                  <div className="change-request-actions">
+                    <select
+                      className="profile-name-input"
+                      style={{ fontSize: '12.5px', padding: '6px 10px', flex: 'none' }}
+                      value={req.status}
+                      disabled={requestStatusBusyId === req.id}
+                      onChange={(e) => changeRequestStatus(req.id, e.target.value)}
+                    >
+                      <option value="pendiente">Pendiente</option>
+                      <option value="en_progreso">En progreso</option>
+                      <option value="hecha">Hecha</option>
+                      <option value="descartada">Descartada</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ fontSize: '12.5px', padding: '8px 12px' }}
+                      onClick={() => setExpandedPromptId((prev) => (prev === req.id ? null : req.id))}
+                    >
+                      {expandedPromptId === req.id ? 'Ocultar prompt' : 'Generar prompt para Claude Code'}
+                    </button>
+                  </div>
+
+                  {expandedPromptId === req.id ? (
+                    <div className="change-request-prompt">
+                      <pre>{buildChangeRequestPrompt(req)}</pre>
+                      <button
+                        type="button"
+                        className="btn btn-ball"
+                        style={{ fontSize: '12.5px', padding: '8px 12px' }}
+                        onClick={() => copyChangeRequestPrompt(req)}
+                      >
+                        {promptCopiedId === req.id ? 'Copiado ✓' : 'Copiar'}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -10982,6 +11256,25 @@ const CSS = `
   .error-row-date{font-family:var(--font-mono); font-size:11px; color:var(--muted); flex:none;}
   .error-row-message{font-size:13.5px; color:var(--ink); line-height:1.4;}
   .error-row-context{font-family:var(--font-mono); font-size:11px; color:var(--muted); margin-top:4px; word-break:break-all;}
+
+  .change-request-row{padding:14px 0; border-bottom:1px solid var(--line);}
+  .change-request-row:last-child{border-bottom:none;}
+  .change-request-title{font-family:var(--font-display); font-weight:700; font-size:15px; margin:2px 0 4px;}
+  .change-request-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px;}
+  .change-request-prompt{
+    margin-top:10px; background:var(--bg-alt); border:1px solid var(--line); border-radius:12px; padding:12px;
+  }
+  .change-request-prompt pre{
+    margin:0 0 10px; white-space:pre-wrap; word-break:break-word;
+    font-family:var(--font-mono); font-size:11.5px; line-height:1.5; color:var(--ink);
+  }
+  .request-priority-pill{
+    font-size:10.5px; font-weight:800; letter-spacing:.3px; text-transform:uppercase;
+    padding:3px 9px; border-radius:999px; flex:none;
+  }
+  .request-priority-pill.priority-baja{background:rgba(148,140,131,.18); color:var(--muted);}
+  .request-priority-pill.priority-media{background:rgba(59,130,196,.16); color:var(--blue);}
+  .request-priority-pill.priority-alta{background:rgba(224,70,75,.16); color:var(--miss);}
 
   footer.site{
     max-width:980px; margin:0 auto; padding:20px 20px 40px; color:var(--muted); font-size:12px; line-height:1.6;
