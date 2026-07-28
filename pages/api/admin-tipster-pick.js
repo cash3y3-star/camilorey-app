@@ -90,6 +90,18 @@ export default async function handler(req, res) {
     .eq('id', pickId);
   if (setErr) return res.status(500).json({ error: setErr.message });
 
+  // Canal de Telegram propio de ESTE tipster (pedido 2026-07-27): si
+  // tiene uno configurado (profiles.telegram_chat_id — requiere el bot
+  // admin de su canal), el aviso va SOLO ahí, no a la lista global de
+  // TELEGRAM_CHAT_ID. Sin uno propio configurado (ej. CAMILO REY,
+  // que sigue usando el canal "de siempre"), cae al comportamiento de
+  // toda la vida.
+  const { data: tipsterRow } = await supabase.from('profiles').select('telegram_chat_id').eq('id', user.id).maybeSingle();
+  const ownTelegramIds = (tipsterRow?.telegram_chat_id || '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+
   // El pick ya quedó marcado (lo único que el tipster necesita ver
   // reflejado ya) — Telegram y push son "mejor esfuerzo" y pueden
   // tardar varios segundos (Telegram tiene que bajar la tarjeta con
@@ -99,10 +111,10 @@ export default async function handler(req, res) {
   // waitUntil, que en Vercel mantiene viva la función más allá de la
   // respuesta hasta que esta promesa termine.
   res.status(200).json({ tipsterPick: true, tipsterPickBy: user.id });
-  waitUntil(notifyTipsterPick(supabase, pick, nowIso, displayName || 'CAMILO REY'));
+  waitUntil(notifyTipsterPick(supabase, pick, nowIso, displayName || 'CAMILO REY', ownTelegramIds));
 }
 
-async function notifyTipsterPick(supabase, pick, nowIso, tipsterName) {
+async function notifyTipsterPick(supabase, pick, nowIso, tipsterName, ownTelegramIds) {
   const pickId = pick.id;
   // Si el pick YA estaba resuelto (marcado a mano después, para
   // recuperar historial — ej. uno que se destacó antes del arreglo que
@@ -147,7 +159,7 @@ async function notifyTipsterPick(supabase, pick, nowIso, tipsterName) {
         rivalName: rivalPlayer?.name,
         odds: pick.odds
       });
-      await sendTelegramPhoto(cardUrl, caption);
+      await sendTelegramPhoto(cardUrl, caption, ownTelegramIds);
 
       if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
         const [{ data: premiumProfiles }, { data: subs }, { data: prefs }, { data: adminUser }] = await Promise.all([
