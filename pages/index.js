@@ -1854,7 +1854,8 @@ export async function getServerSideProps({ query }) {
       result: 'pending',
       followersCount: followersCountByPickId.get(pick.id) || 0,
       tipsterPick: Boolean(pick.tipster_pick),
-      tipsterPickAt: pick.tipster_pick_at || null
+      tipsterPickAt: pick.tipster_pick_at || null,
+      tipsterPickBy: pick.tipster_pick_by || null
     };
   });
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
@@ -1915,7 +1916,8 @@ export async function getServerSideProps({ query }) {
       matchStatus: 'done',
       followersCount: followersCountByPickId.get(pick.id) || 0,
       tipsterPick: Boolean(pick.tipster_pick),
-      tipsterPickAt: pick.tipster_pick_at || null
+      tipsterPickAt: pick.tipster_pick_at || null,
+      tipsterPickBy: pick.tipster_pick_by || null
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);
@@ -7250,9 +7252,12 @@ export default function Home({
       // el botón ya se viera marcado. Bug real reportado: "se activan
       // pero no aparecen".
       const confirmed = Boolean(data.tipsterPick);
-      const patch = (p) => (p.id === pick.id ? { ...p, tipsterPick: confirmed } : p);
-      setModalPick((prev) => (prev && prev.id === pick.id ? { ...prev, tipsterPick: confirmed } : prev));
-      setTipsterPick(confirmed ? { ...pick, tipsterPick: true } : null);
+      const confirmedBy = confirmed ? data.tipsterPickBy || null : null;
+      const patch = (p) => (p.id === pick.id ? { ...p, tipsterPick: confirmed, tipsterPickBy: confirmedBy } : p);
+      setModalPick((prev) =>
+        prev && prev.id === pick.id ? { ...prev, tipsterPick: confirmed, tipsterPickBy: confirmedBy } : prev
+      );
+      setTipsterPick(confirmed ? { ...pick, tipsterPick: true, tipsterPickBy: confirmedBy } : null);
       setPicks((prev) => prev.map(patch));
       setResolvedPicks((prev) => prev.map(patch));
       setExclusivePicks((prev) => prev.map(patch));

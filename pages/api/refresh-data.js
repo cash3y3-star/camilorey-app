@@ -487,7 +487,8 @@ export default async function handler(req, res) {
       tournamentId: match.tournament_id,
       followersCount: followersCountByPickId.get(pick.id) || 0,
       tipsterPick: Boolean(pick.tipster_pick),
-      tipsterPickAt: pick.tipster_pick_at || null
+      tipsterPickAt: pick.tipster_pick_at || null,
+      tipsterPickBy: pick.tipster_pick_by || null
     };
   });
   picks.sort((a, b) => a.scheduledAt - b.scheduledAt);
@@ -542,7 +543,8 @@ export default async function handler(req, res) {
       matchStatus: 'done',
       followersCount: followersCountByPickId.get(pick.id) || 0,
       tipsterPick: Boolean(pick.tipster_pick),
-      tipsterPickAt: pick.tipster_pick_at || null
+      tipsterPickAt: pick.tipster_pick_at || null,
+      tipsterPickBy: pick.tipster_pick_by || null
     };
   });
   resolvedPicks.sort((a, b) => b.scheduledAt - a.scheduledAt);

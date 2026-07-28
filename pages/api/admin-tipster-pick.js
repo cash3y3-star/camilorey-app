@@ -39,9 +39,9 @@ export default async function handler(req, res) {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const { isAdmin } = await checkAdmin(supabase, token);
-  if (!isAdmin) {
-    return res.status(403).json({ error: 'solo el admin puede hacer esto' });
+  const { user, isTipster, displayName } = await checkAdmin(supabase, token);
+  if (!isTipster) {
+    return res.status(403).json({ error: 'solo un tipster puede hacer esto' });
   }
 
   const { pickId, tipsterPick: wantMarked } = req.body || {};
@@ -49,43 +49,60 @@ export default async function handler(req, res) {
 
   const { data: pick, error: pickErr } = await supabase
     .from('picks')
-    .select('id, match_id, market, odds, confidence, predicted_winner_id, tipster_pick, result')
+    .select('id, match_id, market, odds, confidence, predicted_winner_id, tipster_pick, tipster_pick_by, result')
     .eq('id', pickId)
     .maybeSingle();
   if (pickErr) return res.status(500).json({ error: pickErr.message });
   if (!pick) return res.status(404).json({ error: 'pick no encontrado' });
 
   if (!wantMarked) {
+    // Un tipster solo puede desmarcar SU PROPIO pick — no el de otro
+    // (ni por error, ni a propósito). El superAdmin no tiene un botón
+    // especial para forzar esto todavía; si hace falta moderar, se
+    // hace directo en la base.
+    if (pick.tipster_pick && pick.tipster_pick_by && pick.tipster_pick_by !== user.id) {
+      return res.status(403).json({ error: 'ese pick está destacado por otro tipster, no lo podés desmarcar' });
+    }
     if (pick.tipster_pick) {
-      const { error } = await supabase.from('picks').update({ tipster_pick: false, tipster_pick_at: null }).eq('id', pickId);
+      const { error } = await supabase
+        .from('picks')
+        .update({ tipster_pick: false, tipster_pick_by: null, tipster_pick_at: null })
+        .eq('id', pickId);
       if (error) return res.status(500).json({ error: error.message });
     }
     return res.status(200).json({ tipsterPick: false });
   }
 
   // Ya estaba marcado — una llamada duplicada no debe reenviar el push
-  // ni tocar nada de nuevo.
+  // ni tocar nada de nuevo. Si lo marcó OTRO tipster, no se puede
+  // "robar" el pick pisando su marca.
   if (pick.tipster_pick) {
+    if (pick.tipster_pick_by && pick.tipster_pick_by !== user.id) {
+      return res.status(409).json({ error: 'ese pick ya está destacado por otro tipster' });
+    }
     return res.status(200).json({ tipsterPick: true });
   }
 
   const nowIso = new Date().toISOString();
-  const { error: setErr } = await supabase.from('picks').update({ tipster_pick: true, tipster_pick_at: nowIso }).eq('id', pickId);
+  const { error: setErr } = await supabase
+    .from('picks')
+    .update({ tipster_pick: true, tipster_pick_by: user.id, tipster_pick_at: nowIso })
+    .eq('id', pickId);
   if (setErr) return res.status(500).json({ error: setErr.message });
 
-  // El pick ya quedó marcado (lo único que el admin necesita ver
+  // El pick ya quedó marcado (lo único que el tipster necesita ver
   // reflejado ya) — Telegram y push son "mejor esfuerzo" y pueden
   // tardar varios segundos (Telegram tiene que bajar la tarjeta con
   // next/og, y hay que mandarla a los 3 destinos + a cada suscriptor
-  // push). Antes el admin se quedaba esperando todo eso para que el
-  // botón dejara de girar; ahora respondemos ya y seguimos en segundo
-  // plano con waitUntil, que en Vercel mantiene viva la función más
-  // allá de la respuesta hasta que esta promesa termine.
-  res.status(200).json({ tipsterPick: true });
-  waitUntil(notifyTipsterPick(supabase, pick, nowIso));
+  // push). Antes se esperaba todo eso para que el botón dejara de
+  // girar; ahora respondemos ya y seguimos en segundo plano con
+  // waitUntil, que en Vercel mantiene viva la función más allá de la
+  // respuesta hasta que esta promesa termine.
+  res.status(200).json({ tipsterPick: true, tipsterPickBy: user.id });
+  waitUntil(notifyTipsterPick(supabase, pick, nowIso, displayName || 'CAMILO REY'));
 }
 
-async function notifyTipsterPick(supabase, pick, nowIso) {
+async function notifyTipsterPick(supabase, pick, nowIso, tipsterName) {
   const pickId = pick.id;
   // Si el pick YA estaba resuelto (marcado a mano después, para
   // recuperar historial — ej. uno que se destacó antes del arreglo que
@@ -125,7 +142,7 @@ async function notifyTipsterPick(supabase, pick, nowIso) {
         odds: pick.odds
       });
       const caption = buildPickCaption({
-        label: '🎯 CAMILO REY destacó un pick',
+        label: `🎯 ${tipsterName} destacó un pick`,
         favName: favoredPlayer?.name,
         rivalName: rivalPlayer?.name,
         odds: pick.odds
@@ -160,7 +177,7 @@ async function notifyTipsterPick(supabase, pick, nowIso) {
             webpush.setVapidDetails('mailto:lospeepff@gmail.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
             const oddsTxt = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
             const payload = JSON.stringify({
-              title: '🎯 CAMILO REY marcó un pick',
+              title: `🎯 ${tipsterName} marcó un pick`,
               body: `${favoredPlayer?.name ? favoredPlayer.name + ' — ' : ''}${pick.market}${oddsTxt}`,
               tag: 'tipster-pick',
               renotify: true,
