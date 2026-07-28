@@ -4267,6 +4267,47 @@ function TableDecor({ side }) {
   );
 }
 
+// Bot mascota de CZECH IA AGENTS en SVG puro — variant="compact" es la
+// versión del header (solo cabeza, parpadeo + pulso de antena, sin
+// palas/pelota para no distraer mientras se navega); variant="full" es
+// la de bienvenida/estados vacíos, con las palas y la pelota
+// rebotando. Las animaciones respetan prefers-reduced-motion (ver
+// CSS).
+function CzechBotLogo({ variant = 'full', className = '' }) {
+  return (
+    <svg
+      width={variant === 'compact' ? '40' : '96'}
+      height={variant === 'compact' ? '39' : '94'}
+      viewBox="0 0 130 128"
+      className={`czech-bot czech-bot-${variant} ${className}`}
+      aria-hidden="true"
+    >
+      <g className="bot-group">
+        <line x1="65" y1="18" x2="65" y2="8" stroke="#8ab4ff" strokeWidth="3" />
+        <circle className="antenna-tip" cx="65" cy="6" r="4" fill="#e0464b" />
+        <rect x="28" y="18" width="74" height="56" rx="16" fill="none" stroke="#8ab4ff" strokeWidth="3.5" />
+        <rect x="40" y="34" width="50" height="16" rx="8" fill="#0c0c0e" stroke="#5dcaa5" strokeWidth="2.5" />
+        <circle className="eye" cx="56" cy="42" r="4" fill="#5dcaa5" />
+        <circle className="eye" cx="74" cy="42" r="4" fill="#5dcaa5" />
+        <path className="smile" d="M 52 60 Q 65 68 78 60" stroke="#5dcaa5" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      </g>
+      {variant === 'full' ? (
+        <>
+          <g className="paddle-left">
+            <ellipse cx="30" cy="98" rx="11" ry="14" fill="#e0464b" transform="rotate(-30 30 98)" />
+            <line x1="37" y1="108" x2="46" y2="116" stroke="#e0464b" strokeWidth="4" strokeLinecap="round" />
+          </g>
+          <g className="paddle-right">
+            <ellipse cx="100" cy="98" rx="11" ry="14" fill="#fff" transform="rotate(30 100 98)" />
+            <line x1="93" y1="108" x2="84" y2="116" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+          </g>
+          <circle className="ball" cx="65" cy="100" r="7" fill="#8ab4ff" />
+        </>
+      ) : null}
+    </svg>
+  );
+}
+
 // Íconos de línea fina para las filas de Perfil — mismo estilo
 // (trazo simple, sin relleno) que se ve en la mayoría de apps de
 // picks/apuestas, dentro de una insignia circular oscura (ver
@@ -8305,7 +8346,7 @@ export default function Home({
         <meta name="theme-color" content="#0E0D0C" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Chakra+Petch:wght@600;700&display=swap"
           rel="stylesheet"
         />
         <style>{CSS}</style>
@@ -8329,8 +8370,8 @@ export default function Home({
 
       <header className="site">
         <a href="#inicio" className="logo">
-          CZECH IA AGENTS
-          <span className="dot"></span>
+          <CzechBotLogo variant="compact" />
+          <span className="logo-wordmark">CZECH IA AGENTS</span>
         </a>
         <nav className="top-nav">
           {navLink('inicio', t('navInicio'))}
@@ -8400,6 +8441,9 @@ export default function Home({
 
       <main>
         <section className={`view ${view === 'inicio' ? 'active' : ''}`}>
+          <div className="inicio-bot-welcome">
+            <CzechBotLogo variant="full" />
+          </div>
           {greetingName ? (
             <div className="greeting">
               <div>
@@ -8534,7 +8578,10 @@ export default function Home({
           </p>
           <div className="pick-grid">
             {visiblePicks.length === 0 ? (
-              <p className="page-sub">{t('noHayPicksCategoria')}</p>
+              <div className="pick-grid-empty">
+                <CzechBotLogo variant="full" />
+                <p className="page-sub">{t('noHayPicksCategoria')}</p>
+              </div>
             ) : (
               visiblePicks.map((p) => (
                 <PickCard
@@ -9939,23 +9986,93 @@ const CSS = `
     display:flex; align-items:center; justify-content:space-between;
   }
   .logo{
-    font-family:var(--font-display);
-    font-weight:800;
-    font-size:22px;
-    letter-spacing:0.5px;
     text-decoration:none;
-    color:var(--ink);
-    display:flex; align-items:center; gap:6px;
+    display:flex; align-items:center; gap:8px;
   }
-  .logo .dot{
-    width:9px; height:9px; border-radius:50%;
-    background:var(--court);
-    display:inline-block;
-    animation: pulse-dot 1.8s ease-in-out infinite;
+  .logo-wordmark{
+    font-family:'Chakra Petch', var(--font-display);
+    font-weight:700;
+    font-size:18px;
+    letter-spacing:0.5px;
+    color:var(--hit);
   }
-  @keyframes pulse-dot{
-    0%, 100%{transform:scale(1); box-shadow:0 0 0 3px var(--court-soft), 0 0 6px rgba(22,163,74,.6);}
-    50%{transform:scale(1.25); box-shadow:0 0 0 5px rgba(22,163,74,.15), 0 0 10px rgba(22,163,74,.9);}
+  @media (max-width:520px){
+    .logo-wordmark{ font-size:14px; }
+  }
+
+  /* Bot mascota — ver CzechBotLogo. .czech-bot-compact (header) usa
+     solo blink+pulse; .czech-bot-full (bienvenida/estados vacíos)
+     suma el balanceo de palas y el rally de la pelota. */
+  .czech-bot-compact{ height:40px; width:auto; flex:none; }
+  .czech-bot-full{ height:96px; width:auto; flex:none; }
+  .inicio-bot-welcome{
+    display:flex; justify-content:center;
+    padding:6px 0 4px;
+  }
+  .pick-grid-empty{
+    grid-column:1 / -1;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    padding:24px 0;
+    text-align:center;
+  }
+  .bot-group{ transform-origin: 65px 46px; }
+  .czech-bot-full .bot-group{ animation: bot-float 3.4s ease-in-out infinite; }
+  @keyframes bot-float{
+    0%,100%{ transform: translateY(0); }
+    50%{ transform: translateY(-5px); }
+  }
+  .czech-bot .eye{
+    transform-origin: center;
+    animation: bot-blink 4.2s infinite;
+  }
+  @keyframes bot-blink{
+    0%, 46%, 50%, 100%{ transform: scaleY(1); }
+    48%{ transform: scaleY(.12); }
+  }
+  .czech-bot .antenna-tip{
+    animation: bot-pulse 1.6s ease-in-out infinite;
+    transform-origin: 65px 6px;
+  }
+  @keyframes bot-pulse{
+    0%,100%{ opacity:1; transform: scale(1); }
+    50%{ opacity:.45; transform: scale(1.35); }
+  }
+  .czech-bot .smile{ transform-origin: 65px 62px; }
+  .czech-bot-full .smile{ animation: bot-smile 3.4s ease-in-out infinite; }
+  @keyframes bot-smile{
+    0%,100%{ transform: scaleX(1); }
+    50%{ transform: scaleX(1.12); }
+  }
+  .czech-bot-full .paddle-left{
+    transform-origin: 37px 108px;
+    animation: bot-swing-l 1.1s ease-in-out infinite;
+  }
+  .czech-bot-full .paddle-right{
+    transform-origin: 93px 108px;
+    animation: bot-swing-r 1.1s ease-in-out infinite;
+  }
+  @keyframes bot-swing-l{
+    0%,100%{ transform: rotate(-8deg); }
+    50%{ transform: rotate(10deg); }
+  }
+  @keyframes bot-swing-r{
+    0%,100%{ transform: rotate(8deg); }
+    50%{ transform: rotate(-10deg); }
+  }
+  .czech-bot-full .ball{
+    animation: bot-rally 1.1s ease-in-out infinite;
+  }
+  @keyframes bot-rally{
+    0%,100%{ transform: translate(-16px, 0); }
+    25%{ transform: translate(0, -10px); }
+    50%{ transform: translate(16px, 0); }
+    75%{ transform: translate(0, -10px); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .bot-group, .czech-bot .eye, .czech-bot .antenna-tip, .czech-bot .smile,
+    .czech-bot-full .paddle-left, .czech-bot-full .paddle-right, .czech-bot-full .ball{
+      animation:none;
+    }
   }
   nav.top-nav{display:flex; gap:6px;}
   nav.top-nav a{
