@@ -9,13 +9,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { checkAdmin } from '../../lib/adminAuth';
 
-// getServerSideProps de pages/index.js ya no consulta Supabase (sitio
-// solo-Premium, 2026-07-27) — este endpoint absorbió ese trabajo
-// pesado (picks/matches/torneos/forma reciente/H2H/estadísticas, la
-// causa real de 504s reportados antes), así que hereda el mismo
-// margen de tiempo.
-export const config = { maxDuration: 60 };
-
 function initialsOf(name) {
   if (!name) return '??';
   return name
@@ -84,23 +77,23 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  // Sitio solo-Premium (pedido 2026-07-27): este endpoint alimenta
-  // Inicio/Picks/Bankroll con los datos reales de picks/partidos, así
-  // que ahora exige el mismo candado que el resto del sitio — admin o
-  // Premium activo, verificado en el servidor (no alcanza con lo que
-  // diga el cliente). Sin eso, ni siquiera pedir la URL a mano (curl,
-  // Postman) devuelve nada real.
+  // El Análisis IA es beneficio premium (2026-07-26) — este endpoint es
+  // público y sin login, así que igual que is_exclusive, el texto del
+  // análisis solo sale si el token (opcional, mismo patrón que
+  // followed-detail.js) es de verdad admin o premium activo.
+  let canSeeAnalysis = false;
   const authToken = (req.headers.authorization || '').replace('Bearer ', '');
-  const { user, isAdmin } = await checkAdmin(supabase, authToken);
-  let hasSiteAccess = isAdmin;
-  if (user && !hasSiteAccess) {
-    const { data: profile } = await supabase.from('profiles').select('premium_until').eq('id', user.id).maybeSingle();
-    hasSiteAccess = Boolean(profile?.premium_until && new Date(profile.premium_until) > new Date());
+  if (authToken) {
+    const { user, isAdmin } = await checkAdmin(supabase, authToken);
+    if (user) {
+      if (isAdmin) {
+        canSeeAnalysis = true;
+      } else {
+        const { data: profile } = await supabase.from('profiles').select('premium_until').eq('id', user.id).maybeSingle();
+        canSeeAnalysis = Boolean(profile?.premium_until && new Date(profile.premium_until) > new Date());
+      }
+    }
   }
-  if (!hasSiteAccess) {
-    return res.status(403).json({ error: 'función exclusiva para cuentas premium' });
-  }
-  const canSeeAnalysis = true;
 
   // Igual que getServerSideProps: sin límite traía la tabla ENTERA de
   // players en cada poll (cada 20s mientras el sitio está abierto) —
@@ -733,108 +726,12 @@ export default async function handler(req, res) {
   // desde el reset del 2026-07-15), y confundía más de lo que ayudaba.
   // Ahora existe un solo lugar con esa cifra: /api/exclusive-balance,
   // consumido por Picks VIP.
-  const payload = {
+  return res.status(200).json({
     stats: { efectividad, racha, cuotaProm, roi, unidades },
     picks: publicPicks,
     resolvedPicks: publicResolvedPicks,
     tournamentGroups,
     hotPlayers,
     tipsterPick
-  };
-
-  // recentChampions/tipsterProfile/userCount cambian poco (torneos que
-  // cierran, foto/nombre del tipster, cuántos hay registrados) —
-  // pedirlos en CADA tick del poller (cada 20s) sería carga de más a
-  // la base sin necesidad, así que solo se calculan cuando el cliente
-  // manda ?full=1 (una sola vez, al pasar el candado de Premium, ver
-  // pages/index.js). getServerSideProps ya no manda estos datos reales
-  // (pedido 2026-07-27: nada de contenido viaja público en el HTML).
-  if (req.query.full === '1') {
-    const [{ data: recentFinishedTournaments }, { data: tipsterProfileRow }, { count: tipsterLikesCount }, { count: userCount }] =
-      await Promise.all([
-        supabase
-          .from('tournaments')
-          .select('id, name, winner_id, scheduled_at')
-          .eq('status', 'finished')
-          .not('winner_id', 'is', null)
-          .order('scheduled_at', { ascending: false })
-          .limit(6),
-        process.env.NEXT_PUBLIC_ADMIN_EMAIL
-          ? supabase.from('profiles').select('custom_avatar_url, avatar_emoji').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
-          : Promise.resolve({ data: null }),
-        supabase.from('followed_picks').select('id', { count: 'exact', head: true }),
-        supabase.from('profiles').select('id', { count: 'exact', head: true })
-      ]);
-
-    const champTournamentIds = (recentFinishedTournaments || []).map((t) => t.id);
-    const { data: champMatches } = champTournamentIds.length
-      ? await supabase
-          .from('matches')
-          .select('tournament_id, player_a_id, player_b_id, sets_a, sets_b, set_scores, scheduled_at, winner_id')
-          .in('tournament_id', champTournamentIds)
-          .eq('status', 'finished')
-      : { data: [] };
-
-    const champPlayerIds = [
-      ...new Set([
-        ...(recentFinishedTournaments || []).map((t) => t.winner_id),
-        ...(champMatches || []).flatMap((m) => [m.player_a_id, m.player_b_id])
-      ])
-    ].filter(Boolean);
-    const { data: champPlayersRaw } = champPlayerIds.length
-      ? await supabase.from('players').select('id, name, avatar_url, avatar_cutout_url').in('id', champPlayerIds)
-      : { data: [] };
-    const champPlayersById = new Map((champPlayersRaw || []).map((p) => [p.id, p]));
-
-    payload.recentChampions = (recentFinishedTournaments || [])
-      .map((t) => {
-        const winner = champPlayersById.get(t.winner_id);
-        if (!winner) return null;
-        const myMatches = (champMatches || [])
-          .filter((m) => m.tournament_id === t.id && (m.player_a_id === t.winner_id || m.player_b_id === t.winner_id))
-          .sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
-        if (myMatches.length === 0) return null;
-        const last = myMatches[0];
-        const winnerIsA = last.player_a_id === t.winner_id;
-        const rival = champPlayersById.get(winnerIsA ? last.player_b_id : last.player_a_id);
-        const setsFor = winnerIsA ? last.sets_a : last.sets_b;
-        const setsAgainst = winnerIsA ? last.sets_b : last.sets_a;
-        const setScores = Array.isArray(last.set_scores)
-          ? winnerIsA
-            ? last.set_scores
-            : last.set_scores.map((s) => ({ a: s.b, b: s.a }))
-          : null;
-        const wins = myMatches.filter((m) => m.winner_id === t.winner_id).length;
-        const losses = myMatches.length - wins;
-        return {
-          tournamentId: t.id,
-          tournamentName: t.name || 'Torneo',
-          matchDate: last.scheduled_at,
-          winnerName: winner.name,
-          winnerInitials: initialsOf(winner.name),
-          winnerAvatarUrl: winner.avatar_cutout_url || winner.avatar_url || null,
-          winnerHasCutout: Boolean(winner.avatar_cutout_url),
-          winnerWasHome: winnerIsA,
-          rivalName: rival?.name || '—',
-          rivalInitials: initialsOf(rival?.name),
-          rivalAvatarUrl: rival?.avatar_cutout_url || rival?.avatar_url || null,
-          setScores,
-          rivalHasCutout: Boolean(rival?.avatar_cutout_url),
-          score: setsFor != null && setsAgainst != null ? `${setsFor}-${setsAgainst}` : null,
-          wins,
-          losses,
-          points: wins * 2 + losses
-        };
-      })
-      .filter(Boolean);
-
-    payload.tipsterProfile = {
-      avatarUrl: tipsterProfileRow?.custom_avatar_url || null,
-      avatarEmoji: tipsterProfileRow?.avatar_emoji || null,
-      likesCount: tipsterLikesCount || 0
-    };
-    payload.userCount = userCount || 0;
-  }
-
-  return res.status(200).json(payload);
+  });
 }

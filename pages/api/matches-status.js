@@ -6,7 +6,6 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
-import { checkAdmin } from '../../lib/adminAuth';
 
 function initialsOf(name) {
   if (!name) return '??';
@@ -32,19 +31,6 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-  // Sitio solo-Premium (pedido 2026-07-27) — mismo candado que
-  // /api/refresh-data.js, ver ese comentario para el porqué.
-  const authToken = (req.headers.authorization || '').replace('Bearer ', '');
-  const { user, isAdmin } = await checkAdmin(supabase, authToken);
-  let hasSiteAccess = isAdmin;
-  if (user && !hasSiteAccess) {
-    const { data: profile } = await supabase.from('profiles').select('premium_until').eq('id', user.id).maybeSingle();
-    hasSiteAccess = Boolean(profile?.premium_until && new Date(profile.premium_until) > new Date());
-  }
-  if (!hasSiteAccess) {
-    return res.status(403).json({ error: 'función exclusiva para cuentas premium' });
-  }
 
   const selectedDate = typeof req.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date) ? req.query.date : null;
 
