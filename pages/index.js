@@ -313,6 +313,7 @@ const TRANSLATIONS = {
     tasaAcierto: 'Tasa de acierto',
     seguirPrediccion: 'Seguir predicción',
     siguiendoPick: 'Siguiendo',
+    unirseCanalTelegram: 'Unirse al canal de Telegram',
     unaPersonaSigue: '1 persona sigue este pick',
     personasSiguen: '{n} personas siguen este pick',
     tipsterQueSigues: 'Tipster que sigues',
@@ -632,6 +633,7 @@ const TRANSLATIONS = {
     tasaAcierto: 'Hit rate',
     seguirPrediccion: 'Follow prediction',
     siguiendoPick: 'Following',
+    unirseCanalTelegram: 'Join Telegram channel',
     unaPersonaSigue: '1 person is following this pick',
     personasSiguen: '{n} people are following this pick',
     tipsterQueSigues: 'Tipster you follow',
@@ -952,6 +954,7 @@ const TRANSLATIONS = {
     tasaAcierto: 'Taxa de acerto',
     seguirPrediccion: 'Seguir previsão',
     siguiendoPick: 'Seguindo',
+    unirseCanalTelegram: 'Entrar no canal do Telegram',
     unaPersonaSigue: '1 pessoa segue este pick',
     personasSiguen: '{n} pessoas seguem este pick',
     tipsterQueSigues: 'Tipster que você segue',
@@ -1403,7 +1406,7 @@ export async function getServerSideProps({ query }) {
   // con profiles.is_tipster=true aparece acá).
   const tipsterProfilesPromise = supabase
     .from('profiles')
-    .select('id, email, display_name, custom_avatar_url, avatar_emoji')
+    .select('id, email, display_name, custom_avatar_url, avatar_emoji, telegram_url')
     .eq('is_tipster', true);
 
   // "Me gusta" de la fila de estadísticas estilo TikTok del perfil del
@@ -2270,6 +2273,7 @@ export async function getServerSideProps({ query }) {
         : row.display_name || row.email?.split('@')[0] || 'Tipster',
     avatarUrl: row.custom_avatar_url || null,
     avatarEmoji: row.avatar_emoji || null,
+    telegramUrl: row.telegram_url || null,
     likesCount: tipsterLikesCount || 0
   }));
 
@@ -5025,6 +5029,20 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
             {isFollowing ? <ProfileIcon name="check" size={14} /> : <HeartIcon filled={false} size={15} />}
             {isFollowing ? t('siguiendoPick') : t('seguirPrediccion')}
           </button>
+
+          {tipsterProfile.telegramUrl ? (
+            <a
+              href={tipsterProfile.telegramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tipster-profile-telegram-btn"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <path d="M21.9 2.6c-.3-.2-.7-.3-1.1-.1L2.4 9.9c-.5.2-.8.6-.8 1.1 0 .5.4.9.9 1l4.9 1.5 1.9 6c.1.4.5.7.9.7.3 0 .5-.1.7-.3l2.7-2.6 4.8 3.5c.2.2.5.2.7.2.2 0 .4 0 .5-.1.4-.2.6-.5.7-.9l3.2-15.5c.1-.4-.1-.8-.5-1z" />
+              </svg>
+              {t('unirseCanalTelegram')}
+            </a>
+          ) : null}
         </div>
 
         <div className="section-head">
@@ -10022,6 +10040,11 @@ const CSS = `
   }
   .tipster-profile-follow-btn.active{background:rgba(22,163,74,.14); border-color:var(--court); color:var(--court);}
   .tipster-profile-follow-btn:disabled{opacity:.6; cursor:default;}
+  .tipster-profile-telegram-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:#26A5E4; border-radius:999px; text-decoration:none;
+    padding:10px 22px; margin-top:10px; font-size:14px; font-weight:700; color:#fff;
+  }
   .tipster-pick-notice{
     display:flex; align-items:center; gap:10px; width:100%;
     background:var(--bg-alt); border:1px solid var(--line); border-radius:14px;
