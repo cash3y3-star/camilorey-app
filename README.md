@@ -89,6 +89,25 @@ aunque el partido ya haya arrancado — la lista normal de "Picks" oculta
 un pick 3 minutos antes de que empiece el partido, pero eso no aplica
 a lo que alguien sigue a propósito.
 
+## Transmisiones en vivo (`pages/api/update-stream.js`)
+El canal de YouTube de LigaPro corta el stream de cada mesa cada 3-4
+horas y arranca uno nuevo con otro video id — este endpoint detecta
+solo qué mesas están en vivo AHORA (YouTube Data API v3, `search.list`
+con `eventType=live`) y actualiza `live_streams` sin que nadie tenga
+que copiar/pegar el link a mano. El código de mesa (A17, A12...) sale
+del propio título del video ("TT LigaPro A17 28.07 00:00 - 06:00").
+Hace falta:
+
+1. `YOUTUBE_API_KEY` (Google Cloud Console → habilitar "YouTube Data API v3" → Credenciales → Crear clave de API).
+2. `YOUTUBE_CHANNEL_ID` (el de LigaPro: `UC1nLI5ikeA9pQftBMAM9PMg`).
+3. Un cronjob externo (cron-job.org) pegándole a `https://camilorey-app.vercel.app/api/update-stream?token=EL_CRON_SECRET` cada **15 minutos, no menos** — `search.list` cuesta 100 unidades de cuota por llamada y el límite gratis de YouTube es 10.000/día (96 llamadas de 15 min = 9.600, con margen; cada 5-10 min se agota la cuota a media tarde).
+
+Si YouTube falla (cuota agotada, caída momentánea) el endpoint no
+toca lo que ya había guardado — mejor un video viejo un rato más que
+borrar todo de golpe. Las mesas que dejan de estar en vivo sí se
+borran de `live_streams` en cuanto se detecta (el sitio muestra "la
+transmisión volverá pronto" en su lugar).
+
 ## Cuotas reales (`lib/rushbet.js`)
 Rushbet (licencia Coljuegos en Colombia — concesión C1972) corre sobre
 Kambi, que expone su tablero de cuotas y su feed en vivo en JSON

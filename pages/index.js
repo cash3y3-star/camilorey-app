@@ -2943,6 +2943,8 @@ function MatchRow({ m, onClick, followed, onToggleFollow, live, streamVideoId, o
           <span className="live-dot"></span>
           Ver stream
         </button>
+      ) : m.status === 'live' ? (
+        <span className="watch-stream-soon">La transmisión volverá pronto</span>
       ) : null}
     </div>
   );
@@ -10501,6 +10503,11 @@ const CSS = `
     font-size:13px; text-transform:uppercase; letter-spacing:.4px; cursor:pointer;
   }
   .watch-stream-btn:hover{background:rgba(226,68,74,.18);}
+  .watch-stream-soon{
+    display:block; width:100%; text-align:center; margin-top:10px; padding:10px;
+    border-radius:999px; border:1px solid var(--line); color:var(--muted);
+    font-family:var(--font-body); font-weight:700; font-size:12.5px;
+  }
 
   .champion-grid{display:grid; gap:12px;}
   .champion-card{
