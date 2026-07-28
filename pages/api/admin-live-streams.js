@@ -3,10 +3,11 @@
 // Los streams cambian de video CADA DÍA (no son canales fijos), así
 // que esto es lo que el admin usa desde el panel para actualizar el
 // código -> id de video sin tener que tocar código. Mismo patrón de
-// auth que send-promo.js (JWT + NEXT_PUBLIC_ADMIN_EMAIL).
+// auth que el resto de rutas admin (ver lib/adminAuth.js).
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
+import { checkAdmin } from '../../lib/adminAuth';
 
 // Acepta tanto un id de video pelado como una URL completa de
 // YouTube (watch?v=, youtu.be/, /live/, /embed/) — así el admin puede
@@ -28,11 +29,8 @@ export default async function handler(req, res) {
   if (!token) return res.status(401).json({ error: 'falta token' });
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const {
-    data: { user },
-    error: authError
-  } = await supabase.auth.getUser(token);
-  if (authError || !user || user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+  const { isAdmin } = await checkAdmin(supabase, token);
+  if (!isAdmin) {
     return res.status(403).json({ error: 'solo el admin puede administrar los streams' });
   }
 

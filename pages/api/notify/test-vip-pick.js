@@ -2,11 +2,12 @@
 // CZECH IA AGENTS — prueba el aviso de "Pick Exclusivo nuevo" en el propio
 // dispositivo del admin, con datos REALES (el Exclusivo más reciente
 // publicado), sin esperar a que sync.js genere uno nuevo. Mismo
-// patrón de auth que send-promo.js (JWT + NEXT_PUBLIC_ADMIN_EMAIL).
+// patrón de auth que el resto de rutas admin (ver lib/adminAuth.js).
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
+import { checkAdmin } from '../../../lib/adminAuth';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed' });
@@ -15,11 +16,8 @@ export default async function handler(req, res) {
   if (!token) return res.status(401).json({ error: 'falta token' });
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const {
-    data: { user },
-    error: authError
-  } = await supabase.auth.getUser(token);
-  if (authError || !user || user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+  const { user, isAdmin } = await checkAdmin(supabase, token);
+  if (!isAdmin) {
     return res.status(403).json({ error: 'solo el admin puede probar esto' });
   }
 

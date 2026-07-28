@@ -24,6 +24,7 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
+import { checkAdmin } from '../../lib/adminAuth';
 
 function initialsOf(name) {
   if (!name) return '??';
@@ -89,9 +90,9 @@ export default async function handler(req, res) {
   let canSeeExclusive = false;
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   if (token) {
-    const { data: { user } } = await supabase.auth.getUser(token);
+    const { user, isAdmin } = await checkAdmin(supabase, token);
     if (user) {
-      if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+      if (isAdmin) {
         canSeeExclusive = true;
       } else {
         const { data: profile } = await supabase.from('profiles').select('premium_until').eq('id', user.id).maybeSingle();

@@ -7,6 +7,7 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
+import { checkAdmin } from '../../lib/adminAuth';
 
 function wilsonInterval(hits, n) {
   if (n === 0) return [0, 0];
@@ -26,11 +27,8 @@ export default async function handler(req, res) {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const {
-    data: { user },
-    error: authError
-  } = await supabase.auth.getUser(token);
-  if (authError || !user || user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+  const { isAdmin } = await checkAdmin(supabase, token);
+  if (!isAdmin) {
     return res.status(403).json({ error: 'solo el admin puede ver esto' });
   }
 

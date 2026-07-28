@@ -1,0 +1,11 @@
+-- Panel admin para más de una cuenta (pedido 2026-07-27): hasta ahora
+-- "admin" era SOLO quien tuviera el email exacto de
+-- NEXT_PUBLIC_ADMIN_EMAIL (una sola cuenta, hardcodeada). Ahora se
+-- puede otorgar acceso admin a otras cuentas vía profiles.is_admin —
+-- pero SOLO por API con service_role (ver admin-manage-admins.js, que
+-- a su vez solo deja llamarlo a quien tenga el email de
+-- NEXT_PUBLIC_ADMIN_EMAIL). No hay GRANT de columna para authenticated
+-- a propósito: nadie puede auto-otorgarse is_admin desde el navegador,
+-- ni siquiera otro admin — mismo espíritu que el cierre de
+-- auto-otorgamiento de premium (migration_030).
+alter table profiles add column if not exists is_admin boolean not null default false;

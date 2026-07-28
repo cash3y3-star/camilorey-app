@@ -6673,7 +6673,7 @@ export default function Home({
     let cancelled = false;
     supabaseClient
       .from('profiles')
-      .select('display_name, avatar_emoji, custom_avatar_url, premium_until, follows_tipster')
+      .select('display_name, avatar_emoji, custom_avatar_url, premium_until, follows_tipster, is_admin')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -7162,7 +7162,15 @@ export default function Home({
     }
   };
 
-  const isAdmin = Boolean(user?.email && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
+  // "Admin" ahora son dos niveles (pedido 2026-07-27): isSuperAdmin es
+  // SOLO el email exacto de NEXT_PUBLIC_ADMIN_EMAIL (vos) — el único
+  // que puede otorgar/quitar acceso admin a otras cuentas (ver sección
+  // "Gestionar Admins" del panel y pages/api/admin-manage-admins.js).
+  // isAdmin es más amplio: también incluye profiles.is_admin=true
+  // (otorgado a mano por el superAdmin), y es lo que gatea el resto
+  // del panel — mismo criterio server-side en lib/adminAuth.js.
+  const isSuperAdmin = Boolean(user?.email && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
+  const isAdmin = isSuperAdmin || Boolean(myProfile?.is_admin);
 
   // Premium se activa a mano (el pago pasa por fuera, link de
   // TipsterPage) — el admin lo marca desde el panel Admin escribiendo
@@ -7665,6 +7673,54 @@ export default function Home({
       setPremiumMsg(e.message);
     }
     setPremiumBusy(false);
+  };
+
+  // Otorgar/quitar acceso al panel admin a otra cuenta (pedido
+  // 2026-07-27) — SOLO isSuperAdmin ve esta sección y puede llamar a
+  // /api/admin-manage-admins (el propio endpoint lo vuelve a chequear
+  // server-side, esto no es solo un candado visual). Un admin "de a
+  // pie" no puede tocar accesos de nadie, ni entre ellos ni al
+  // superAdmin.
+  const [manageAdminEmail, setManageAdminEmail] = useState('');
+  const [manageAdminBusy, setManageAdminBusy] = useState(false);
+  const [manageAdminMsg, setManageAdminMsg] = useState('');
+  const [adminsList, setAdminsList] = useState(null);
+  const loadAdminsList = async () => {
+    if (!supabaseClient) return;
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    const r = await fetch('/api/admin-manage-admins', { headers: { Authorization: `Bearer ${accessToken}` } });
+    const data = await r.json();
+    if (r.ok) setAdminsList(data.admins || []);
+  };
+  const setAdminAccessFor = async (grant) => {
+    if (!manageAdminEmail.trim() || !supabaseClient) return;
+    setManageAdminBusy(true);
+    setManageAdminMsg('');
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/admin-manage-admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ email: manageAdminEmail.trim(), grant })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setManageAdminMsg(data.error || 'Error gestionando el acceso admin.');
+      } else {
+        setManageAdminMsg(
+          grant
+            ? `Listo — ${data.profile.email} ya tiene acceso al panel admin.`
+            : `Listo — le quitamos el acceso al panel admin a ${data.profile.email}.`
+        );
+        setManageAdminEmail('');
+        loadAdminsList();
+      }
+    } catch (e) {
+      setManageAdminMsg(e.message);
+    }
+    setManageAdminBusy(false);
   };
 
   // Reiniciar "Mi Bankroll" de una cuenta a mano — pedido explícito
@@ -8552,6 +8608,73 @@ export default function Home({
               <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{premiumMsg}</p>
             ) : null}
           </div>
+
+          {isSuperAdmin ? (
+            <>
+              <div className="profile-section-label" style={{ marginTop: '22px' }}>
+                GESTIONAR ADMINS
+              </div>
+              <div className="bankroll-card">
+                <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5, margin: '0 0 12px' }}>
+                  Solo vos podés dar o quitar acceso al panel admin — las cuentas que agregues acá pueden usar el
+                  panel, pero no pueden tocar el acceso de nadie más (ni entre ellas, ni el tuyo).
+                </p>
+                <input
+                  type="email"
+                  className="profile-name-input"
+                  style={{ width: '100%', marginBottom: '10px' }}
+                  placeholder="correo@ejemplo.com"
+                  value={manageAdminEmail}
+                  onChange={(e) => setManageAdminEmail(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ball"
+                    disabled={manageAdminBusy || !manageAdminEmail.trim()}
+                    onClick={() => setAdminAccessFor(true)}
+                  >
+                    Dar acceso admin
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={manageAdminBusy || !manageAdminEmail.trim()}
+                    onClick={() => setAdminAccessFor(false)}
+                  >
+                    Quitar acceso admin
+                  </button>
+                </div>
+                {manageAdminMsg ? (
+                  <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>{manageAdminMsg}</p>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ marginTop: '12px' }}
+                  onClick={loadAdminsList}
+                >
+                  {adminsList ? 'Actualizar lista' : 'Ver quién tiene acceso admin'}
+                </button>
+                {adminsList ? (
+                  adminsList.length === 0 ? (
+                    <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '10px' }}>
+                      Nadie más tiene acceso admin todavía.
+                    </p>
+                  ) : (
+                    <ul style={{ margin: '10px 0 0', padding: '0 0 0 18px', fontSize: '13px', color: 'var(--ink)' }}>
+                      {adminsList.map((a) => (
+                        <li key={a.email}>
+                          {a.display_name ? `${a.display_name} — ` : ''}
+                          {a.email}
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                ) : null}
+              </div>
+            </>
+          ) : null}
 
           <div className="profile-section-label" style={{ marginTop: '22px' }}>
             MI BANKROLL DE SUBS

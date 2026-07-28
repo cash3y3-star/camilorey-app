@@ -7,6 +7,7 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
+import { checkAdmin } from '../../lib/adminAuth';
 
 function initialsOf(name) {
   if (!name) return '??';
@@ -83,9 +84,9 @@ export default async function handler(req, res) {
   let canSeeAnalysis = false;
   const authToken = (req.headers.authorization || '').replace('Bearer ', '');
   if (authToken) {
-    const { data: { user } } = await supabase.auth.getUser(authToken);
+    const { user, isAdmin } = await checkAdmin(supabase, authToken);
     if (user) {
-      if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+      if (isAdmin) {
         canSeeAnalysis = true;
       } else {
         const { data: profile } = await supabase.from('profiles').select('premium_until').eq('id', user.id).maybeSingle();

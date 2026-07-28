@@ -13,6 +13,7 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
+import { checkAdmin } from '../../lib/adminAuth';
 
 function initialsOf(name) {
   if (!name) return '??';
@@ -80,13 +81,9 @@ export default async function handler(req, res) {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const {
-    data: { user },
-    error: authError
-  } = await supabase.auth.getUser(token);
-  if (authError || !user) return res.status(401).json({ error: 'sesión inválida' });
+  const { user, isAdmin } = await checkAdmin(supabase, token);
+  if (!user) return res.status(401).json({ error: 'sesión inválida' });
 
-  const isAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
   if (!isAdmin) {
     const { data: profile } = await supabase.from('profiles').select('premium_until').eq('id', user.id).maybeSingle();
     const isPremium = Boolean(profile?.premium_until && new Date(profile.premium_until) > new Date());
