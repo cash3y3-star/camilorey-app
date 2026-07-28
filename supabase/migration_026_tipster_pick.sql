@@ -1,4 +1,4 @@
--- CZECH IA AGENTS — "el pick de CZECH IA AGENTS" (el tipster del sitio, marcado a
+-- CZECH IA AGENTS — "el pick de CAMILO REY" (el tipster del sitio, marcado a
 -- mano por el admin sobre un pick puntual). Solo uno activo a la vez
 -- (lo maneja pages/api/admin-tipster-pick.js) — dispara push a
 -- Exclusivo/Premium y aparece destacado en Inicio.

@@ -323,7 +323,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Seguidores',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Me gusta',
-    picksRecientesTipster: 'Picks recientes de CZECH IA AGENTS',
+    picksRecientesTipster: 'Picks recientes de CAMILO REY',
     misPicksSeguidosStats: 'Estadísticas de los destacados',
     sigueAlgoParaVerStats: 'Todavía no hay picks destacados para Exclusivos.',
     statPendientes: 'Pendientes',
@@ -642,7 +642,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Followers',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Likes',
-    picksRecientesTipster: "CZECH IA AGENTS's recent picks",
+    picksRecientesTipster: "CAMILO REY's recent picks",
     misPicksSeguidosStats: 'Featured picks stats',
     sigueAlgoParaVerStats: 'No featured Exclusive picks yet.',
     statPendientes: 'Pending',
@@ -962,7 +962,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Seguidores',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Curtidas',
-    picksRecientesTipster: 'Picks recentes da CZECH IA AGENTS',
+    picksRecientesTipster: 'Picks recentes da CAMILO REY',
     misPicksSeguidosStats: 'Estatísticas dos destacados',
     sigueAlgoParaVerStats: 'Ainda não há picks destacados para Exclusivos.',
     statPendientes: 'Pendentes',
@@ -1399,7 +1399,7 @@ export async function getServerSideProps({ query }) {
   const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
 
   // Foto/nombre del admin para la tarjeta "Tipster que sigues" de
-  // Inicio — CZECH IA AGENTS es un solo tipster (el sitio mismo), no una
+  // Inicio — CAMILO REY es un solo tipster (el admin del sitio), no una
   // lista de varios, así que solo hace falta este único perfil.
   const tipsterProfilePromise = process.env.NEXT_PUBLIC_ADMIN_EMAIL
     ? supabase.from('profiles').select('custom_avatar_url, avatar_emoji').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
@@ -1431,7 +1431,7 @@ export async function getServerSideProps({ query }) {
   // del límite de arriba (últimos 60 resueltos en general) — con
   // muchos partidos resolviéndose de golpe (ej. al ponerse al día
   // después de una caída), un destacado viejo quedaba empujado fuera
-  // de esa ventana y desaparecía de "Picks recientes de CZECH IA AGENTS"
+  // de esa ventana y desaparecía de "Picks recientes de CAMILO REY"
   // aunque siguiera marcado de verdad en la base (bug real reportado:
   // "se activa pero no aparece", incluso para el admin). Se trae
   // aparte, sin límite de recencia, y se mezcla con resolvedPicksRaw
@@ -1570,7 +1570,7 @@ export async function getServerSideProps({ query }) {
     .map((pick) => {
       const match = matchesById.get(pick.match_id);
       if (!match) return null;
-      // "El pick de CZECH IA AGENTS" (pick.tipster_pick) nunca se oculta por
+      // "El pick de CAMILO REY" (pick.tipster_pick) nunca se oculta por
       // estas dos reglas — si no, en cuanto el partido arrancara (o
       // estuviera por arrancar) el aviso/destacado desaparecía de
       // Inicio hasta que el próximo sync lo resolviera del todo, a
@@ -1925,7 +1925,7 @@ export async function getServerSideProps({ query }) {
   // resuelto. Solo sale por /api/vip-picks, con el JWT verificado.
   const publicResolvedPicks = resolvedPicks.filter((p) => !p.exclusive);
 
-  // "El pick de CZECH IA AGENTS" — marcado a mano por el admin (ver
+  // "El pick de CAMILO REY" — marcado a mano por el admin (ver
   // pages/api/admin-tipster-pick.js), no calculado acá. Si el pick
   // marcado es Exclusivo, queda afuera de esta versión pública a
   // propósito (mismo candado que arriba) — solo lo ven quien tenga
@@ -4943,7 +4943,7 @@ function PremiumWelcomeModal({ onClose, lang, premiumUntil }) {
   );
 }
 
-// Perfil del tipster (CZECH IA AGENTS) — se abre al tocar su foto en la
+// Perfil del tipster (CAMILO REY) — se abre al tocar su foto en la
 // tarjeta "Tipster que sigues" de Inicio. El follower count es fijo
 // (100K, pedido explícito, no es un conteo real de una tabla) — todo
 // lo demás (Picks/estadísticas/la lista) sale de recentPicks, que son
@@ -4980,13 +4980,13 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
         <div className="tipster-profile-hero">
           <div className="tipster-profile-avatar-lg">
             {tipsterProfile.avatarUrl ? (
-              <img src={tipsterProfile.avatarUrl} alt="CZECH IA AGENTS" />
+              <img src={tipsterProfile.avatarUrl} alt="CAMILO REY" />
             ) : (
               <span>{tipsterProfile.avatarEmoji || 'CR'}</span>
             )}
           </div>
           <div className="tipster-profile-name">
-            CZECH IA AGENTS <ProfileIcon name="verified" size={16} />
+            CAMILO REY <ProfileIcon name="verified" size={16} />
           </div>
 
           <div className="tipster-profile-stats-row">
@@ -7177,7 +7177,7 @@ export default function Home({
   // algo visible a cualquiera.
   const canSeeExclusive = isAdmin || isPremium;
 
-  // Seguir/dejar de seguir al tipster (CZECH IA AGENTS) desde su tarjeta de
+  // Seguir/dejar de seguir al tipster (CAMILO REY) desde su tarjeta de
   // perfil. profiles.follows_tipster es NULL hasta que alguien lo toca
   // a mano — pedido explícito: "los usuarios automáticamente que el
   // sistema me siga solo los del exclusivo", así que mientras nadie lo
@@ -7203,7 +7203,7 @@ export default function Home({
     setTipsterFollowBusy(false);
   };
 
-  // Marca/desmarca "el pick de CZECH IA AGENTS" (ver pages/api/admin-tipster-pick.js)
+  // Marca/desmarca "el pick de CAMILO REY" (ver pages/api/admin-tipster-pick.js)
   // — solo admin. Manda el ESTADO DESTINO explícito (nextValue), no un
   // toggle que el servidor decida solo — así una petición duplicada
   // (doble toque, reintento de red porque esta función tarda unos
@@ -7236,7 +7236,7 @@ export default function Home({
       }
       // Actualiza TODOS los arrays de donde puede venir el pick (no
       // solo modalPick/exclusivePicks) — si no, "Picks recientes de
-      // CZECH IA AGENTS" en el perfil del tipster (que arma su lista a
+      // CAMILO REY" en el perfil del tipster (que arma su lista a
       // partir de picks/resolvedPicks/exclusivePicks) se quedaba
       // mostrando la versión vieja hasta el próximo poll de 20s, aunque
       // el botón ya se viera marcado. Bug real reportado: "se activan
@@ -7447,7 +7447,7 @@ export default function Home({
   const [exclusivePicks, setExclusivePicks] = useState([]);
   const [exclusivePicksError, setExclusivePicksError] = useState(null);
   useEffect(() => {
-    // También en Inicio (no solo Picks VIP): "el pick de CZECH IA AGENTS" que
+    // También en Inicio (no solo Picks VIP): "el pick de CAMILO REY" que
     // se muestra ahí puede ser un pick Exclusivo, y esos nunca viajan
     // por los props/poll públicos — hace falta esta fuente autenticada
     // para que quien tiene Exclusivo lo vea en Inicio.
@@ -7480,14 +7480,14 @@ export default function Home({
     };
   }, [view, canSeeExclusive]);
 
-  // "El pick de CZECH IA AGENTS" a mostrar en Inicio: si es un pick público
+  // "El pick de CAMILO REY" a mostrar en Inicio: si es un pick público
   // ya viene por tipsterPick (props/poll). Si es Exclusivo, ese campo
   // público queda en null a propósito (ver getServerSideProps) — para
   // quien SÍ tiene Exclusivo, se busca la misma marca dentro de
   // exclusivePicks (autenticado, ver arriba).
   const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
 
-  // "Picks recientes de CZECH IA AGENTS" del perfil del tipster — pedido
+  // "Picks recientes de CAMILO REY" del perfil del tipster — pedido
   // explícito: SOLO los que el admin destacó a mano (picks.tipster_pick,
   // ver pages/api/admin-tipster-pick.js), pendientes o resueltos, nunca
   // "lo que la cuenta sigue". picks/resolvedPicks (público) y
@@ -8210,14 +8210,14 @@ export default function Home({
           <div className="tipster-follow-card">
             <button type="button" className="tipster-follow-avatar" onClick={() => setShowTipsterProfile(true)}>
               {tipsterProfile.avatarUrl ? (
-                <img src={tipsterProfile.avatarUrl} alt="CZECH IA AGENTS" />
+                <img src={tipsterProfile.avatarUrl} alt="CAMILO REY" />
               ) : (
                 <span className="tipster-follow-initials">{tipsterProfile.avatarEmoji || 'CR'}</span>
               )}
             </button>
             <div className="tipster-follow-info">
               <div className="tipster-follow-name">
-                CZECH IA AGENTS <ProfileIcon name="verified" size={13} />
+                CAMILO REY <ProfileIcon name="verified" size={13} />
               </div>
               {isFollowingTipster ? (
                 <span className="tipster-follow-pill">
@@ -8235,7 +8235,7 @@ export default function Home({
                 <ProfileIcon name="bell" size={16} />
               </span>
               <span className="tipster-pick-notice-text">
-                <strong>CZECH IA AGENTS</strong> {t('tipsterAcabaDePublicar')}
+                <strong>CAMILO REY</strong> {t('tipsterAcabaDePublicar')}
               </span>
               <span className="tipster-pick-notice-cta">{t('verPick')} →</span>
             </button>

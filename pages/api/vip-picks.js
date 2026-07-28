@@ -123,7 +123,7 @@ export default async function handler(req, res) {
   // Los destacados (tipster_pick) resueltos no pueden depender del
   // límite de "últimos 30 resueltos" de abajo — con muchos partidos
   // resolviéndose de golpe, un destacado viejo quedaba empujado fuera
-  // de esa ventana y desaparecía de "Picks recientes de CZECH IA AGENTS"
+  // de esa ventana y desaparecía de "Picks recientes de CAMILO REY"
   // aunque siguiera marcado de verdad en la base. Se trae aparte, sin
   // límite de recencia, y se mezcla.
   const [{ data: resolvedPicksRecent }, { data: tipsterDestacadosResolved }] = await Promise.all([
@@ -171,7 +171,7 @@ export default async function handler(req, res) {
     .map((pick) => {
       const match = matchesById.get(pick.match_id);
       if (!match) return null;
-      // "El pick de CZECH IA AGENTS" (pick.tipster_pick) nunca se oculta por
+      // "El pick de CAMILO REY" (pick.tipster_pick) nunca se oculta por
       // estas dos reglas — si no, en cuanto el partido arrancara (o
       // estuviera por arrancar) el aviso/destacado desaparecía de
       // Inicio hasta que el próximo sync lo resolviera del todo, a

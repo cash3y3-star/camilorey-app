@@ -1,5 +1,5 @@
 // ============================================================
-// CZECH IA AGENTS — el admin marca a mano "el pick de CZECH IA AGENTS" (el
+// CZECH IA AGENTS — el admin marca a mano "el pick de CAMILO REY" (el
 // tipster del sitio) sobre un partido puntual. Pueden estar destacados
 // varios picks pendientes a la vez (pedido 2026-07-19: "marque dos
 // pendientes" — antes marcar uno nuevo le quitaba la marca al
@@ -127,7 +127,7 @@ async function notifyTipsterPick(supabase, pick, nowIso) {
         odds: pick.odds
       });
       const caption = buildPickCaption({
-        label: '🎯 CZECH IA AGENTS destacó un pick',
+        label: '🎯 CAMILO REY destacó un pick',
         favName: favoredPlayer?.name,
         rivalName: rivalPlayer?.name,
         odds: pick.odds
@@ -162,7 +162,7 @@ async function notifyTipsterPick(supabase, pick, nowIso) {
             webpush.setVapidDetails('mailto:lospeepff@gmail.com', process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
             const oddsTxt = pick.odds ? ` · cuota ${Number(pick.odds).toFixed(2)}` : '';
             const payload = JSON.stringify({
-              title: '🎯 CZECH IA AGENTS marcó un pick',
+              title: '🎯 CAMILO REY marcó un pick',
               body: `${favoredPlayer?.name ? favoredPlayer.name + ' — ' : ''}${pick.market}${oddsTxt}`,
               tag: 'tipster-pick',
               renotify: true,
