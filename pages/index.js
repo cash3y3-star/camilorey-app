@@ -323,7 +323,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Seguidores',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Me gusta',
-    picksRecientesTipster: 'Picks recientes de CAMILO REY',
+    picksRecientesTipster: 'Picks recientes de {name}',
     misPicksSeguidosStats: 'Estadísticas de los destacados',
     sigueAlgoParaVerStats: 'Todavía no hay picks destacados para Exclusivos.',
     statPendientes: 'Pendientes',
@@ -642,7 +642,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Followers',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Likes',
-    picksRecientesTipster: "CAMILO REY's recent picks",
+    picksRecientesTipster: "{name}'s recent picks",
     misPicksSeguidosStats: 'Featured picks stats',
     sigueAlgoParaVerStats: 'No featured Exclusive picks yet.',
     statPendientes: 'Pending',
@@ -962,7 +962,7 @@ const TRANSLATIONS = {
     statSeguidoresLabel: 'Seguidores',
     statPicksLabel: 'Picks',
     statMeGustaLabel: 'Curtidas',
-    picksRecientesTipster: 'Picks recentes da CAMILO REY',
+    picksRecientesTipster: 'Picks recentes de {name}',
     misPicksSeguidosStats: 'Estatísticas dos destacados',
     sigueAlgoParaVerStats: 'Ainda não há picks destacados para Exclusivos.',
     statPendientes: 'Pendentes',
@@ -1398,12 +1398,13 @@ export async function getServerSideProps({ query }) {
 
   const userCountPromise = supabase.from('profiles').select('id', { count: 'exact', head: true });
 
-  // Foto/nombre del admin para la tarjeta "Tipster que sigues" de
-  // Inicio — CAMILO REY es un solo tipster (el admin del sitio), no una
-  // lista de varios, así que solo hace falta este único perfil.
-  const tipsterProfilePromise = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    ? supabase.from('profiles').select('custom_avatar_url, avatar_emoji').eq('email', process.env.NEXT_PUBLIC_ADMIN_EMAIL).maybeSingle()
-    : Promise.resolve({ data: null });
+  // Foto/nombre/id de cada tipster para las tarjetas "Tipster que
+  // sigues" de Inicio (2026-07-27: ya no es uno solo, cualquier cuenta
+  // con profiles.is_tipster=true aparece acá).
+  const tipsterProfilesPromise = supabase
+    .from('profiles')
+    .select('id, email, display_name, custom_avatar_url, avatar_emoji')
+    .eq('is_tipster', true);
 
   // "Me gusta" de la fila de estadísticas estilo TikTok del perfil del
   // tipster — conteo real (no inventado como el de seguidores, que es
@@ -2255,13 +2256,22 @@ export async function getServerSideProps({ query }) {
     : null;
 
   const { count: userCount } = await userCountPromise;
-  const { data: tipsterProfileRow } = await tipsterProfilePromise;
+  const { data: tipsterProfileRows } = await tipsterProfilesPromise;
   const { count: tipsterLikesCount } = await tipsterLikesCountPromise;
-  const tipsterProfile = {
-    avatarUrl: tipsterProfileRow?.custom_avatar_url || null,
-    avatarEmoji: tipsterProfileRow?.avatar_emoji || null,
+  // El email del superAdmin siempre se llama "CAMILO REY" en su
+  // tarjeta pública (nombre de marca, no el display_name editable de
+  // Cuenta) — los demás tipsters usan su propio display_name (o el
+  // usuario del correo si todavía no se pusieron un nombre).
+  const tipsterProfiles = (tipsterProfileRows || []).map((row) => ({
+    id: row.id,
+    name:
+      row.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+        ? 'CAMILO REY'
+        : row.display_name || row.email?.split('@')[0] || 'Tipster',
+    avatarUrl: row.custom_avatar_url || null,
+    avatarEmoji: row.avatar_emoji || null,
     likesCount: tipsterLikesCount || 0
-  };
+  }));
 
   return {
     props: {
@@ -2278,7 +2288,7 @@ export async function getServerSideProps({ query }) {
       isToday: !selectedDate,
       userCount: userCount || 0,
       tipsterPick,
-      tipsterProfile
+      tipsterProfiles
     }
   };
   } catch (err) {
@@ -2309,7 +2319,7 @@ export async function getServerSideProps({ query }) {
         isToday: true,
         userCount: 0,
         tipsterPick: null,
-        tipsterProfile: { avatarUrl: null, avatarEmoji: null, likesCount: 0 }
+        tipsterProfiles: []
       }
     };
   }
@@ -4982,13 +4992,13 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
         <div className="tipster-profile-hero">
           <div className="tipster-profile-avatar-lg">
             {tipsterProfile.avatarUrl ? (
-              <img src={tipsterProfile.avatarUrl} alt="CAMILO REY" />
+              <img src={tipsterProfile.avatarUrl} alt={tipsterProfile.name} />
             ) : (
               <span>{tipsterProfile.avatarEmoji || 'CR'}</span>
             )}
           </div>
           <div className="tipster-profile-name">
-            CAMILO REY <ProfileIcon name="verified" size={16} />
+            {tipsterProfile.name} <ProfileIcon name="verified" size={16} />
           </div>
 
           <div className="tipster-profile-stats-row">
@@ -5042,7 +5052,7 @@ function TipsterProfileModal({ onClose, lang, tipsterProfile, isFollowing, onTog
         {sortedPicks.length > 0 ? (
           <>
             <div className="section-head">
-              <h2>{t('picksRecientesTipster')}</h2>
+              <h2>{t('picksRecientesTipster', { name: tipsterProfile.name })}</h2>
             </div>
             <div className="form-list">
               {sortedPicks.map((p) => (
@@ -6604,7 +6614,7 @@ export default function Home({
   currentDateStr,
   userCount,
   tipsterPick: initialTipsterPick = null,
-  tipsterProfile = { avatarUrl: null, avatarEmoji: null, likesCount: 0 }
+  tipsterProfiles = []
 }) {
   const [view, setView] = useState('inicio');
   const [stats, setStats] = useState(initialStats);
@@ -6696,7 +6706,7 @@ export default function Home({
   const [followedDetail, setFollowedDetail] = useState([]);
   const [bankrollTab, setBankrollTab] = useState('slip');
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showTipsterProfile, setShowTipsterProfile] = useState(false);
+  const [selectedTipsterId, setSelectedTipsterId] = useState(null);
 
   // Aviso de privacidad — una vez por navegador, la primera vez que
   // alguien inicia sesión (no antes, porque sin cuenta no guardamos
@@ -7500,15 +7510,19 @@ export default function Home({
   // exclusivePicks (autenticado, ver arriba).
   const tipsterHighlight = tipsterPick || (canSeeExclusive ? exclusivePicks.find((p) => p.tipsterPick) : null) || null;
 
-  // "Picks recientes de CAMILO REY" del perfil del tipster — pedido
-  // explícito: SOLO los que el admin destacó a mano (picks.tipster_pick,
-  // ver pages/api/admin-tipster-pick.js), pendientes o resueltos, nunca
-  // "lo que la cuenta sigue". picks/resolvedPicks (público) y
-  // exclusivePicks (autenticado, para quien tiene Exclusivo) no se
-  // pisan entre sí — is_exclusive los separa de antemano.
-  const tipsterRecentPicks = [...picks, ...resolvedPicks, ...(canSeeExclusive ? exclusivePicks : [])].filter(
-    (p) => p.tipsterPick
-  );
+  // "Picks recientes de X" del perfil de CADA tipster — pedido
+  // explícito: SOLO los que ESE tipster destacó a mano
+  // (picks.tipster_pick_by, ver pages/api/admin-tipster-pick.js),
+  // pendientes o resueltos, nunca "lo que la cuenta sigue".
+  // picks/resolvedPicks (público) y exclusivePicks (autenticado, para
+  // quien tiene Exclusivo) no se pisan entre sí — is_exclusive los
+  // separa de antemano.
+  const selectedTipster = tipsterProfiles.find((tp) => tp.id === selectedTipsterId) || null;
+  const tipsterRecentPicks = selectedTipsterId
+    ? [...picks, ...resolvedPicks, ...(canSeeExclusive ? exclusivePicks : [])].filter(
+        (p) => p.tipsterPick && p.tipsterPickBy === selectedTipsterId
+      )
+    : [];
 
   // Al tocar una notificación push (nuevo pick VIP, pick destacado por
   // el tipster, "arrancó"/"set cerrado"/"acertaste-fallaste" de un
@@ -8391,35 +8405,40 @@ export default function Home({
           <div className="section-head">
             <h2>{t('tipsterQueSigues')}</h2>
           </div>
-          <div className="tipster-follow-card">
-            <button type="button" className="tipster-follow-avatar" onClick={() => setShowTipsterProfile(true)}>
-              {tipsterProfile.avatarUrl ? (
-                <img src={tipsterProfile.avatarUrl} alt="CAMILO REY" />
-              ) : (
-                <span className="tipster-follow-initials">{tipsterProfile.avatarEmoji || 'CR'}</span>
-              )}
-            </button>
-            <div className="tipster-follow-info">
-              <div className="tipster-follow-name">
-                CAMILO REY <ProfileIcon name="verified" size={13} />
+          {tipsterProfiles.map((tp) => (
+            <div className="tipster-follow-card" key={tp.id}>
+              <button type="button" className="tipster-follow-avatar" onClick={() => setSelectedTipsterId(tp.id)}>
+                {tp.avatarUrl ? (
+                  <img src={tp.avatarUrl} alt={tp.name} />
+                ) : (
+                  <span className="tipster-follow-initials">{tp.avatarEmoji || 'CR'}</span>
+                )}
+              </button>
+              <div className="tipster-follow-info">
+                <div className="tipster-follow-name">
+                  {tp.name} <ProfileIcon name="verified" size={13} />
+                </div>
+                {isFollowingTipster ? (
+                  <span className="tipster-follow-pill">
+                    <ProfileIcon name="check" size={12} />
+                    {t('siguiendoPick')}
+                  </span>
+                ) : (
+                  <span className="tipster-follow-pill inactive">{t('seguirPrediccion')}</span>
+                )}
               </div>
-              {isFollowingTipster ? (
-                <span className="tipster-follow-pill">
-                  <ProfileIcon name="check" size={12} />
-                  {t('siguiendoPick')}
-                </span>
-              ) : (
-                <span className="tipster-follow-pill inactive">{t('seguirPrediccion')}</span>
-              )}
             </div>
-          </div>
+          ))}
           {tipsterHighlight ? (
             <button type="button" className="tipster-pick-notice" onClick={() => setModalPick(tipsterHighlight)}>
               <span className="tipster-pick-notice-icon">
                 <ProfileIcon name="bell" size={16} />
               </span>
               <span className="tipster-pick-notice-text">
-                <strong>CAMILO REY</strong> {t('tipsterAcabaDePublicar')}
+                <strong>
+                  {tipsterProfiles.find((tp) => tp.id === tipsterHighlight.tipsterPickBy)?.name || 'CAMILO REY'}
+                </strong>{' '}
+                {t('tipsterAcabaDePublicar')}
               </span>
               <span className="tipster-pick-notice-cta">{t('verPick')} →</span>
             </button>
@@ -9756,17 +9775,17 @@ export default function Home({
         />
       )}
 
-      {showTipsterProfile && (
+      {selectedTipster && (
         <TipsterProfileModal
-          onClose={() => setShowTipsterProfile(false)}
+          onClose={() => setSelectedTipsterId(null)}
           lang={lang}
-          tipsterProfile={tipsterProfile}
+          tipsterProfile={selectedTipster}
           isFollowing={isFollowingTipster}
           onToggleFollow={toggleFollowTipster}
           followBusy={tipsterFollowBusy}
           recentPicks={tipsterRecentPicks}
           onPickClick={(p) => {
-            setShowTipsterProfile(false);
+            setSelectedTipsterId(null);
             setModalPick(p);
           }}
         />
