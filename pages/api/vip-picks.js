@@ -3,7 +3,7 @@
 // admin/premium, con el JWT verificado en el servidor). A diferencia
 // de getServerSideProps y /api/refresh-data (públicos, sin login), acá
 // SÍ pueden viajar los picks con is_exclusive=true (decidido por el
-// modelo de ML al generarse, ver lib/ml-exclusive.js) — nunca en
+// modelo de ML al generarse, ver lib/ml-model.js) — nunca en
 // ningún endpoint público, porque esos props/JSON son visibles sin
 // autenticación (hasta con "ver código fuente").
 //

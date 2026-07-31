@@ -361,6 +361,7 @@ const TRANSLATIONS = {
     analisisForma: 'En sus últimos {n} partidos, {player} ganó {wins} ({pct}%).',
     analisisSinHistorial: 'Todavía no tenemos suficiente historial reciente de {player}.',
     analisisRacha: 'Llega con una racha de {streak}.',
+    analisisFormaHoy: 'Hoy, en este torneo, {player} lleva {wins}-{losses} antes de este partido.',
     analisisH2H: 'En los enfrentamientos directos contra {opponent}, tiene un récord de {record}.',
     analisisCuotaValor: 'La cuota de Rushbet ({odds}) implica una probabilidad de {implied}% — nuestro modelo le da {confidence}%.',
     analisisSinCuota: 'Todavía no tenemos la cuota real de Rushbet para este partido.',
@@ -668,6 +669,7 @@ const TRANSLATIONS = {
     analisisForma: 'In their last {n} matches, {player} won {wins} ({pct}%).',
     analisisSinHistorial: "We don't have enough recent history for {player} yet.",
     analisisRacha: 'They come in on a {streak} streak.',
+    analisisFormaHoy: 'Today, in this tournament, {player} is {wins}-{losses} coming into this match.',
     analisisH2H: 'Head-to-head against {opponent}, the record is {record}.',
     analisisCuotaValor: 'Rushbet odds ({odds}) imply a {implied}% probability — our model gives them {confidence}%.',
     analisisSinCuota: "We don't have real Rushbet odds for this match yet.",
@@ -976,6 +978,7 @@ const TRANSLATIONS = {
     analisisForma: 'Nos últimos {n} jogos, {player} venceu {wins} ({pct}%).',
     analisisSinHistorial: 'Ainda não temos histórico recente suficiente de {player}.',
     analisisRacha: 'Chega com uma sequência de {streak}.',
+    analisisFormaHoy: 'Hoje, neste torneio, {player} está {wins}-{losses} antes desta partida.',
     analisisH2H: 'No confronto direto contra {opponent}, o retrospecto é {record}.',
     analisisCuotaValor: 'A odd da Rushbet ({odds}) implica uma probabilidade de {implied}% — nosso modelo dá {confidence}%.',
     analisisSinCuota: 'Ainda não temos a odd real da Rushbet para esta partida.',
@@ -1324,7 +1327,7 @@ function confidenceTier(confidence) {
 
 // Pick "exclusivo" (solo premium/admin, ver 2026-07-14) = picks.is_exclusive,
 // decidido una sola vez al generarse por el modelo de ML (ver
-// lib/ml-exclusive.js y sync.js) — ya no se recalcula acá.
+// lib/ml-model.js y sync.js) — ya no se recalcula acá.
 
 // history viene del más reciente al más viejo (index 0 = último
 // partido jugado) — la racha se cuenta desde el principio del array.
@@ -1666,7 +1669,7 @@ export async function getServerSideProps({ query }) {
       const idList = allIds.join(',');
       const { data } = await supabase
         .from('matches')
-        .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
+        .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b, tournament_id')
         .eq('status', 'finished')
         .or(`player_a_id.in.(${idList}),player_b_id.in.(${idList})`)
         .order('scheduled_at', { ascending: false })
@@ -1676,10 +1679,14 @@ export async function getServerSideProps({ query }) {
         if (rawHistoryByPlayer.has(m.player_b_id)) rawHistoryByPlayer.get(m.player_b_id).push(m);
       }
     }
+    // OJO: acá NO se recorta a 20 (a diferencia de antes) — todayFormFor
+    // más abajo necesita el historial completo de cada jugador para
+    // poder filtrar por torneo+fecha; el recorte de "últimos 20" para
+    // mostrar se aplica recién en historyFor(), al leer.
     for (const [id, rows] of rawHistoryByPlayer) {
       const deduped = [...new Map(rows.map((m) => [m.id, m])).values()];
       deduped.sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
-      rawHistoryByPlayer.set(id, deduped.slice(0, 20));
+      rawHistoryByPlayer.set(id, deduped);
     }
 
     const missingOpponentIds = [
@@ -1694,7 +1701,7 @@ export async function getServerSideProps({ query }) {
     }
 
     const historyFor = (playerId) =>
-      (rawHistoryByPlayer.get(playerId) || []).map((m) => {
+      (rawHistoryByPlayer.get(playerId) || []).slice(0, 20).map((m) => {
         const isA = m.player_a_id === playerId;
         const oppId = isA ? m.player_b_id : m.player_a_id;
         return {
@@ -1706,6 +1713,23 @@ export async function getServerSideProps({ query }) {
           viewedWasHome: isA
         };
       });
+
+    // Forma del día DENTRO del mismo torneo (mismo criterio que
+    // getTodayTournamentForm en scripts/sync.js, reimplementado acá en
+    // memoria porque ya tenemos el historial completo de cada jugador
+    // cargado arriba — evita un round-trip nuevo por pick). Pedido
+    // explícito del usuario: cómo viene el jugador HOY, en ESTE
+    // torneo, antes de este partido puntual — no la racha cruzada de
+    // siempre (streakLabel), medida sin señal real.
+    const todayFormFor = (playerId, tournamentId, scheduledAt) => {
+      if (!tournamentId || !scheduledAt) return { wins: 0, losses: 0, total: 0 };
+      const cutoff = new Date(scheduledAt).getTime();
+      const sameDayEarlier = (rawHistoryByPlayer.get(playerId) || []).filter(
+        (m) => m.tournament_id === tournamentId && new Date(m.scheduled_at).getTime() < cutoff
+      );
+      const wins = sameDayEarlier.filter((m) => m.winner_id === playerId).length;
+      return { wins, losses: sameDayEarlier.length - wins, total: sameDayEarlier.length };
+    };
 
     // H2H: mismo problema que la forma reciente de arriba tenía antes
     // (un lote compartido con límite fijo se quedaba corto para
@@ -1747,9 +1771,10 @@ export async function getServerSideProps({ query }) {
       }
     }
 
-    for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
+    for (const { pickId, favoredId, opponentId, opponentName, tournamentId, scheduledAt } of pairs) {
       const history = historyFor(favoredId);
       const opponentHistory = historyFor(opponentId);
+      const todayForm = todayFormFor(favoredId, tournamentId, scheduledAt);
       const h2hMatches = (h2hRowsByPair.get(pairKey(favoredId, opponentId)) || [])
         .slice(0, 20)
         .map((m) => {
@@ -1775,24 +1800,32 @@ export async function getServerSideProps({ query }) {
         opponentStreakLabel: streakLabelFromHistory(opponentHistory),
         h2h: `${winsFavored}-${h2hMatches.length - winsFavored}`,
         h2hTotal: h2hMatches.length,
-        h2hMatches
+        h2hMatches,
+        todayForm: `${todayForm.wins}-${todayForm.losses}`,
+        todayFormTotal: todayForm.total,
+        todayFormWins: todayForm.wins,
+        todayFormLosses: todayForm.losses
       });
     }
     return result;
   }
 
   const formByPickId = await buildFormAndH2H([
-    ...pendingPrelim.map(({ pick, favored, opponent }) => ({
+    ...pendingPrelim.map(({ pick, match, favored, opponent }) => ({
       pickId: pick.id,
       favoredId: favored.id,
       opponentId: opponent.id,
-      opponentName: opponent.name
+      opponentName: opponent.name,
+      tournamentId: match.tournament_id,
+      scheduledAt: match.scheduled_at
     })),
-    ...resolvedPrelim.map(({ pick, favored, opponent }) => ({
+    ...resolvedPrelim.map(({ pick, match, favored, opponent }) => ({
       pickId: pick.id,
       favoredId: favored.id,
       opponentId: opponent.id,
-      opponentName: opponent.name
+      opponentName: opponent.name,
+      tournamentId: match.tournament_id,
+      scheduledAt: match.scheduled_at
     }))
   ]);
   const EMPTY_FORM = {
@@ -1802,7 +1835,11 @@ export async function getServerSideProps({ query }) {
     opponentStreakLabel: null,
     h2h: '0-0',
     h2hTotal: 0,
-    h2hMatches: []
+    h2hMatches: [],
+    todayForm: '0-0',
+    todayFormTotal: 0,
+    todayFormWins: 0,
+    todayFormLosses: 0
   };
 
   const picks = pendingPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament }) => {
@@ -1842,6 +1879,10 @@ export async function getServerSideProps({ query }) {
       h2h: form.h2h,
       h2hTotal: form.h2hTotal,
       h2hMatches: form.h2hMatches,
+      todayForm: form.todayForm,
+      todayFormTotal: form.todayFormTotal,
+      todayFormWins: form.todayFormWins,
+      todayFormLosses: form.todayFormLosses,
       score: null,
       setScores: null,
       result: 'pending',
@@ -1903,6 +1944,10 @@ export async function getServerSideProps({ query }) {
       h2h: form.h2h,
       h2hTotal: form.h2hTotal,
       h2hMatches: form.h2hMatches,
+      todayForm: form.todayForm,
+      todayFormTotal: form.todayFormTotal,
+      todayFormWins: form.todayFormWins,
+      todayFormLosses: form.todayFormLosses,
       score,
       setScores,
       result: pick.result,
@@ -3477,6 +3522,10 @@ function buildRichAnalysis(pick, t) {
     lines.push(t('analisisRacha', { streak: pick.streakLabel }));
   }
 
+  if (pick.todayFormTotal > 0) {
+    lines.push(t('analisisFormaHoy', { player: pick.player, wins: pick.todayFormWins, losses: pick.todayFormLosses }));
+  }
+
   if (pick.h2hTotal > 0) {
     lines.push(t('analisisH2H', { opponent: pick.opponent, record: pick.h2h }));
   }
@@ -3904,8 +3953,11 @@ const MODEL_FACTOR_LABEL = {
   streakScore: 'Racha',
   h2hScore: 'H2H',
   altScore: 'Alternancia H2H',
-  oddsScore: 'Cuota de mercado'
+  oddsScore: 'Cuota de mercado',
+  todayFormScore: 'Forma del día (mismo torneo)'
 };
+
+const PREDICTION_SOURCE_LABEL = { ml: 'ML', formula: 'Fórmula' };
 
 // Si el intervalo de confianza 95% (Wilson) NO cruza el 50%, el
 // resultado ya es estadísticamente distinguible de una moneda al aire
@@ -4045,6 +4097,43 @@ function ModelResolvedStats({ stats, onPickClick }) {
 
       <div className={`model-verdict model-verdict-${verdict}`}>{verdictLabel}</div>
 
+      {stats.bySource ? (
+        <>
+          <div className="section-head">
+            <h2>Por fuente de predicción</h2>
+          </div>
+          <p className="page-sub">
+            Quién decidió favorito/confianza en cada pick — la fórmula fija (lib/confidence.js) o el modelo de ML una vez
+            reentrenado con muestra suficiente. Es la forma real de auditar si el reentrenamiento sube el acierto.
+          </p>
+          <div className="stat-rows">
+            {['ml', 'formula'].map((src) => {
+              const s = stats.bySource[src];
+              if (!s) return null;
+              return (
+                <div className="stat-row" key={src}>
+                  <div className="stat-row-top">
+                    <span className="stat-row-label">{PREDICTION_SOURCE_LABEL[src]}</span>
+                    <span className="stat-row-value num">
+                      {s.n === 0
+                        ? 'Sin datos'
+                        : `${Math.round(s.hitRate * 100)}% (n=${s.n}, IC95% ${Math.round(s.wilson95[0] * 100)}–${Math.round(
+                            s.wilson95[1] * 100
+                          )}%)`}
+                    </span>
+                  </div>
+                  {s.n > 0 ? (
+                    <div className="stat-row-bar">
+                      <div className="stat-row-bar-fill" style={{ width: `${Math.round(s.hitRate * 100)}%` }}></div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+
       <div className="section-head">
         <h2>Por rango de confianza</h2>
       </div>
@@ -4105,6 +4194,11 @@ function ModelResolvedStats({ stats, onPickClick }) {
             <div className="form-list-opp">
               {r.market || 'Pick'}
               <span className="form-list-score num">{r.confidence}%</span>
+              {r.predictionSource ? (
+                <span className={`form-list-score num source-badge-${r.predictionSource}`}>
+                  {PREDICTION_SOURCE_LABEL[r.predictionSource] || r.predictionSource}
+                </span>
+              ) : null}
             </div>
             <span className={`form-list-badge ${r.win ? 'win' : 'loss'}`}>{r.win ? 'W' : 'L'}</span>
           </div>
@@ -7082,7 +7176,7 @@ export default function Home({
   const isPremium = Boolean(myProfile?.premium_until && new Date(myProfile.premium_until) > new Date());
 
   // Picks "exclusivos" (pick.is_exclusive, decidido por el modelo de
-  // ML al generarse — ver lib/ml-exclusive.js) son
+  // ML al generarse — ver lib/ml-model.js) son
   // beneficio premium — no se muestran en ninguna lista pública para
   // quien no sea admin/premium. Se filtran acá, en un solo lugar, en
   // vez de en cada sitio que use "picks"/"resolvedPicks" para pintar

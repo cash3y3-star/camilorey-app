@@ -80,7 +80,7 @@ export default async function handler(req, res) {
   // lo reciente SIEMPRE entra.
   const { data: picks, error } = await supabase
     .from('picks')
-    .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market, published')
+    .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market, published, prediction_source')
     .in('result', ['hit', 'miss'])
     .order('created_at', { ascending: false })
     .limit(3000);
@@ -127,7 +127,8 @@ export default async function handler(req, res) {
         market: p.market,
         factors: p.factors,
         matchPlayerAId: match.player_a_id,
-        predictedWinnerId: p.predicted_winner_id
+        predictedWinnerId: p.predicted_winner_id,
+        predictionSource: p.prediction_source || 'formula'
       };
     })
     .filter(Boolean);
@@ -135,6 +136,24 @@ export default async function handler(req, res) {
   const n = rows.length;
   const hits = rows.filter((r) => r.hit).length;
   const [lo, hi] = wilsonInterval(hits, n);
+
+  // Acierto real de cada FUENTE por separado — antes no había forma de
+  // saber si un pick resuelto lo decidió el modelo de ML o la fórmula
+  // fija, así que era imposible auditar si reentrenar el ML de verdad
+  // mejora algo. 'ml' solo empieza a tener muestra a partir de que
+  // sync.js cruza MIN_TRAINING_SAMPLES (ver lib/ml-model.js).
+  const bySource = {};
+  for (const src of ['ml', 'formula']) {
+    const subset = rows.filter((r) => r.predictionSource === src);
+    const subHits = subset.filter((r) => r.hit).length;
+    const [sLo, sHi] = wilsonInterval(subHits, subset.length);
+    bySource[src] = {
+      n: subset.length,
+      hits: subHits,
+      hitRate: subset.length ? subHits / subset.length : null,
+      wilson95: [sLo, sHi]
+    };
+  }
 
   const buckets = [
     [50, 59],
@@ -160,11 +179,12 @@ export default async function handler(req, res) {
         streakScore: (r.factors.streakScore ?? 0) * sign,
         h2hScore: (r.factors.h2hScore ?? 0) * sign,
         altScore: (r.factors.altScore ?? 0) * sign,
-        oddsScore: (r.factors.oddsScore ?? 0) * sign
+        oddsScore: (r.factors.oddsScore ?? 0) * sign,
+        todayFormScore: (r.factors.todayFormScore ?? 0) * sign
       };
     });
   const factorAvg = {};
-  for (const key of ['ratingScore', 'streakScore', 'h2hScore', 'altScore', 'oddsScore']) {
+  for (const key of ['ratingScore', 'streakScore', 'h2hScore', 'altScore', 'oddsScore', 'todayFormScore']) {
     const withHit = factorRows.filter((r) => r.hit).map((r) => r[key]);
     const withMiss = factorRows.filter((r) => !r.hit).map((r) => r[key]);
     const avg = (arr) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
@@ -184,7 +204,8 @@ export default async function handler(req, res) {
       date: r.createdAt,
       scheduledAt: r.scheduledAt,
       confidence: r.confidence,
-      market: r.market
+      market: r.market,
+      predictionSource: r.predictionSource
     }));
 
   return res.status(200).json({
@@ -194,6 +215,7 @@ export default async function handler(req, res) {
     hitRate: n > 0 ? hits / n : null,
     wilson95: [lo, hi],
     buckets,
+    bySource,
     factorAvg,
     recentSequence: recent,
     pending,

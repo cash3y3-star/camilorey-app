@@ -29,7 +29,7 @@ const {
   predictProbability,
   computeExclusiveThreshold,
   MIN_TRAINING_SAMPLES
-} = require('../lib/ml-exclusive');
+} = require('../lib/ml-model');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -154,6 +154,27 @@ async function getH2H(playerAId, playerBId) {
   };
 }
 
+// Forma del día DENTRO del mismo torneo (lib/confidence.js:
+// todayFormScore) — a diferencia de getRecentStreak (últimos 5, cruza
+// torneos/semanas), esto cuenta wins/losses de este jugador SOLO
+// dentro de este tournament_id, en partidos ya jugados ANTES de este
+// (beforeScheduledAt), sin importar cuántos días lleve el torneo.
+async function getTodayTournamentForm(playerId, tournamentId, beforeScheduledAt) {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('winner_id, player_a_id, player_b_id')
+    .eq('tournament_id', tournamentId)
+    .eq('status', 'finished')
+    .or(`player_a_id.eq.${playerId},player_b_id.eq.${playerId}`)
+    .lt('scheduled_at', beforeScheduledAt)
+    .order('scheduled_at', { ascending: false })
+    .limit(20);
+  if (error) throw new Error(`select matches (forma del día, player ${playerId}, torneo ${tournamentId}): ${error.message}`);
+
+  const wins = (data || []).filter((m) => m.winner_id === playerId).length;
+  return { wins, losses: (data || []).length - wins };
+}
+
 // Si el partido ya se jugó y tiene un pick pendiente, lo resuelve a
 // hit/miss y registra la apuesta (sintética) en bankroll_log.
 // Devuelve null si no había nada que resolver (para no contar dos
@@ -200,34 +221,46 @@ async function resolvePick(matchRow) {
   return hit ? 'hit' : 'miss';
 }
 
-// Reentrena desde cero el modelo de ML de Exclusivo (ver
-// lib/ml-exclusive.js) con TODOS los picks ya resueltos hasta este
-// momento — se llama una sola vez por corrida, no por partido.
-async function trainExclusiveModel() {
+// Reentrena desde cero el modelo de ML (ver lib/ml-model.js) con TODOS
+// los picks ya resueltos hasta este momento — se llama una sola vez
+// por corrida, no por partido.
+//
+// Entrena contra el GANADOR REAL del partido (match.winner_id ===
+// match.player_a_id), no contra "si el pick de confidence.js acertó" —
+// las filas usan picks.factors tal cual (ya son A-relativas por
+// construcción, ver lib/confidence.js), sin firmar por
+// predicted_winner_id. Esto desacopla el modelo del criterio histórico
+// de la fórmula fija: se entrena como un clasificador propio "P(gana
+// A)", no como "P(la fórmula tuvo razón)" — necesario para poder usar
+// su salida en generatePick para decidir el favorito de una, sin
+// circularidad.
+async function trainPredictionModel() {
   const { data: resolvedPicks, error } = await supabase
     .from('picks')
-    .select('factors, predicted_winner_id, result, match_id')
+    .select('factors, match_id')
     .in('result', ['hit', 'miss']);
   if (error) throw new Error(`select picks (entrenamiento ML): ${error.message}`);
   if (!resolvedPicks || resolvedPicks.length === 0) return { weights: null, trainingCount: 0, threshold: null };
 
   const matchIds = [...new Set(resolvedPicks.map((p) => p.match_id))];
-  const { data: matches, error: mErr } = await supabase.from('matches').select('id, player_a_id').in('id', matchIds);
+  const { data: matches, error: mErr } = await supabase.from('matches').select('id, player_a_id, winner_id').in('id', matchIds);
   if (mErr) throw new Error(`select matches (entrenamiento ML): ${mErr.message}`);
   const matchById = new Map((matches || []).map((m) => [m.id, m]));
 
   const rows = resolvedPicks
     .map((p) => {
       const match = matchById.get(p.match_id);
-      if (!match || !p.factors) return null;
-      const sign = p.predicted_winner_id === match.player_a_id ? 1 : -1;
+      if (!match || !p.factors || match.winner_id == null) return null;
       return {
-        hit: p.result === 'hit',
-        ratingScore: (p.factors.ratingScore ?? 0) * sign,
-        streakScore: (p.factors.streakScore ?? 0) * sign,
-        h2hScore: (p.factors.h2hScore ?? 0) * sign,
-        altScore: (p.factors.altScore ?? 0) * sign,
-        oddsScore: (p.factors.oddsScore ?? 0) * sign
+        hit: match.winner_id === match.player_a_id,
+        ratingScore: p.factors.ratingScore ?? 0,
+        streakScore: p.factors.streakScore ?? 0,
+        h2hScore: p.factors.h2hScore ?? 0,
+        altScore: p.factors.altScore ?? 0,
+        oddsScore: p.factors.oddsScore ?? 0,
+        // picks generados antes de este cambio no tienen todayFormScore
+        // guardado todavía -> neutral (0), no rompe el entrenamiento.
+        todayFormScore: p.factors.todayFormScore ?? 0
       };
     })
     .filter(Boolean);
@@ -263,10 +296,12 @@ async function buildPublishedPickPayload(pickId, favored, rival, confidence, odd
 }
 
 async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tournamentName) {
-  const [streakA, streakB, h2h] = await Promise.all([
+  const [streakA, streakB, h2h, todayFormA, todayFormB] = await Promise.all([
     getRecentStreak(sideA.player.id),
     getRecentStreak(sideB.player.id),
-    getH2H(sideA.player.id, sideB.player.id)
+    getH2H(sideA.player.id, sideB.player.id),
+    getTodayTournamentForm(sideA.player.id, matchRow.tournament_id, matchRow.scheduled_at),
+    getTodayTournamentForm(sideB.player.id, matchRow.tournament_id, matchRow.scheduled_at)
   ]);
 
   const h2hCurrentStreakIsA =
@@ -295,17 +330,62 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
     h2hCurrentStreakLength: h2h.currentStreakLength,
     h2hTypicalRunLength: h2h.typicalRunLength,
     h2hIsPerfectAlternation: h2h.isPerfectAlternation,
-    oddsImpliedProbA
+    oddsImpliedProbA,
+    todayFormWinsA: todayFormA.wins,
+    todayFormLossesA: todayFormA.losses,
+    todayFormWinsB: todayFormB.wins,
+    todayFormLossesB: todayFormB.losses
   });
 
-  // computeConfidence devuelve qué tan favorecido está A (70 = parejo,
-  // 92 = A muy favorito, 50 = B muy favorito). Para guardar "confianza
-  // en el pick impreso" hay que reflejarlo cuando el favorito es B —
-  // si no, un pick clarísimo por B queda guardado con la confianza
-  // mínima, y arruina el staking de abajo.
-  const favored = rawConfidence >= 70 ? sideA.player : sideB.player;
-  const rival = favored.id === sideA.player.id ? sideB.player : sideA.player;
-  const pickConfidence = rawConfidence >= 70 ? rawConfidence : 140 - rawConfidence;
+  // Quién decide el favorito y la confianza publicada: el modelo de ML
+  // (lib/ml-model.js), SOLO si ya reentrenó con muestra suficiente
+  // (MIN_TRAINING_SAMPLES picks resueltos) — antes de eso, EXACTO el
+  // mismo criterio de siempre (rawConfidence de computeConfidence).
+  // Hasta 2026-07-30 esto lo decidía SIEMPRE la fórmula fija, y el ML
+  // solo entraba para filtrar Exclusivo — por eso reentrenar el modelo
+  // nunca podía mover el acierto general, sin importar qué tan bien
+  // calibrado quedara.
+  //
+  // factors se le pasa TAL CUAL (A-relativo, sin firmar por favorito):
+  // el favorito todavía no existe en este punto, lo decide el modelo —
+  // ver trainPredictionModel, que entrena con el mismo criterio
+  // A-relativo (label = ganó A de verdad), así predictProbability acá
+  // da directamente P(gana A), sin ningún truco de signo.
+  const hasTrainedModel = mlModel?.weights && mlModel.trainingCount >= MIN_TRAINING_SAMPLES;
+  const mlProbabilityA = mlModel?.weights ? predictProbability(mlModel.weights, factors) : null;
+
+  let favored, rival;
+  if (hasTrainedModel) {
+    favored = mlProbabilityA >= 0.5 ? sideA.player : sideB.player;
+    rival = favored.id === sideA.player.id ? sideB.player : sideA.player;
+  } else {
+    // computeConfidence devuelve qué tan favorecido está A (70 =
+    // parejo, 92 = A muy favorito, 50 = B muy favorito).
+    favored = rawConfidence >= 70 ? sideA.player : sideB.player;
+    rival = favored.id === sideA.player.id ? sideB.player : sideA.player;
+  }
+
+  // Confianza del modelo en el lado FINALMENTE elegido (por ML o por
+  // la fórmula, según hasTrainedModel) — siempre >= 0.5, "qué tan
+  // seguro está el modelo de su propio pick". Se calcula siempre que
+  // haya pesos entrenados, no solo cuando hasTrainedModel, para poder
+  // auditar calibración (ml_confidence) desde antes de que el modelo
+  // tome el control real — mismo criterio que ya existía.
+  const mlProbability = mlProbabilityA != null ? (favored.id === sideA.player.id ? mlProbabilityA : 1 - mlProbabilityA) : null;
+  const mlConfidence = mlProbability != null ? Math.round(mlProbability * 100) : null;
+
+  // Si el ML decide, reusamos mlConfidence directamente (ya es el %
+  // real de su propio pick, rango 50-100) en vez de remapear la
+  // fórmula -1..1 → 50..90: como mlProbability nunca baja de 0.5, un
+  // remapeo lineal tipo "70 + (2p-1)*20" nunca bajaría de 70, y
+  // rompería en la práctica el piso de publicación de 60 (ningún pick
+  // ML quedaría nunca por debajo). Clamp a 50-92 para no prometer
+  // nunca 100%, mismo techo que ya usa computeConfidence.
+  const pickConfidence = hasTrainedModel
+    ? Math.max(50, Math.min(92, mlConfidence))
+    : rawConfidence >= 70
+    ? rawConfidence
+    : 140 - rawConfidence;
 
   // Piso de publicación — agregado 2026-07-14 después de una racha
   // floja (4/14). Antes CUALQUIER partido generaba un pick, hasta con
@@ -330,26 +410,12 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
   const EXCLUSIVE_MIN_ODDS = 1.6;
   const MAX_EXCLUSIVE_PER_DAY = 6;
 
-  // Qué entra a Exclusivo ya NO lo decide directamente la confianza de
-  // arriba — lo decide el modelo de ML (lib/ml-exclusive.js),
-  // reentrenado desde cero en esta misma corrida con los picks ya
-  // resueltos, usando las mismas 5 señales (rating/racha/H2H/alternancia/cuota)
-  // pero con pesos aprendidos en vez de fijados a mano. Mientras la
-  // muestra de resueltos sea chica (< MIN_TRAINING_SAMPLES) no hay
-  // confianza suficiente en esos pesos, así que se cae al criterio
-  // viejo (confianza>=85) mientras tanto.
-  const sign = favored.id === sideA.player.id ? 1 : -1;
-  const mlFeatures = {
-    ratingScore: factors.ratingScore * sign,
-    streakScore: factors.streakScore * sign,
-    h2hScore: factors.h2hScore * sign,
-    altScore: factors.altScore * sign,
-    oddsScore: factors.oddsScore * sign
-  };
-  const hasTrainedModel = mlModel?.weights && mlModel.trainingCount >= MIN_TRAINING_SAMPLES;
-  const mlProbability = mlModel?.weights ? predictProbability(mlModel.weights, mlFeatures) : null;
-  const mlConfidence = mlProbability != null ? Math.round(mlProbability * 100) : null;
-
+  // Qué entra a Exclusivo sigue sin ser directamente la confianza de
+  // arriba — lo decide el mismo modelo de ML (mlProbability, ya
+  // orientado al favorito recién elegido, cualquiera sea la fuente).
+  // Mientras la muestra de resueltos sea chica (< MIN_TRAINING_SAMPLES)
+  // se cae al criterio viejo (confianza>=85).
+  //
   // Boolean(...) a propósito: picks.is_exclusive es NOT NULL, y una
   // cadena de && en JS no siempre da true/false — si favoredOdds es
   // null (sin cuota de Rushbet todavía, algo común en partidos sin
@@ -380,7 +446,8 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
       result: 'pending',
       published,
       ml_confidence: mlConfidence,
-      is_exclusive: isExclusiveCandidate
+      is_exclusive: isExclusiveCandidate,
+      prediction_source: hasTrainedModel ? 'ml' : 'formula'
     })
     .select('id')
     .single();
@@ -514,7 +581,7 @@ async function updateFeaturedPick() {
   if (!pending || pending.length === 0) return;
 
   // Un pick "exclusivo" (is_exclusive, decidido por el modelo de ML al
-  // generarse — ver generatePick/lib/ml-exclusive.js) NUNCA puede
+  // generarse — ver generatePick/lib/ml-model.js) NUNCA puede
   // quedar destacado en Inicio — Inicio lo ve cualquiera sin login, y
   // ese pick es beneficio pago de Picks VIP. Se sacan del todo del
   // pool antes de elegir destacado.
@@ -723,14 +790,16 @@ async function run() {
     console.error(`No se pudieron leer las cuotas de Rushbet: ${e.message}`);
   }
 
-  // Reentrena el modelo de ML de Exclusivo desde cero, con lo que haya
-  // resuelto hasta ESTE momento — así el modelo "entrena solo" en cada
-  // corrida sin que nadie tenga que tocar pesos a mano.
-  const mlModel = await trainExclusiveModel();
+  // Reentrena el modelo de ML desde cero, con lo que haya resuelto
+  // hasta ESTE momento — así el modelo "entrena solo" en cada corrida
+  // sin que nadie tenga que tocar pesos a mano. A partir de
+  // MIN_TRAINING_SAMPLES decide favorito+confianza de TODOS los picks
+  // nuevos (no solo Exclusivo) — ver generatePick.
+  const mlModel = await trainPredictionModel();
   console.log(
     mlModel.trainingCount >= MIN_TRAINING_SAMPLES
-      ? `Modelo ML de Exclusivo: reentrenado con ${mlModel.trainingCount} picks resueltos, umbral ${Math.round(mlModel.threshold * 100)}%.`
-      : `Modelo ML de Exclusivo: solo ${mlModel.trainingCount} picks resueltos (mínimo ${MIN_TRAINING_SAMPLES}) — usando el criterio viejo (confianza>=85) mientras tanto.`
+      ? `Modelo ML: ACTIVO, decide favorito/confianza (reentrenado con ${mlModel.trainingCount} picks resueltos, umbral Exclusivo ${Math.round(mlModel.threshold * 100)}%).`
+      : `Modelo ML: solo ${mlModel.trainingCount} picks resueltos (mínimo ${MIN_TRAINING_SAMPLES}) — usando la fórmula (lib/confidence.js) para todo mientras tanto.`
   );
 
   const totals = {

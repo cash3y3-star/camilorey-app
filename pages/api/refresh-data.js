@@ -47,7 +47,7 @@ function confidenceTier(confidence) {
 
 // Pick "exclusivo" (solo premium/admin, ver 2026-07-14) = picks.is_exclusive,
 // decidido una sola vez al generarse por el modelo de ML (ver
-// lib/ml-exclusive.js y sync.js) — ya no se recalcula acá.
+// lib/ml-model.js y sync.js) — ya no se recalcula acá.
 
 // history viene del más reciente al más viejo (index 0 = último
 // partido jugado) — la racha se cuenta desde el principio del array.
@@ -69,6 +69,7 @@ function buildAnalysis(factors) {
   if (factors.ratingScore) bits.push(`rating (${pct(factors.ratingScore)}%)`);
   if (factors.streakScore) bits.push(`racha reciente (${pct(factors.streakScore)}%)`);
   if (factors.h2hScore) bits.push(`cruce directo (${pct(factors.h2hScore)}%)`);
+  if (factors.todayFormScore) bits.push(`forma del día (${pct(factors.todayFormScore)}%)`);
   if (bits.length === 0) return 'Pick generado sin suficiente historial todavía.';
   return `Favorito según ${bits.join(', ')}.`;
 }
@@ -312,7 +313,7 @@ export default async function handler(req, res) {
       const idList = allIds.join(',');
       const { data } = await supabase
         .from('matches')
-        .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b')
+        .select('id, scheduled_at, winner_id, player_a_id, player_b_id, sets_a, sets_b, tournament_id')
         .eq('status', 'finished')
         .or(`player_a_id.in.(${idList}),player_b_id.in.(${idList})`)
         .order('scheduled_at', { ascending: false })
@@ -322,10 +323,14 @@ export default async function handler(req, res) {
         if (rawHistoryByPlayer.has(m.player_b_id)) rawHistoryByPlayer.get(m.player_b_id).push(m);
       }
     }
+    // OJO: acá NO se recorta a 20 (a diferencia de antes) — todayFormFor
+    // más abajo necesita el historial completo de cada jugador para
+    // poder filtrar por torneo+fecha; el recorte de "últimos 20" para
+    // mostrar se aplica recién en historyFor(), al leer.
     for (const [id, rows] of rawHistoryByPlayer) {
       const deduped = [...new Map(rows.map((m) => [m.id, m])).values()];
       deduped.sort((a, b) => new Date(b.scheduled_at) - new Date(a.scheduled_at));
-      rawHistoryByPlayer.set(id, deduped.slice(0, 20));
+      rawHistoryByPlayer.set(id, deduped);
     }
 
     const missingOpponentIds = [
@@ -340,7 +345,7 @@ export default async function handler(req, res) {
     }
 
     const historyFor = (playerId) =>
-      (rawHistoryByPlayer.get(playerId) || []).map((m) => {
+      (rawHistoryByPlayer.get(playerId) || []).slice(0, 20).map((m) => {
         const isA = m.player_a_id === playerId;
         const oppId = isA ? m.player_b_id : m.player_a_id;
         return {
@@ -352,6 +357,21 @@ export default async function handler(req, res) {
           viewedWasHome: isA
         };
       });
+
+    // Forma del día DENTRO del mismo torneo — mismo criterio que
+    // getTodayTournamentForm en scripts/sync.js y su gemela en
+    // getServerSideProps (pages/index.js), reimplementado acá en
+    // memoria porque ya tenemos el historial completo de cada jugador
+    // cargado arriba.
+    const todayFormFor = (playerId, tournamentId, scheduledAt) => {
+      if (!tournamentId || !scheduledAt) return { wins: 0, losses: 0, total: 0 };
+      const cutoff = new Date(scheduledAt).getTime();
+      const sameDayEarlier = (rawHistoryByPlayer.get(playerId) || []).filter(
+        (m) => m.tournament_id === tournamentId && new Date(m.scheduled_at).getTime() < cutoff
+      );
+      const wins = sameDayEarlier.filter((m) => m.winner_id === playerId).length;
+      return { wins, losses: sameDayEarlier.length - wins, total: sameDayEarlier.length };
+    };
 
     // H2H: mismo problema que la forma reciente de arriba tenía antes
     // (un lote compartido con límite fijo se quedaba corto para
@@ -393,9 +413,10 @@ export default async function handler(req, res) {
       }
     }
 
-    for (const { pickId, favoredId, opponentId, opponentName } of pairs) {
+    for (const { pickId, favoredId, opponentId, opponentName, tournamentId, scheduledAt } of pairs) {
       const history = historyFor(favoredId);
       const opponentHistory = historyFor(opponentId);
+      const todayForm = todayFormFor(favoredId, tournamentId, scheduledAt);
       const h2hMatches = (h2hRowsByPair.get(pairKey(favoredId, opponentId)) || [])
         .slice(0, 20)
         .map((m) => {
@@ -417,24 +438,32 @@ export default async function handler(req, res) {
         opponentStreakLabel: streakLabelFromHistory(opponentHistory),
         h2h: `${winsFavored}-${h2hMatches.length - winsFavored}`,
         h2hTotal: h2hMatches.length,
-        h2hMatches
+        h2hMatches,
+        todayForm: `${todayForm.wins}-${todayForm.losses}`,
+        todayFormTotal: todayForm.total,
+        todayFormWins: todayForm.wins,
+        todayFormLosses: todayForm.losses
       });
     }
     return result;
   }
 
   const formByPickId = await buildFormAndH2H([
-    ...pendingPrelim.map(({ pick, favored, opponent }) => ({
+    ...pendingPrelim.map(({ pick, match, favored, opponent }) => ({
       pickId: pick.id,
       favoredId: favored.id,
       opponentId: opponent.id,
-      opponentName: opponent.name
+      opponentName: opponent.name,
+      tournamentId: match.tournament_id,
+      scheduledAt: match.scheduled_at
     })),
-    ...resolvedPrelim.map(({ pick, favored, opponent }) => ({
+    ...resolvedPrelim.map(({ pick, match, favored, opponent }) => ({
       pickId: pick.id,
       favoredId: favored.id,
       opponentId: opponent.id,
-      opponentName: opponent.name
+      opponentName: opponent.name,
+      tournamentId: match.tournament_id,
+      scheduledAt: match.scheduled_at
     }))
   ]);
   const EMPTY_FORM = {
@@ -444,7 +473,11 @@ export default async function handler(req, res) {
     opponentStreakLabel: null,
     h2h: '0-0',
     h2hTotal: 0,
-    h2hMatches: []
+    h2hMatches: [],
+    todayForm: '0-0',
+    todayFormTotal: 0,
+    todayFormWins: 0,
+    todayFormLosses: 0
   };
 
   const picks = pendingPrelim.map(({ pick, match, favored, opponent, favoredIsA, tournament, matchStatus }) => {
@@ -479,6 +512,10 @@ export default async function handler(req, res) {
       h2h: form.h2h,
       h2hTotal: form.h2hTotal,
       h2hMatches: form.h2hMatches,
+      todayForm: form.todayForm,
+      todayFormTotal: form.todayFormTotal,
+      todayFormWins: form.todayFormWins,
+      todayFormLosses: form.todayFormLosses,
       score: null,
       setScores: null,
       result: 'pending',
@@ -537,6 +574,10 @@ export default async function handler(req, res) {
       h2h: form.h2h,
       h2hTotal: form.h2hTotal,
       h2hMatches: form.h2hMatches,
+      todayForm: form.todayForm,
+      todayFormTotal: form.todayFormTotal,
+      todayFormWins: form.todayFormWins,
+      todayFormLosses: form.todayFormLosses,
       score,
       setScores,
       result: pick.result,
