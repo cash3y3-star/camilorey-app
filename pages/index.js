@@ -3148,7 +3148,13 @@ function StreamPlayer({ videoIds, minimized, onClose, onToggleMinimize }) {
           {videoIds.map((videoId, i) => (
             <div className="stream-player-frame" key={videoId} onClick={minimized ? onToggleMinimize : undefined}>
               <iframe
-                src={`https://www.youtube.com/embed/${videoId}?autoplay=1${i < videoIds.length - 1 ? '&mute=1' : ''}`}
+                // modestbranding: reduce (no elimina del todo — lo exige
+                // YouTube) el logo de la esquina. rel=0: al pausar/cortar
+                // no sugiere videos de otros canales. iv_load_policy=3:
+                // saca las tarjetas/anotaciones que a veces se superponen.
+                // disablekb=1: los atajos de teclado de YouTube no
+                // interfieren con el resto del sitio.
+                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1${i < videoIds.length - 1 ? '&mute=1' : ''}`}
                 title="Transmisión en vivo"
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
