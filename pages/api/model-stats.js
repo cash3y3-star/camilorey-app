@@ -143,7 +143,7 @@ export default async function handler(req, res) {
   // mejora algo. 'ml' solo empieza a tener muestra a partir de que
   // sync.js cruza MIN_TRAINING_SAMPLES (ver lib/ml-model.js).
   const bySource = {};
-  for (const src of ['ml', 'formula']) {
+  for (const src of ['ml', 'formula', 'manual']) {
     const subset = rows.filter((r) => r.predictionSource === src);
     const subHits = subset.filter((r) => r.hit).length;
     const [sLo, sHi] = wilsonInterval(subHits, subset.length);

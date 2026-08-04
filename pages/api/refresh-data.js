@@ -497,6 +497,11 @@ export default async function handler(req, res) {
       opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
       opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
       favoredIsA,
+      // Para el editor de picks del admin (pages/api/admin-edit-pick.js) —
+      // sin esto el cliente solo tiene nombres/avatares, no el id de
+      // ninguno de los dos jugadores del partido.
+      favoredId: favored?.id ?? null,
+      opponentId: opponent?.id ?? null,
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
       market: pick.market,
@@ -559,6 +564,11 @@ export default async function handler(req, res) {
       opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
       opponentHasCutout: Boolean(opponent.avatar_cutout_url),
       favoredIsA,
+      // Para el editor de picks del admin (pages/api/admin-edit-pick.js) —
+      // sin esto el cliente solo tiene nombres/avatares, no el id de
+      // ninguno de los dos jugadores del partido.
+      favoredId: favored?.id ?? null,
+      opponentId: opponent?.id ?? null,
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
       market: pick.market,

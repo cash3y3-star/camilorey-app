@@ -1859,6 +1859,11 @@ export async function getServerSideProps({ query }) {
       opponentAvatarUrl: opponent?.avatar_cutout_url || opponent?.avatar_url || null,
       opponentHasCutout: Boolean(opponent?.avatar_cutout_url),
       favoredIsA,
+      // Para el editor de picks del admin (pages/api/admin-edit-pick.js) —
+      // sin esto el cliente solo tiene nombres/avatares, no el id de
+      // ninguno de los dos jugadores del partido.
+      favoredId: favored?.id ?? null,
+      opponentId: opponent?.id ?? null,
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
       market: pick.market,
@@ -1924,6 +1929,11 @@ export async function getServerSideProps({ query }) {
       opponentAvatarUrl: opponent.avatar_cutout_url || opponent.avatar_url || null,
       opponentHasCutout: Boolean(opponent.avatar_cutout_url),
       favoredIsA,
+      // Para el editor de picks del admin (pages/api/admin-edit-pick.js) —
+      // sin esto el cliente solo tiene nombres/avatares, no el id de
+      // ninguno de los dos jugadores del partido.
+      favoredId: favored?.id ?? null,
+      opponentId: opponent?.id ?? null,
       time: timeLabel(match.scheduled_at),
       tournament: tournament?.name || 'Torneo',
       market: pick.market,
@@ -3557,10 +3567,23 @@ function PickDetailModal({
   onToggleFollow,
   isAdmin = false,
   onToggleTipsterPick,
-  tipsterPickBusy = false
+  tipsterPickBusy = false,
+  onEditPick,
+  editPickBusy = false
 }) {
   const t = useTranslate(lang);
   const [tab, setTab] = useState('resumen');
+  // Editor de pick (solo admin, solo pendientes) — arranca cerrado y con
+  // el favorito/confianza actuales precargados cada vez que se abre un
+  // pick distinto (pick.id en la dependencia).
+  const [editingPick, setEditingPick] = useState(false);
+  const [editWinnerId, setEditWinnerId] = useState(pick.favoredId);
+  const [editConfidence, setEditConfidence] = useState(pick.confidence);
+  useEffect(() => {
+    setEditingPick(false);
+    setEditWinnerId(pick.favoredId);
+    setEditConfidence(pick.confidence);
+  }, [pick.id]);
   // "Estadísticas" ahora es un solo tab con 3 botones (local/H2H/
   // visitante) y un selector de cantidad aparte — L5/L10/L20 para
   // forma reciente y para H2H (el H2H suelto que había antes se
@@ -3700,6 +3723,64 @@ function PickDetailModal({
             <ProfileIcon name="bell" size={15} />
             {pick.tipsterPick ? t('destacadoParaExclusivos') : t('destacarExclusivos')}
           </button>
+        ) : null}
+
+        {/* Editor de pick — solo admin, solo picks pendientes (partido
+            todavía no jugado). Corrige a mano el favorito/confianza que
+            se ve en el sitio; el modelo ML sigue entrenando SOLO con el
+            ganador real del partido, ver pages/api/admin-edit-pick.js. */}
+        {isAdmin && onEditPick && pick.result === 'pending' ? (
+          editingPick ? (
+            <div className="pick-edit-box">
+              <p className="pick-edit-label">¿Quién es el favorito?</p>
+              <div className="pick-edit-winner-row">
+                <button
+                  type="button"
+                  className={`pick-edit-winner-btn ${editWinnerId === pick.favoredId ? 'active' : ''}`}
+                  onClick={() => setEditWinnerId(pick.favoredId)}
+                >
+                  {pick.player}
+                </button>
+                <button
+                  type="button"
+                  className={`pick-edit-winner-btn ${editWinnerId === pick.opponentId ? 'active' : ''}`}
+                  onClick={() => setEditWinnerId(pick.opponentId)}
+                >
+                  {pick.opponent}
+                </button>
+              </div>
+              <label className="pick-edit-label" htmlFor="pick-edit-confidence">
+                Confianza (50-92)
+              </label>
+              <input
+                id="pick-edit-confidence"
+                type="number"
+                min={50}
+                max={92}
+                value={editConfidence}
+                onChange={(e) => setEditConfidence(Number(e.target.value))}
+                className="pick-edit-confidence-input"
+              />
+              <div className="pick-edit-actions">
+                <button type="button" className="pick-edit-cancel-btn" disabled={editPickBusy} onClick={() => setEditingPick(false)}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="pick-edit-save-btn"
+                  disabled={editPickBusy || !editWinnerId}
+                  onClick={() => onEditPick(pick, { predictedWinnerId: editWinnerId, confidence: editConfidence })}
+                >
+                  {editPickBusy ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="pick-edit-open-btn" onClick={() => setEditingPick(true)}>
+              <ProfileIcon name="edit" size={15} />
+              Editar pick
+            </button>
+          )
         ) : null}
 
         {pick.followersCount > 0 ? (
@@ -3957,7 +4038,7 @@ const MODEL_FACTOR_LABEL = {
   todayFormScore: 'Forma del día (mismo torneo)'
 };
 
-const PREDICTION_SOURCE_LABEL = { ml: 'ML', formula: 'Fórmula' };
+const PREDICTION_SOURCE_LABEL = { ml: 'ML', formula: 'Fórmula', manual: 'Manual (admin)' };
 
 // Si el intervalo de confianza 95% (Wilson) NO cruza el 50%, el
 // resultado ya es estadísticamente distinguible de una moneda al aire
@@ -4107,7 +4188,7 @@ function ModelResolvedStats({ stats, onPickClick }) {
             reentrenado con muestra suficiente. Es la forma real de auditar si el reentrenamiento sube el acierto.
           </p>
           <div className="stat-rows">
-            {['ml', 'formula'].map((src) => {
+            {['ml', 'formula', 'manual'].map((src) => {
               const s = stats.bySource[src];
               if (!s) return null;
               return (
@@ -7264,6 +7345,43 @@ export default function Home({
       setTipsterPickBusy(false);
     }
   };
+
+  // Corrige a mano el favorito/confianza de un pick pendiente (solo
+  // admin, ver pages/api/admin-edit-pick.js). A diferencia de
+  // toggleTipsterPick, NO parchea picks/resolvedPicks/modalPick a mano en
+  // éxito: recalcular acá avatares/historial/H2H/forma del día
+  // duplicaría toda la lógica de armado que ya vive en
+  // getServerSideProps/refresh-data.js. Alcanza con cerrar el modal — la
+  // pestaña Modelo y Picks/Inicio ya hacen polling cada 20s (mismo
+  // mecanismo con el que hoy un pick que se resuelve pasa solo de
+  // Pendientes a Resueltos sin recargar), así que el cambio aparece solo.
+  const editPickBusyRef = useRef(false);
+  const [editPickBusy, setEditPickBusy] = useState(false);
+  const editPick = async (pick, { predictedWinnerId, confidence }) => {
+    if (!supabaseClient || editPickBusyRef.current) return;
+    editPickBusyRef.current = true;
+    setEditPickBusy(true);
+    try {
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      const r = await fetch('/api/admin-edit-pick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ pickId: pick.id, predictedWinnerId, confidence })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        alert(data.error || 'Error editando el pick.');
+        return;
+      }
+      setModalPick(null);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      editPickBusyRef.current = false;
+      setEditPickBusy(false);
+    }
+  };
   // Pedido 2026-07-17: usuarios gratis solo ven los 20 picks de mayor
   // confianza del día — no la lista completa. Exclusivo/Premium/Admin
   // sigue viendo todo, sin tope (ya de por sí ven también los picks
@@ -9894,6 +10012,8 @@ export default function Home({
           isAdmin={isAdmin}
           onToggleTipsterPick={toggleTipsterPick}
           tipsterPickBusy={tipsterPickBusy}
+          onEditPick={editPick}
+          editPickBusy={editPickBusy}
         />
       )}
 
@@ -10241,6 +10361,35 @@ const CSS = `
   }
   .tipster-pick-btn.active{background:rgba(22,163,74,.14); border-color:var(--court); color:var(--court);}
   .tipster-pick-btn:disabled{opacity:.6; cursor:default;}
+
+  .pick-edit-open-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:12px;
+    padding:12px; margin-top:8px; font-size:14px; font-weight:700; color:var(--muted);
+    cursor:pointer;
+  }
+  .pick-edit-box{
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:12px;
+    padding:14px; margin-top:8px;
+  }
+  .pick-edit-label{font-size:12px; font-weight:700; color:var(--muted); margin:0 0 6px;}
+  .pick-edit-winner-row{display:flex; gap:8px; margin-bottom:12px;}
+  .pick-edit-winner-btn{
+    flex:1; background:var(--bg); border:1px solid var(--line); border-radius:10px;
+    padding:10px 8px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer;
+  }
+  .pick-edit-winner-btn.active{background:rgba(22,163,74,.14); border-color:var(--court); color:var(--court);}
+  .pick-edit-confidence-input{
+    width:100%; background:var(--bg); border:1px solid var(--line); border-radius:10px;
+    padding:10px; font-size:14px; font-weight:700; margin-bottom:12px; color:inherit;
+  }
+  .pick-edit-actions{display:flex; gap:8px;}
+  .pick-edit-cancel-btn, .pick-edit-save-btn{
+    flex:1; border-radius:10px; padding:10px; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .pick-edit-cancel-btn{background:var(--bg); border:1px solid var(--line); color:var(--muted);}
+  .pick-edit-save-btn{background:var(--court); border:1px solid var(--court); color:#fff;}
+  .pick-edit-save-btn:disabled, .pick-edit-cancel-btn:disabled{opacity:.6; cursor:default;}
 
   main{max-width:980px; margin:0 auto; padding:24px 20px 60px;}
 
