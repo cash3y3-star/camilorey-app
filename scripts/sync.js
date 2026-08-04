@@ -374,15 +374,24 @@ async function generatePick(matchRow, sideA, sideB, rushbetEvents, mlModel, tour
   const mlProbability = mlProbabilityA != null ? (favored.id === sideA.player.id ? mlProbabilityA : 1 - mlProbabilityA) : null;
   const mlConfidence = mlProbability != null ? Math.round(mlProbability * 100) : null;
 
-  // Si el ML decide, reusamos mlConfidence directamente (ya es el %
-  // real de su propio pick, rango 50-100) en vez de remapear la
-  // fórmula -1..1 → 50..90: como mlProbability nunca baja de 0.5, un
-  // remapeo lineal tipo "70 + (2p-1)*20" nunca bajaría de 70, y
-  // rompería en la práctica el piso de publicación de 60 (ningún pick
-  // ML quedaría nunca por debajo). Clamp a 50-92 para no prometer
-  // nunca 100%, mismo techo que ya usa computeConfidence.
+  // CORREGIDO 2026-08-04: la primera versión de esto reusaba
+  // mlConfidence tal cual (probabilidad cruda del modelo, 50-100) —
+  // rompió en producción ("todos descartados") porque con señal débil
+  // (~54% de acierto real) una regresión logística bien calibrada
+  // predice mayormente 50-55%, casi todo por debajo del piso de
+  // publicación de 60. La fórmula fija NUNCA tiene ese problema porque,
+  // por construcción, la confianza del favorito ya elegido siempre cae
+  // en 70-92 (rawConfidence>=70 ? rawConfidence : 140-rawConfidence
+  // ambos caen en ese rango) — el piso de 60 de abajo nunca la filtra
+  // en la práctica. Para que el ML no sea "más honesto" a costa de
+  // vaciar el sitio, se remapea al MISMO rango 70-90 con el mismo
+  // mecanismo (mlProbability, que va de 0.5 a 1 para el lado ya
+  // elegido, se estira linealmente igual que el "raw" de
+  // computeConfidence) — mlConfidence (crudo, sin remapear) se sigue
+  // guardando aparte en ml_confidence para poder auditar qué tan
+  // calibrado está de verdad el modelo.
   const pickConfidence = hasTrainedModel
-    ? Math.max(50, Math.min(92, mlConfidence))
+    ? Math.max(50, Math.min(92, Math.round(70 + (2 * mlProbability - 1) * 20)))
     : rawConfidence >= 70
     ? rawConfidence
     : 140 - rawConfidence;
