@@ -41,7 +41,7 @@ export default async function handler(req, res) {
   // los evaluó.
   const { data: pendingPicks, error: pendingErr } = await supabase
     .from('picks')
-    .select('id, confidence, odds, market, match_id, published')
+    .select('id, confidence, odds, market, match_id, published, edited_by_name, edited_at')
     .eq('result', 'pending')
     .order('confidence', { ascending: false });
   if (pendingErr) return res.status(500).json({ error: pendingErr.message });
@@ -57,7 +57,12 @@ export default async function handler(req, res) {
     market: p.market,
     confidence: p.confidence,
     odds: p.odds ? Number(p.odds) : null,
-    scheduledAt: pendingMatchById.get(p.match_id)?.scheduled_at || null
+    scheduledAt: pendingMatchById.get(p.match_id)?.scheduled_at || null,
+    // Quién editó este pick a mano por última vez (pages/api/admin-edit-pick.js)
+    // — para que los demás admins lo vean sin tener que adivinar. null si
+    // nunca se tocó.
+    editedByName: p.edited_by_name || null,
+    editedAt: p.edited_at || null
   });
   const byScheduledAt = (a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0);
   const pending = (pendingPicks || [])
@@ -80,7 +85,7 @@ export default async function handler(req, res) {
   // lo reciente SIEMPRE entra.
   const { data: picks, error } = await supabase
     .from('picks')
-    .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market, published, prediction_source')
+    .select('id, confidence, factors, predicted_winner_id, result, match_id, created_at, market, published, prediction_source, edited_by_name, edited_at')
     .in('result', ['hit', 'miss'])
     .order('created_at', { ascending: false })
     .limit(3000);
@@ -128,7 +133,9 @@ export default async function handler(req, res) {
         factors: p.factors,
         matchPlayerAId: match.player_a_id,
         predictedWinnerId: p.predicted_winner_id,
-        predictionSource: p.prediction_source || 'formula'
+        predictionSource: p.prediction_source || 'formula',
+        editedByName: p.edited_by_name || null,
+        editedAt: p.edited_at || null
       };
     })
     .filter(Boolean);
@@ -205,7 +212,9 @@ export default async function handler(req, res) {
       scheduledAt: r.scheduledAt,
       confidence: r.confidence,
       market: r.market,
-      predictionSource: r.predictionSource
+      predictionSource: r.predictionSource,
+      editedByName: r.editedByName,
+      editedAt: r.editedAt
     }));
 
   return res.status(200).json({

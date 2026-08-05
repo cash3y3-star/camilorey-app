@@ -4076,6 +4076,7 @@ function ModelPendingRow({ p, onPickClick, clickable = true }) {
         {p.market || 'Pick'}
         <span className="form-list-score num">{Math.round(p.confidence)}%</span>
       </div>
+      {p.editedByName ? <span className="pick-edited-by-badge">✎ {p.editedByName}</span> : null}
       <span className="status soon">{p.odds ? p.odds.toFixed(2) : '—'}</span>
     </div>
   );
@@ -4286,6 +4287,7 @@ function ModelResolvedStats({ stats, onPickClick }) {
                   {PREDICTION_SOURCE_LABEL[r.predictionSource] || r.predictionSource}
                 </span>
               ) : null}
+              {r.editedByName ? <span className="pick-edited-by-badge">✎ {r.editedByName}</span> : null}
             </div>
             <span className={`form-list-badge ${r.win ? 'win' : 'loss'}`}>{r.win ? 'W' : 'L'}</span>
           </div>
@@ -11383,6 +11385,11 @@ const CSS = `
   .form-list-ft{font-family:var(--font-mono); font-size:9.5px; color:var(--muted); text-transform:uppercase;}
   .form-list-opp{flex:1; min-width:0; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:8px;}
   .form-list-score{color:var(--muted); font-weight:700;}
+  .pick-edited-by-badge{
+    flex:none; font-size:10.5px; font-weight:700; color:var(--muted);
+    background:var(--bg-alt); border:1px solid var(--line); border-radius:6px;
+    padding:2px 6px; white-space:nowrap;
+  }
   .h2h-match-names{flex:1; min-width:0; display:flex; align-items:center; justify-content:space-between; gap:8px;}
   .h2h-player-name{flex:1; min-width:0; font-size:12.5px; font-weight:600; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .h2h-player-name:last-child{text-align:right;}

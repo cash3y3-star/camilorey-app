@@ -26,7 +26,7 @@ export default async function handler(req, res) {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const { isAdmin } = await checkAdmin(supabase, token);
+  const { user, isAdmin, displayName } = await checkAdmin(supabase, token);
   if (!isAdmin) {
     return res.status(403).json({ error: 'solo un admin puede editar picks' });
   }
@@ -88,10 +88,17 @@ export default async function handler(req, res) {
       // reintenta rellenar cualquier pick pendiente con odds=null en cada
       // corrida, así que alcanza con vaciarla.
       odds: winnerChanged ? null : pick.odds,
-      prediction_source: 'manual'
+      prediction_source: 'manual',
+      // Para que el resto de los admins vean quién corrigió el pick (ver
+      // migration_040_pick_edited_by.sql) — edited_by_name queda
+      // desnormalizado con el mismo displayName que ya resuelve
+      // checkAdmin, no hace falta un join después para mostrarlo.
+      edited_by: user.id,
+      edited_by_name: displayName || user.email,
+      edited_at: new Date().toISOString()
     })
     .eq('id', pickId)
-    .select('id, predicted_winner_id, confidence, market, published, odds, prediction_source')
+    .select('id, predicted_winner_id, confidence, market, published, odds, prediction_source, edited_by_name, edited_at')
     .maybeSingle();
   if (updateErr) return res.status(500).json({ error: updateErr.message });
 
