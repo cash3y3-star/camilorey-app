@@ -24,6 +24,7 @@ const { ensureAvatarCutout } = require('../lib/avatarCutout');
 const { fetchNuxtData } = require('../lib/tt');
 const { logError } = require('../lib/logError');
 const { sendTelegramPhoto, buildPickCardUrl, buildPickCaption } = require('../lib/telegram');
+const { setupWebPush, runCheckFollows, notifyNewExclusivePicks } = require('../lib/pushNotify');
 const {
   trainLogisticRegression,
   predictProbability,
@@ -880,13 +881,24 @@ async function run() {
     console.error(`Error actualizando pick destacado: ${e.message}`);
   }
 
+  // Push directo desde acá (GitHub Actions) en vez de llamar a Vercel:
+  // cada llamada a Vercel gastaba CPU del plan Hobby, que se pausó por
+  // "Fluid Active CPU" (sep-2026). Necesita los secrets VAPID_PUBLIC_KEY
+  // y VAPID_PRIVATE_KEY en GitHub Actions — si faltan, cae a las rutas
+  // de Vercel como antes.
+  const pushDirect = setupWebPush();
+  if (!pushDirect) console.log('Sin llaves VAPID en Actions: avisos push via Vercel (gasta CPU allá).');
+
   // Avisa SOLO de picks Exclusivos, SOLO a usuarios Exclusivo/Premium
-  // (pedido 2026-07-16) — vive en Vercel (no acá) porque ahí ya están
-  // las llaves VAPID y web-push instalado para check-follows.js;
-  // sync.js solo manda el detalle de los picks Exclusivos de esta
-  // corrida, protegido con el mismo CRON_SECRET que usa el cron
-  // externo de resultados en vivo.
-  if (totals.newExclusivePicks.length > 0 && process.env.CRON_SECRET) {
+  // (pedido 2026-07-16).
+  if (totals.newExclusivePicks.length > 0 && pushDirect) {
+    try {
+      const r = await notifyNewExclusivePicks(supabase, totals.newExclusivePicks);
+      console.log('Aviso de picks nuevos:', JSON.stringify(r));
+    } catch (e) {
+      console.error(`Aviso de picks nuevos falló: ${e.message}`);
+    }
+  } else if (totals.newExclusivePicks.length > 0 && process.env.CRON_SECRET) {
     try {
       const r = await fetch('https://camilorey-app.vercel.app/api/notify/new-picks', {
         method: 'POST',
@@ -926,7 +938,14 @@ async function run() {
   // corrida de sync (que sí dispara un cronjob externo cada pocos
   // minutos, confirmado con GitHub Actions), en vez de necesitar
   // configurar otro cronjob más.
-  if (process.env.CRON_SECRET) {
+  if (pushDirect) {
+    try {
+      const r = await runCheckFollows(supabase);
+      if (r.error) console.error(`check-follows falló: ${r.error}`);
+    } catch (e) {
+      console.error(`check-follows falló: ${e.message}`);
+    }
+  } else if (process.env.CRON_SECRET) {
     try {
       const r = await fetch('https://camilorey-app.vercel.app/api/notify/check-follows', {
         headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` }

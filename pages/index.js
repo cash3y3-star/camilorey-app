@@ -1342,7 +1342,15 @@ function streakLabelFromHistory(history) {
   return `${count}${last ? 'W' : 'L'}`;
 }
 
-export async function getServerSideProps({ query }) {
+export async function getServerSideProps({ query, res }) {
+  // Ahorro de CPU en Vercel (el plan Hobby se pausó por "Fluid Active
+  // CPU" en sep-2026): esta página es igual para todos (nada depende de
+  // quién visita, ver los comentarios de publicPicks más abajo), así
+  // que el CDN de Vercel la guarda 60s y la sigue sirviendo hasta 5 min
+  // mientras la regenera por detrás — una sola ejecución por minuto en
+  // vez de una por cada visita/recarga. Los datos se mueven con el sync
+  // (cada pocos minutos) y el cliente igual refresca solo por polling.
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   try {
   // Calendario, Bankroll y el conteo de usuarios no dependen de nada
@@ -3233,7 +3241,7 @@ function MatchDetailModal({ m, onClose, user, profile, lang }) {
     }
 
     poll();
-    const interval = setInterval(poll, 8000);
+    const interval = setInterval(poll, 10000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -6959,7 +6967,7 @@ export default function Home({
       }
     }
 
-    const interval = setInterval(load, 20000);
+    const interval = setInterval(load, 30000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -6972,6 +6980,9 @@ export default function Home({
   // se resuelve, o una apuesta que se paga, se quedaba congelado hasta
   // refrescar. Se repite cada 20s mientras cualquiera de esas vistas
   // esté abierta.
+  // (canSeeExclusive se calcula más abajo en este componente — se lee
+  // por ref para no reiniciar el poller cuando carga el perfil)
+  const canSeeExclusiveRef = useRef(false);
   useEffect(() => {
     if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll') return undefined;
     let cancelled = false;
@@ -6979,16 +6990,22 @@ export default function Home({
     async function load() {
       if (document.visibilityState === 'hidden') return;
       try {
-        // Manda el token si hay sesión — así el servidor puede incluir
-        // el texto de Análisis IA (beneficio premium) para esta cuenta
-        // si de verdad tiene Premium activo; sin token, lo manda vacío.
+        // Manda el token solo si la cuenta es Premium/admin — es lo único
+        // que cambia la respuesta (texto de Análisis IA). Sin token, la
+        // respuesta pública sale del CDN de Vercel (compartida entre
+        // todos) y no gasta CPU; con token va a otra URL (?auth=1) que
+        // nunca se cachea.
         const headers = {};
-        if (supabaseClient) {
+        let url = '/api/refresh-data';
+        if (supabaseClient && canSeeExclusiveRef.current) {
           const { data: sessionData } = await supabaseClient.auth.getSession();
           const accessToken = sessionData?.session?.access_token;
-          if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+          if (accessToken) {
+            headers.Authorization = `Bearer ${accessToken}`;
+            url = '/api/refresh-data?auth=1';
+          }
         }
-        const r = await fetch('/api/refresh-data', { headers });
+        const r = await fetch(url, { headers });
         const data = await r.json();
         if (cancelled) return;
         if (data.stats) setStats(data.stats);
@@ -7021,9 +7038,12 @@ export default function Home({
 
     // El bankroll detallado ya no llega con la carga inicial de la
     // página (ver arriba por qué) — sin este llamado inmediato, la
-    // tabla se vería vacía hasta el primer tick del poller (20s).
+    // tabla se vería vacía hasta el primer tick del poller.
+    // 45s (antes 20s): los picks solo cambian cuando corre el sync, cada
+    // pocos minutos — consultar más seguido gastaba CPU de Vercel sin
+    // traer nada nuevo.
     load();
-    const interval = setInterval(load, 20000);
+    const interval = setInterval(load, 45000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -7090,7 +7110,7 @@ export default function Home({
     }
 
     poll();
-    const interval = setInterval(poll, 8000);
+    const interval = setInterval(poll, 10000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -7193,7 +7213,7 @@ export default function Home({
     }
 
     load();
-    const interval = setInterval(load, 15000);
+    const interval = setInterval(load, 30000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -7271,6 +7291,7 @@ export default function Home({
   // vez de en cada sitio que use "picks"/"resolvedPicks" para pintar
   // algo visible a cualquiera.
   const canSeeExclusive = isAdmin || isPremium;
+  canSeeExclusiveRef.current = canSeeExclusive;
 
   // Seguir/dejar de seguir al tipster (CAMILO REY) desde su tarjeta de
   // perfil. profiles.follows_tipster es NULL hasta que alguien lo toca
@@ -7484,7 +7505,7 @@ export default function Home({
     }
 
     load();
-    const interval = setInterval(load, 20000);
+    const interval = setInterval(load, 60000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -7546,7 +7567,7 @@ export default function Home({
     }
 
     load();
-    const interval = setInterval(load, 20000);
+    const interval = setInterval(load, 60000);
     return () => {
       cancelled = true;
       clearInterval(interval);

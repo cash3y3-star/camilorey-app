@@ -28,7 +28,9 @@ function timeLabel(iso) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Cache-Control', 'no-store');
+  // Público e igual para todos: el CDN de Vercel lo comparte 20s entre
+  // todos los visitantes en vez de ejecutar la función por cada uno.
+  res.setHeader('Cache-Control', 'public, s-maxage=20, stale-while-revalidate=40');
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 

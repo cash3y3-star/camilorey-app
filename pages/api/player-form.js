@@ -8,7 +8,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
-  res.setHeader('Cache-Control', 'no-store');
+  // Público: la forma/H2H solo cambia cuando termina un partido, así que
+  // el CDN de Vercel la comparte 5 min entre todos los que abren el modal.
+  res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
 
   const playerAId = Number(req.query.playerAId);
   const playerBId = Number(req.query.playerBId);
