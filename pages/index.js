@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 import { logError } from '../lib/logError';
+import { SITE_URL } from '../lib/siteUrl';
 
 // getServerSideProps de esta página dispara bastantes consultas a
 // Supabase (picks/matches/torneos/forma reciente/H2H/estadísticas) —
@@ -8442,17 +8443,17 @@ export default function Home({
       <Head>
         <title>CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa</title>
         <meta name="description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
-        <link rel="canonical" href="https://camilorey-app.vercel.app/" />
+        <link rel="canonical" href={`${SITE_URL}/`} />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="CZECH IA AGENTS" />
         <meta property="og:title" content="CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa" />
         <meta property="og:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
-        <meta property="og:url" content="https://camilorey-app.vercel.app/" />
-        <meta property="og:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
+        <meta property="og:url" content={`${SITE_URL}/`} />
+        <meta property="og:image" content={`${SITE_URL}/icon-512x512.png`} />
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:title" content="CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa" />
         <meta name="twitter:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
-        <meta name="twitter:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
+        <meta name="twitter:image" content={`${SITE_URL}/icon-512x512.png`} />
         {/* ?v=2 a propósito (2026-07-28, cambio de logo CR → bot): Chrome
             guarda el favicon en una caché propia, separada de la caché
             normal de recursos, que no respeta Cache-Control ni se limpia

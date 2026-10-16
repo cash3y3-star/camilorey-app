@@ -25,6 +25,7 @@ const { fetchNuxtData } = require('../lib/tt');
 const { logError } = require('../lib/logError');
 const { sendTelegramPhoto, buildPickCardUrl, buildPickCaption } = require('../lib/telegram');
 const { setupWebPush, runCheckFollows, notifyNewExclusivePicks } = require('../lib/pushNotify');
+const { SITE_URL } = require('../lib/siteUrl');
 const {
   trainLogisticRegression,
   predictProbability,
@@ -900,7 +901,7 @@ async function run() {
     }
   } else if (totals.newExclusivePicks.length > 0 && process.env.CRON_SECRET) {
     try {
-      const r = await fetch('https://camilorey-app.vercel.app/api/notify/new-picks', {
+      const r = await fetch(`${SITE_URL}/api/notify/new-picks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.CRON_SECRET}` },
         body: JSON.stringify({ picks: totals.newExclusivePicks })
@@ -947,7 +948,7 @@ async function run() {
     }
   } else if (process.env.CRON_SECRET) {
     try {
-      const r = await fetch('https://camilorey-app.vercel.app/api/notify/check-follows', {
+      const r = await fetch(`${SITE_URL}/api/notify/check-follows`, {
         headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` }
       });
       if (!r.ok) console.error(`check-follows falló: HTTP ${r.status} — ${await r.text()}`);
