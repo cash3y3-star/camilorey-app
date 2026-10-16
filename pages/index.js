@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseClient } from '../lib/supabaseClient';
 import { logError } from '../lib/logError';
-import { SITE_URL } from '../lib/siteUrl';
 
 // getServerSideProps de esta página dispara bastantes consultas a
 // Supabase (picks/matches/torneos/forma reciente/H2H/estadísticas) —
@@ -1343,15 +1342,7 @@ function streakLabelFromHistory(history) {
   return `${count}${last ? 'W' : 'L'}`;
 }
 
-export async function getServerSideProps({ query, res }) {
-  // Ahorro de CPU en Vercel (el plan Hobby se pausó por "Fluid Active
-  // CPU" en sep-2026): esta página es igual para todos (nada depende de
-  // quién visita, ver los comentarios de publicPicks más abajo), así
-  // que el CDN de Vercel la guarda 60s y la sigue sirviendo hasta 5 min
-  // mientras la regenera por detrás — una sola ejecución por minuto en
-  // vez de una por cada visita/recarga. Los datos se mueven con el sync
-  // (cada pocos minutos) y el cliente igual refresca solo por polling.
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+export async function getServerSideProps({ query }) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   try {
   // Calendario, Bankroll y el conteo de usuarios no dependen de nada
@@ -3242,7 +3233,7 @@ function MatchDetailModal({ m, onClose, user, profile, lang }) {
     }
 
     poll();
-    const interval = setInterval(poll, 10000);
+    const interval = setInterval(poll, 8000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -6968,7 +6959,7 @@ export default function Home({
       }
     }
 
-    const interval = setInterval(load, 30000);
+    const interval = setInterval(load, 20000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -6981,9 +6972,6 @@ export default function Home({
   // se resuelve, o una apuesta que se paga, se quedaba congelado hasta
   // refrescar. Se repite cada 20s mientras cualquiera de esas vistas
   // esté abierta.
-  // (canSeeExclusive se calcula más abajo en este componente — se lee
-  // por ref para no reiniciar el poller cuando carga el perfil)
-  const canSeeExclusiveRef = useRef(false);
   useEffect(() => {
     if (view !== 'inicio' && view !== 'picks' && view !== 'bankroll') return undefined;
     let cancelled = false;
@@ -6991,22 +6979,16 @@ export default function Home({
     async function load() {
       if (document.visibilityState === 'hidden') return;
       try {
-        // Manda el token solo si la cuenta es Premium/admin — es lo único
-        // que cambia la respuesta (texto de Análisis IA). Sin token, la
-        // respuesta pública sale del CDN de Vercel (compartida entre
-        // todos) y no gasta CPU; con token va a otra URL (?auth=1) que
-        // nunca se cachea.
+        // Manda el token si hay sesión — así el servidor puede incluir
+        // el texto de Análisis IA (beneficio premium) para esta cuenta
+        // si de verdad tiene Premium activo; sin token, lo manda vacío.
         const headers = {};
-        let url = '/api/refresh-data';
-        if (supabaseClient && canSeeExclusiveRef.current) {
+        if (supabaseClient) {
           const { data: sessionData } = await supabaseClient.auth.getSession();
           const accessToken = sessionData?.session?.access_token;
-          if (accessToken) {
-            headers.Authorization = `Bearer ${accessToken}`;
-            url = '/api/refresh-data?auth=1';
-          }
+          if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
         }
-        const r = await fetch(url, { headers });
+        const r = await fetch('/api/refresh-data', { headers });
         const data = await r.json();
         if (cancelled) return;
         if (data.stats) setStats(data.stats);
@@ -7039,12 +7021,9 @@ export default function Home({
 
     // El bankroll detallado ya no llega con la carga inicial de la
     // página (ver arriba por qué) — sin este llamado inmediato, la
-    // tabla se vería vacía hasta el primer tick del poller.
-    // 45s (antes 20s): los picks solo cambian cuando corre el sync, cada
-    // pocos minutos — consultar más seguido gastaba CPU de Vercel sin
-    // traer nada nuevo.
+    // tabla se vería vacía hasta el primer tick del poller (20s).
     load();
-    const interval = setInterval(load, 45000);
+    const interval = setInterval(load, 20000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -7111,7 +7090,7 @@ export default function Home({
     }
 
     poll();
-    const interval = setInterval(poll, 10000);
+    const interval = setInterval(poll, 8000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -7214,7 +7193,7 @@ export default function Home({
     }
 
     load();
-    const interval = setInterval(load, 30000);
+    const interval = setInterval(load, 15000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -7292,7 +7271,6 @@ export default function Home({
   // vez de en cada sitio que use "picks"/"resolvedPicks" para pintar
   // algo visible a cualquiera.
   const canSeeExclusive = isAdmin || isPremium;
-  canSeeExclusiveRef.current = canSeeExclusive;
 
   // Seguir/dejar de seguir al tipster (CAMILO REY) desde su tarjeta de
   // perfil. profiles.follows_tipster es NULL hasta que alguien lo toca
@@ -7506,7 +7484,7 @@ export default function Home({
     }
 
     load();
-    const interval = setInterval(load, 60000);
+    const interval = setInterval(load, 20000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -7568,7 +7546,7 @@ export default function Home({
     }
 
     load();
-    const interval = setInterval(load, 60000);
+    const interval = setInterval(load, 20000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -8443,17 +8421,17 @@ export default function Home({
       <Head>
         <title>CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa</title>
         <meta name="description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
-        <link rel="canonical" href={`${SITE_URL}/`} />
+        <link rel="canonical" href="https://camilorey-app.vercel.app/" />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="CZECH IA AGENTS" />
         <meta property="og:title" content="CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa" />
         <meta property="og:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
-        <meta property="og:url" content={`${SITE_URL}/`} />
-        <meta property="og:image" content={`${SITE_URL}/icon-512x512.png`} />
+        <meta property="og:url" content="https://camilorey-app.vercel.app/" />
+        <meta property="og:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:title" content="CZECH IA AGENTS · Picks Liga Pro Checa de tenis de mesa" />
         <meta name="twitter:description" content="Predicciones y análisis diarios de la Liga Pro Checa de tenis de mesa." />
-        <meta name="twitter:image" content={`${SITE_URL}/icon-512x512.png`} />
+        <meta name="twitter:image" content="https://camilorey-app.vercel.app/icon-512x512.png" />
         {/* ?v=2 a propósito (2026-07-28, cambio de logo CR → bot): Chrome
             guarda el favicon en una caché propia, separada de la caché
             normal de recursos, que no respeta Cache-Control ni se limpia

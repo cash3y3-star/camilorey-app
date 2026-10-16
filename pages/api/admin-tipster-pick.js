@@ -111,22 +111,9 @@ export default async function handler(req, res) {
   // push). Antes se esperaba todo eso para que el botón dejara de
   // girar; ahora respondemos ya y seguimos en segundo plano con
   // waitUntil, que en Vercel mantiene viva la función más allá de la
-  // respuesta hasta que esta promesa termine. Fuera de Vercel (Netlify,
-  // desde oct-2026) waitUntil no existe y la función se congela apenas
-  // responde, así que ahí se espera a que termine el envío y después se
-  // responde.
-  const notifying = notifyTipsterPick(supabase, pick, nowIso, displayName || 'CAMILO REY', ownTelegramIds, useGlobalChannel);
-  if (process.env.VERCEL) {
-    res.status(200).json({ tipsterPick: true, tipsterPickBy: user.id });
-    waitUntil(notifying);
-    return;
-  }
-  try {
-    await notifying;
-  } catch (e) {
-    console.error('Error avisando pick del tipster:', e.message);
-  }
+  // respuesta hasta que esta promesa termine.
   res.status(200).json({ tipsterPick: true, tipsterPickBy: user.id });
+  waitUntil(notifyTipsterPick(supabase, pick, nowIso, displayName || 'CAMILO REY', ownTelegramIds, useGlobalChannel));
 }
 
 async function notifyTipsterPick(supabase, pick, nowIso, tipsterName, ownTelegramIds, useGlobalChannel) {

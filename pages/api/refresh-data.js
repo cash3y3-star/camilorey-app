@@ -75,6 +75,7 @@ function buildAnalysis(factors) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   // El Análisis IA es beneficio premium (2026-07-26) — este endpoint es
@@ -83,16 +84,6 @@ export default async function handler(req, res) {
   // followed-detail.js) es de verdad admin o premium activo.
   let canSeeAnalysis = false;
   const authToken = (req.headers.authorization || '').replace('Bearer ', '');
-  // Ahorro de CPU en Vercel: sin token la respuesta es la misma para
-  // todos, así que el CDN la comparte 30s entre todos los visitantes
-  // (antes cada navegador abierto disparaba esta función cada 20s).
-  // Con token puede traer el Análisis IA de esa cuenta — nunca se
-  // cachea, y el cliente lo pide en otra URL (?auth=1) para que jamás
-  // comparta entrada de caché con la versión pública.
-  res.setHeader(
-    'Cache-Control',
-    authToken ? 'private, no-store' : 'public, s-maxage=30, stale-while-revalidate=60'
-  );
   if (authToken) {
     const { user, isAdmin } = await checkAdmin(supabase, authToken);
     if (user) {

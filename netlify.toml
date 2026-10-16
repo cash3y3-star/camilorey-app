@@ -1,9 +1,0 @@
-# Hosting en Netlify (oct-2026): Vercel pausó el proyecto por "Fluid
-# Active CPU" del plan Hobby. Netlify detecta Next.js solo y usa su
-# runtime oficial (@netlify/plugin-nextjs) — no hace falta instalarlo.
-[build]
-  command = "npm run build"
-  publish = ".next"
-
-[build.environment]
-  NODE_VERSION = "20"

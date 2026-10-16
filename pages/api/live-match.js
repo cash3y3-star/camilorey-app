@@ -36,10 +36,7 @@ async function persistSetScores(matchId, sets) {
 export default async function handler(req, res) {
   const { playerA, playerB, tournamentId, matchId } = req.query;
 
-  // Público e igual para todos los que miran el mismo partido: el CDN de
-  // Vercel comparte la respuesta 8s, así 50 personas mirando un partido
-  // cuestan una ejecución cada 8s en vez de 50.
-  res.setHeader('Cache-Control', 'public, s-maxage=8, stale-while-revalidate=8');
+  res.setHeader('Cache-Control', 'no-store');
 
   if (playerA && playerB) {
     try {
